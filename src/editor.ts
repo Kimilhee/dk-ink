@@ -199,7 +199,8 @@ export function createInkEditor(
     current = undefined;
     previousEraserPoint = undefined;
     changedWhileErasing = false;
-    if (tool !== "eraser") eraserCursor = undefined;
+    // 펜을 뗀 뒤에는 커서를 남기지 않는다. 지우고 있는 동안만 보여야 한다.
+    eraserCursor = undefined;
 
     cancelScheduledRedraw();
     redraw();
@@ -254,7 +255,6 @@ export function createInkEditor(
     set tool(next: InkTool) {
       tool = next;
       applyTool();
-      if (next !== "eraser") eraserCursor = undefined;
       scheduleRedraw();
     },
     get drawing() {

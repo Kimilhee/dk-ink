@@ -30,7 +30,7 @@ export interface InkStyle {
   widthMode: WidthMode;
   /** 지우개 지름(px). */
   eraserWidth: number;
-  /** 지우개를 쓸 때 커서 원을 그린다. */
+  /** 지우는 동안 커서 원을 그린다. 펜을 떼면 사라진다. */
   showEraserCursor: boolean;
   eraserCursorFill: string;
   eraserCursorStroke: string;

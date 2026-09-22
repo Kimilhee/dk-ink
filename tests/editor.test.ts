@@ -1,14 +1,19 @@
 import { afterEach, beforeEach, expect, test } from "vite-plus/test";
 import { createInkEditor, type InkChangeType, type InkEditor } from "../src/index.ts";
-import { createFakeCanvas, installBrowserGlobals, type FakeCanvas } from "./fake-canvas.ts";
+import {
+  createFakeCanvas,
+  installBrowserGlobals,
+  type BrowserGlobals,
+  type FakeCanvas,
+} from "./fake-canvas.ts";
 
 let fake: FakeCanvas;
 let editor: InkEditor;
 let changes: InkChangeType[];
-let restoreGlobals: () => void;
+let globals: BrowserGlobals;
 
 beforeEach(() => {
-  restoreGlobals = installBrowserGlobals();
+  globals = installBrowserGlobals();
   fake = createFakeCanvas();
   changes = [];
   editor = createInkEditor(fake.canvas, {
@@ -18,7 +23,7 @@ beforeEach(() => {
 
 afterEach(() => {
   editor.destroy();
-  restoreGlobals();
+  globals.restore();
 });
 
 /** (10,10)에서 (30,10)까지 획 하나를 긋는다. */
@@ -111,6 +116,23 @@ test("지우개는 획을 지우고 되돌리기를 남긴다", () => {
   expect(changes).toEqual(["stroke", "erase"]);
   editor.undo();
   expect(editor.getStrokes()).toHaveLength(1);
+});
+
+test("지우개 커서는 지우는 동안만 그려진다", () => {
+  editor.tool = "eraser";
+  const beforeGesture = fake.cursorDrawCount;
+
+  fake.emit("pointerdown", { x: 100, y: 100 });
+  fake.emit("pointermove", { x: 120, y: 100 });
+  globals.flushFrames();
+  expect(fake.cursorDrawCount).toBeGreaterThan(beforeGesture);
+
+  // 펜을 떼면 그 자리에서 커서 없이 다시 그린다.
+  fake.emit("pointerup", { x: 140, y: 100 });
+  const afterRelease = fake.cursorDrawCount;
+  globals.flushFrames();
+  editor.resize();
+  expect(fake.cursorDrawCount).toBe(afterRelease);
 });
 
 test("아무것도 지우지 않은 지우개 동작은 이력을 남기지 않는다", () => {
