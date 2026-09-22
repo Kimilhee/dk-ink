@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, expect, test } from "vite-plus/test";
-import { createInkEditor, type InkChangeType, type InkEditor } from "../src/index.ts";
+import { createInkEditor, type InkAction, type InkEditor } from "../src/index.ts";
 import {
   createFakeCanvas,
   installBrowserGlobals,
@@ -9,15 +9,15 @@ import {
 
 let fake: FakeCanvas;
 let editor: InkEditor;
-let changes: InkChangeType[];
+let actions: InkAction[];
 let globals: BrowserGlobals;
 
 beforeEach(() => {
   globals = installBrowserGlobals();
   fake = createFakeCanvas();
-  changes = [];
+  actions = [];
   editor = createInkEditor(fake.canvas, {
-    onChange: (_strokes, change) => changes.push(change),
+    onChange: (_strokes, action) => actions.push(action),
   });
 });
 
@@ -25,6 +25,11 @@ afterEach(() => {
   editor.destroy();
   globals.restore();
 });
+
+/** 기록된 동작의 종류만 뽑는다. */
+function types(): string[] {
+  return actions.map((action) => action.type);
+}
 
 /** (10,10)에서 (30,10)까지 획 하나를 긋는다. */
 function drawStroke(offsetY = 10, pointerId = 1): void {
@@ -40,7 +45,7 @@ test("펜을 대고 움직이고 떼면 획 하나가 남는다", () => {
   expect(strokes[0]).toHaveLength(3);
   expect(strokes[0][0]).toMatchObject({ x: 10, y: 10, pressure: 0.3 });
   expect(strokes[0][0].t).toBeTypeOf("number");
-  expect(changes).toEqual(["stroke"]);
+  expect(types()).toEqual(["stroke"]);
   expect(editor.drawing).toBe(false);
 });
 
@@ -88,7 +93,7 @@ test("되돌리기와 다시 실행이 획 상태를 왕복한다", () => {
   expect(editor.redo()).toBe(true);
   expect(editor.getStrokes()).toHaveLength(2);
   expect(editor.redo()).toBe(false);
-  expect(changes).toEqual(["stroke", "stroke", "undo", "redo"]);
+  expect(types()).toEqual(["stroke", "stroke", "undo", "redo"]);
 });
 
 test("전체 지우기는 되돌릴 수 있다", () => {
@@ -101,7 +106,7 @@ test("전체 지우기는 되돌릴 수 있다", () => {
 
 test("빈 캔버스에서 전체 지우기는 아무 일도 하지 않는다", () => {
   editor.clear();
-  expect(changes).toEqual([]);
+  expect(types()).toEqual([]);
   expect(editor.canUndo).toBe(false);
 });
 
@@ -113,7 +118,7 @@ test("지우개는 획을 지우고 되돌리기를 남긴다", () => {
   fake.emit("pointerup", { x: 20, y: 10 });
 
   expect(editor.getStrokes()).toHaveLength(0);
-  expect(changes).toEqual(["stroke", "erase"]);
+  expect(types()).toEqual(["stroke", "erase"]);
   editor.undo();
   expect(editor.getStrokes()).toHaveLength(1);
 });
@@ -144,7 +149,7 @@ test("아무것도 지우지 않은 지우개 동작은 이력을 남기지 않�
   fake.emit("pointerdown", { x: 300, y: 150 });
   fake.emit("pointerup", { x: 300, y: 150 });
   expect(editor.canUndo).toBe(false);
-  expect(changes).toEqual(["stroke", "undo"]);
+  expect(types()).toEqual(["stroke", "undo"]);
 });
 
 test("포인터 캡처가 실패해도 획은 계속 기록된다", () => {

@@ -1,7 +1,15 @@
 import { eraseStrokes } from "./erase.ts";
 import { cloneStrokes, InkHistory } from "./history.ts";
 import { drawEraserCursor, renderStrokes } from "./render.ts";
-import type { InkChangeType, InkEditorOptions, InkStyle, InkTool, Point, Stroke } from "./types.ts";
+import type {
+  InkAction,
+  InkEditorOptions,
+  InkPoint,
+  InkStyle,
+  InkTool,
+  Point,
+  Stroke,
+} from "./types.ts";
 
 const DEFAULT_STYLE: InkStyle = {
   color: "#182231",
@@ -68,11 +76,13 @@ export function createInkEditor(
   let current: Stroke | undefined;
   let eraserCursor: Point | undefined;
   let previousEraserPoint: Point | undefined;
+  /** 진행 중인 지우개 제스처가 지나간 경로. 동작 이력에 그대로 실려 나간다. */
+  let eraserPath: InkPoint[] = [];
   let changedWhileErasing = false;
   let redrawFrame: number | undefined;
 
-  function notify(change: InkChangeType): void {
-    onChange?.(strokes, change);
+  function notify(action: InkAction): void {
+    onChange?.(strokes, action);
   }
 
   function pointFromEvent(event: PointerEvent): Point {
@@ -80,13 +90,13 @@ export function createInkEditor(
     return { x: event.clientX - bounds.left, y: event.clientY - bounds.top };
   }
 
+  function timedPoint(event: PointerEvent): InkPoint {
+    return { ...pointFromEvent(event), t: performance.now(), pressure: event.pressure };
+  }
+
   function appendPoint(event: PointerEvent): void {
     if (!current) return;
-    current.push({
-      ...pointFromEvent(event),
-      t: performance.now(),
-      pressure: event.pressure,
-    });
+    current.push(timedPoint(event));
   }
 
   function eraseBetween(from: Point, to: Point): boolean {
@@ -139,9 +149,10 @@ export function createInkEditor(
     capturePointer(event.pointerId);
 
     if (activeTool === "eraser") {
-      const point = pointFromEvent(event);
+      const point = timedPoint(event);
       eraserCursor = point;
       previousEraserPoint = point;
+      eraserPath = [point];
       history.commit(strokes);
       changedWhileErasing = eraseBetween(point, point);
       scheduleRedraw();
@@ -165,11 +176,12 @@ export function createInkEditor(
 
     if (activeTool === "eraser") {
       for (const coalesced of events) {
-        const point = pointFromEvent(coalesced);
+        const point = timedPoint(coalesced);
         changedWhileErasing =
           eraseBetween(previousEraserPoint ?? point, point) || changedWhileErasing;
         previousEraserPoint = point;
         eraserCursor = point;
+        eraserPath.push(point);
       }
     } else {
       for (const coalesced of events) appendPoint(coalesced);
@@ -183,40 +195,47 @@ export function createInkEditor(
     const erasing = activeTool === "eraser";
 
     if (erasing) {
-      const point = pointFromEvent(event);
+      const point = timedPoint(event);
       changedWhileErasing =
         eraseBetween(previousEraserPoint ?? point, point) || changedWhileErasing;
+      eraserPath.push(point);
     } else {
       appendPoint(event);
     }
 
     const changed = erasing ? changedWhileErasing : true;
-    // 아무것도 지우지 않은 지우개 탭은 되돌릴 게 없다.
+    // 아무것도 지우지 않은 지우개 탭은 되돌릴 것도, 재생할 것도 없다.
     if (!changed) history.undo(strokes);
+
+    const action: InkAction = erasing
+      ? { type: "erase", path: eraserPath, width: style.eraserWidth }
+      : { type: "stroke", stroke: (current ?? []).map((point) => ({ ...point })) };
 
     activeTool = undefined;
     activePointerId = undefined;
     current = undefined;
     previousEraserPoint = undefined;
+    eraserPath = [];
     changedWhileErasing = false;
     // 펜을 뗀 뒤에는 커서를 남기지 않는다. 지우고 있는 동안만 보여야 한다.
     eraserCursor = undefined;
 
     cancelScheduledRedraw();
     redraw();
-    if (changed) notify(erasing ? "erase" : "stroke");
+    if (changed) notify(action);
   }
 
-  function replaceStrokes(next: Stroke[], change: InkChangeType): void {
+  function replaceStrokes(next: Stroke[], action: InkAction): void {
     strokes = next;
     current = undefined;
     activeTool = undefined;
     activePointerId = undefined;
     previousEraserPoint = undefined;
+    eraserPath = [];
     changedWhileErasing = false;
     cancelScheduledRedraw();
     redraw();
-    notify(change);
+    notify(action);
   }
 
   function resize(): void {
@@ -271,7 +290,8 @@ export function createInkEditor(
     },
     setStrokes(next, setOptions) {
       if (setOptions?.recordHistory ?? true) history.commit(strokes);
-      replaceStrokes(cloneStrokes(next), "set");
+      const copy = cloneStrokes(next);
+      replaceStrokes(copy, { type: "set", strokes: cloneStrokes(copy) });
     },
     getStyle() {
       return { ...style };
@@ -283,19 +303,19 @@ export function createInkEditor(
     undo() {
       const previous = history.undo(strokes);
       if (!previous) return false;
-      replaceStrokes(previous, "undo");
+      replaceStrokes(previous, { type: "undo" });
       return true;
     },
     redo() {
       const next = history.redo(strokes);
       if (!next) return false;
-      replaceStrokes(next, "redo");
+      replaceStrokes(next, { type: "redo" });
       return true;
     },
     clear() {
       if (strokes.length === 0) return;
       history.commit(strokes);
-      replaceStrokes([], "clear");
+      replaceStrokes([], { type: "clear" });
     },
     resize,
     destroy() {
