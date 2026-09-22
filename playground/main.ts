@@ -10,14 +10,27 @@ import {
 
 const canvas = element<HTMLCanvasElement>("ink");
 const dumpOutput = element<HTMLPreElement>("dump-output");
-/** 세션 전체. 지우개 제스처까지 순서대로 들어 있다. */
+/**
+ * 마지막 [전체 지우기] 이후의 편집. 지우개 제스처까지 순서대로 들어 있다.
+ *
+ * 전체 지우기는 "처음부터 다시"라는 뜻이므로 재생의 시작점도 거기로 옮긴다. 세션
+ * 전체를 남겨야 하는 수집 도구라면 `clear`까지 그대로 쌓으면 된다 — 무엇을 재생으로
+ * 볼지는 앱 정책이고, 라이브러리는 일어난 일을 빠짐없이 넘겨준다.
+ */
 const actions: InkAction[] = [];
 let replaying = false;
 
 const editor = createInkEditor(canvas, {
   onChange(strokes, action) {
     if (replaying) return;
-    actions.push(action);
+    if (action.type === "clear") {
+      actions.length = 0;
+    } else if (actions.length === 0 && action.type !== "stroke") {
+      // 지운 뒤 되돌리기처럼 이력 없이 나타난 획은 세션의 시작 상태로 잡는다.
+      actions.push({ type: "set", strokes: strokes.map((s) => s.map((point) => ({ ...point }))) });
+    } else {
+      actions.push(action);
+    }
     setStatus(`획 ${strokes.length}개 · ${action.type} · 이력 ${actions.length}개`);
     syncButtons();
   },
