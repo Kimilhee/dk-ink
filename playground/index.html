@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>dk-ink playground</title>
+  </head>
+  <body>
+    <main>
+      <header>
+        <h1>dk-ink</h1>
+        <output id="status">획 0개</output>
+      </header>
+
+      <div class="options">
+        <div id="tool-picker" class="picker" aria-label="필기 도구">
+          <span>도구</span>
+          <button type="button" data-tool="pen" aria-pressed="true">펜</button>
+          <button type="button" data-tool="eraser" aria-pressed="false">지우개</button>
+        </div>
+        <div id="width-mode-picker" class="picker" aria-label="굵기 변화">
+          <span>필기</span>
+          <button type="button" data-width-mode="pressure" aria-pressed="true">필압</button>
+          <button type="button" data-width-mode="constant" aria-pressed="false">일정</button>
+        </div>
+        <div id="stroke-width-picker" class="picker" aria-label="필기 두께">
+          <span>두께</span>
+          <button type="button" data-stroke-width="2" aria-pressed="false">2</button>
+          <button type="button" data-stroke-width="3" aria-pressed="true">3</button>
+          <button type="button" data-stroke-width="4" aria-pressed="false">4</button>
+        </div>
+        <label id="eraser-width-control" class="picker" hidden>
+          <span>지우개 두께</span>
+          <input id="eraser-width" type="range" min="8" max="48" step="2" value="24" />
+          <output id="eraser-width-value" for="eraser-width">24px</output>
+        </label>
+      </div>
+
+      <div class="actions">
+        <button id="undo" type="button" disabled>되돌리기</button>
+        <button id="redo" type="button" disabled>다시 실행</button>
+        <button id="clear" type="button">전체 지우기</button>
+        <button id="dump" type="button">획 JSON 보기</button>
+        <button id="replay" type="button" disabled>재생</button>
+      </div>
+
+      <canvas id="ink" aria-label="필기 캔버스"></canvas>
+      <pre id="dump-output" hidden></pre>
+    </main>
+    <script type="module" src="./main.ts"></script>
+  </body>
+</html>

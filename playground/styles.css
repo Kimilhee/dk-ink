@@ -1,0 +1,92 @@
+:root {
+  color-scheme: light dark;
+  font-family: system-ui, sans-serif;
+}
+body {
+  margin: 0;
+  background: #f4f6f9;
+  color: #182231;
+}
+main {
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+h1 {
+  margin: 0;
+  font-size: 20px;
+}
+output#status {
+  font-variant-numeric: tabular-nums;
+  color: #55637a;
+  font-size: 13px;
+}
+.options,
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.picker {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  background: #fff;
+  border: 1px solid #dde3ea;
+  border-radius: 8px;
+  font-size: 13px;
+}
+.picker > span {
+  color: #55637a;
+}
+button {
+  font: inherit;
+  padding: 5px 11px;
+  border: 1px solid #dde3ea;
+  border-radius: 6px;
+  background: #fff;
+  color: inherit;
+  cursor: pointer;
+}
+button:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+button[aria-pressed="true"] {
+  background: #182231;
+  border-color: #182231;
+  color: #fff;
+}
+#ink {
+  height: 280px;
+  border: 1px solid #dde3ea;
+  border-radius: 10px;
+  background-image:
+    linear-gradient(#edf1f5 1px, transparent 1px),
+    linear-gradient(90deg, #edf1f5 1px, transparent 1px);
+  background-size: 24px 24px;
+}
+#dump-output {
+  margin: 0;
+  max-height: 220px;
+  overflow: auto;
+  padding: 10px;
+  background: #fff;
+  border: 1px solid #dde3ea;
+  border-radius: 8px;
+  font-size: 12px;
+}
+/* 도구는 dk-ink가 data-tool로 노출한다. 커서처럼 순수 겉모습은 앱이 정한다. */
+#ink[data-tool="eraser"] {
+  cursor: crosshair;
+}
