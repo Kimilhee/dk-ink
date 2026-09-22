@@ -1,0 +1,57 @@
+{
+  "name": "dk-ink",
+  "version": "0.0.0",
+  "description": "Framework-agnostic handwriting (digital ink) editor for canvas: pressure strokes, vector eraser, undo.",
+  "keywords": [
+    "canvas",
+    "handwriting",
+    "ink",
+    "pointer-events",
+    "stylus"
+  ],
+  "homepage": "https://kimilhee.github.io/dk-ink/",
+  "bugs": {
+    "url": "https://github.com/Kimilhee/dk-ink/issues"
+  },
+  "license": "MIT",
+  "author": "Kimilhee",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Kimilhee/dk-ink.git"
+  },
+  "files": [
+    "dist"
+  ],
+  "type": "module",
+  "exports": {
+    ".": "./dist/index.mjs",
+    "./package.json": "./package.json"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "build": "vp pack",
+    "dev": "vp pack --watch",
+    "playground": "vp dev playground --host 0.0.0.0",
+    "playground:build": "vp build playground",
+    "test": "vp test",
+    "check": "vp check",
+    "prepublishOnly": "vp run build"
+  },
+  "devDependencies": {
+    "@types/node": "^26.1.1",
+    "bumpp": "^11.1.0",
+    "typescript": "^7.0.2",
+    "vite": "catalog:",
+    "vite-plus": "catalog:"
+  },
+  "devEngines": {
+    "packageManager": {
+      "name": "pnpm",
+      "version": "12.5.1",
+      "onFail": "download"
+    }
+  },
+  "packageManager": "pnpm@12.5.1"
+}
