@@ -3,6 +3,8 @@
 캔버스 하나를 손글씨(digital ink) 에디터로 만드는 프레임워크 비의존 라이브러리.
 `dk-script`의 수식 필기 영역을 떼어낸 것이고, 인식·변환은 범위 밖이다.
 
+**[시험용 앱 → kimilhee.github.io/dk-ink](https://kimilhee.github.io/dk-ink/)** (펜/지우개·두께·되돌리기·획 JSON·재생)
+
 - **필압 획** — `PointerEvent.pressure`를 굵기로 반영한다. 캔버스의 `lineWidth`는 획 하나에
   하나뿐이라 점마다 굵기를 못 주므로, 윤곽을 만들어 채운다.
 - **벡터 지우개** — 획 단위로 지우지 않고 지나간 자리만 잘라낸다. 글자 가운데를 지나가면
@@ -93,4 +95,5 @@ vp check
 vp pack             # dist/ 빌드
 ```
 
-`playground/`는 배포물이 아니다. 라이브러리 소스를 직접 import하므로 수정이 바로 반영된다.
+`playground/`는 npm 배포물이 아니다. 라이브러리 소스를 직접 import하므로 수정이 바로 반영되고,
+`main`에 푸시하면 GitHub Pages로 배포된다.
