@@ -90,3 +90,7 @@ button[aria-pressed="true"] {
 #ink[data-tool="eraser"] {
   cursor: crosshair;
 }
+/* .picker의 display: flex가 UA의 [hidden] 규칙을 덮어쓴다. */
+[hidden] {
+  display: none !important;
+}
