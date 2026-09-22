@@ -116,12 +116,27 @@ export function createInkEditor(
     redrawFrame = undefined;
   }
 
+  /**
+   * 캔버스를 벗어나도 이벤트를 계속 받게 해주는 최적화다.
+   *
+   * 이벤트가 전달되는 사이에 포인터가 놓이면 `NotFoundError`가 난다. 캡처가 없어도
+   * 캔버스 위 입력은 정상 동작하므로 여기서 던지면 안 된다 — 던지면 획을 만들기 전에
+   * `pointerDown`이 중단되고, 도구는 잡힌 채로 남아 이후 입력이 전부 무시된다.
+   */
+  function capturePointer(pointerId: number): void {
+    try {
+      canvas.setPointerCapture(pointerId);
+    } catch {
+      // 캡처 실패는 치명적이지 않다.
+    }
+  }
+
   function pointerDown(event: PointerEvent): void {
     if (activeTool) return;
     activeTool = tool;
     activePointerId = event.pointerId;
-    canvas.setPointerCapture(event.pointerId);
     event.preventDefault();
+    capturePointer(event.pointerId);
 
     if (activeTool === "eraser") {
       const point = pointFromEvent(event);

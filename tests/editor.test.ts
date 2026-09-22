@@ -125,6 +125,24 @@ test("아무것도 지우지 않은 지우개 동작은 이력을 남기지 않�
   expect(changes).toEqual(["stroke", "undo"]);
 });
 
+test("포인터 캡처가 실패해도 획은 계속 기록된다", () => {
+  const failing = createFakeCanvas(400, 200, { failPointerCapture: true });
+  const captureless = createInkEditor(failing.canvas);
+  try {
+    failing.emit("pointerdown", { x: 10, y: 10 });
+    failing.emit("pointermove", { x: 20, y: 10 });
+    failing.emit("pointerup", { x: 30, y: 10 });
+    // 캡처 실패로 pointerDown이 중단되면 획이 아예 안 생기고 이후 입력도 먹힌다.
+    expect(captureless.getStrokes()[0]?.map((point) => point.x)).toEqual([10, 20, 30]);
+
+    failing.emit("pointerdown", { x: 10, y: 50, pointerId: 2 });
+    failing.emit("pointerup", { x: 30, y: 50, pointerId: 2 });
+    expect(captureless.getStrokes()).toHaveLength(2);
+  } finally {
+    captureless.destroy();
+  }
+});
+
 test("getStrokes는 내부 상태와 분리된 복사본을 준다", () => {
   drawStroke();
   const strokes = editor.getStrokes();

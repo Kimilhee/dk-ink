@@ -21,7 +21,11 @@ export interface FakePointerInit {
   emptyCoalesced?: boolean;
 }
 
-export function createFakeCanvas(width = 400, height = 200): FakeCanvas {
+export function createFakeCanvas(
+  width = 400,
+  height = 200,
+  options: { failPointerCapture?: boolean } = {},
+): FakeCanvas {
   const listeners = new Map<string, Set<(event: unknown) => void>>();
   let renderCount = 0;
 
@@ -64,7 +68,12 @@ export function createFakeCanvas(width = 400, height = 200): FakeCanvas {
     dataset: {} as DOMStringMap,
     getContext: () => context2d,
     getBoundingClientRect: () => ({ left: 0, top: 0, width, height }),
-    setPointerCapture() {},
+    setPointerCapture() {
+      // 포인터가 이미 놓였으면 브라우저가 실제로 이렇게 던진다.
+      if (options.failPointerCapture) {
+        throw new Error("No active pointer with the given id is found.");
+      }
+    },
     releasePointerCapture() {},
     addEventListener(type: string, handler: (event: unknown) => void) {
       const set = listeners.get(type) ?? new Set();
