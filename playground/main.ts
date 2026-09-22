@@ -50,11 +50,10 @@ element<HTMLElement>("width-mode-picker").addEventListener("click", (event) => {
   syncButtons();
 });
 
-element<HTMLElement>("stroke-width-picker").addEventListener("click", (event) => {
-  const button = buttonFrom(event, "[data-stroke-width]");
-  if (!button) return;
-  editor.setStyle({ strokeWidth: Number(button.dataset.strokeWidth) });
-  syncButtons();
+element<HTMLInputElement>("stroke-width").addEventListener("input", (event) => {
+  const value = Number((event.target as HTMLInputElement).value);
+  editor.setStyle({ strokeWidth: value });
+  element<HTMLOutputElement>("stroke-width-value").value = `${value}px`;
 });
 
 element<HTMLInputElement>("eraser-width").addEventListener("input", (event) => {
@@ -74,6 +73,12 @@ element<HTMLButtonElement>("redo").addEventListener("click", () => {
 element<HTMLButtonElement>("clear").addEventListener("click", () => {
   editor.clear();
   syncButtons();
+});
+element<HTMLButtonElement>("settings-toggle").addEventListener("click", () => {
+  const panel = element<HTMLElement>("settings-panel");
+  const expanded = panel.hidden;
+  panel.hidden = !expanded;
+  element<HTMLButtonElement>("settings-toggle").setAttribute("aria-expanded", String(expanded));
 });
 element<HTMLButtonElement>("dump").addEventListener("click", () => {
   const strokes = editor.getStrokes();
@@ -162,15 +167,10 @@ function syncButtons(): void {
     "[data-width-mode]",
     (button) => button.dataset.widthMode === style.widthMode,
   );
-  press(
-    "stroke-width-picker",
-    "[data-stroke-width]",
-    (button) => Number(button.dataset.strokeWidth) === style.strokeWidth,
-  );
-  const erasing = editor.tool === "eraser";
-  element<HTMLElement>("width-mode-picker").hidden = erasing;
-  element<HTMLElement>("stroke-width-picker").hidden = erasing;
-  element<HTMLElement>("eraser-width-control").hidden = !erasing;
+  element<HTMLInputElement>("stroke-width").value = String(style.strokeWidth);
+  element<HTMLOutputElement>("stroke-width-value").value = `${style.strokeWidth}px`;
+  element<HTMLInputElement>("eraser-width").value = String(style.eraserWidth);
+  element<HTMLOutputElement>("eraser-width-value").value = `${style.eraserWidth}px`;
   element<HTMLButtonElement>("undo").disabled = !editor.canUndo;
   element<HTMLButtonElement>("redo").disabled = !editor.canRedo;
   element<HTMLButtonElement>("replay").disabled = replaying || actions.length === 0;

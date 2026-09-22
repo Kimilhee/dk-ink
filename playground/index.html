@@ -12,39 +12,115 @@
         <output id="status">획 0개</output>
       </header>
 
-      <div class="options">
-        <div id="tool-picker" class="picker" aria-label="필기 도구">
-          <span>도구</span>
-          <button type="button" data-tool="pen" aria-pressed="true">펜</button>
-          <button type="button" data-tool="eraser" aria-pressed="false">지우개</button>
-        </div>
-        <div id="width-mode-picker" class="picker" aria-label="굵기 변화">
-          <span>필기</span>
-          <button type="button" data-width-mode="pressure" aria-pressed="true">필압</button>
-          <button type="button" data-width-mode="constant" aria-pressed="false">일정</button>
-        </div>
-        <div id="stroke-width-picker" class="picker" aria-label="필기 두께">
-          <span>두께</span>
-          <button type="button" data-stroke-width="2" aria-pressed="false">2</button>
-          <button type="button" data-stroke-width="3" aria-pressed="true">3</button>
-          <button type="button" data-stroke-width="4" aria-pressed="false">4</button>
-        </div>
-        <label id="eraser-width-control" class="picker" hidden>
-          <span>지우개 두께</span>
-          <input id="eraser-width" type="range" min="8" max="48" step="2" value="24" />
-          <output id="eraser-width-value" for="eraser-width">24px</output>
-        </label>
-      </div>
-
       <div class="actions">
-        <button id="undo" type="button" disabled>되돌리기</button>
-        <button id="redo" type="button" disabled>다시 실행</button>
-        <button id="clear" type="button">전체 지우기</button>
         <button id="dump" type="button">획 JSON 보기</button>
         <button id="replay" type="button" disabled>재생</button>
       </div>
 
-      <canvas id="ink" aria-label="필기 캔버스"></canvas>
+      <section class="canvas-stage" aria-label="드로잉 영역">
+        <canvas id="ink" aria-label="필기 캔버스"></canvas>
+
+        <div id="settings-panel" class="settings-panel" hidden>
+          <div class="settings-heading">
+            <h2>도구 설정</h2>
+            <span>선의 느낌과 도구 크기를 조절하세요.</span>
+          </div>
+
+          <div class="setting-row">
+            <span class="setting-label">필기 방식</span>
+            <div
+              id="width-mode-picker"
+              class="segmented-control"
+              role="group"
+              aria-label="필기 방식"
+            >
+              <button type="button" data-width-mode="pressure" aria-pressed="true">필압</button>
+              <button type="button" data-width-mode="constant" aria-pressed="false">일정</button>
+            </div>
+          </div>
+
+          <label class="setting-row" for="stroke-width">
+            <span class="setting-label">펜 두께</span>
+            <span class="range-control">
+              <input id="stroke-width" type="range" min="1" max="12" step="1" value="3" />
+              <output id="stroke-width-value" for="stroke-width">3px</output>
+            </span>
+          </label>
+
+          <label class="setting-row" for="eraser-width">
+            <span class="setting-label">지우개 두께</span>
+            <span class="range-control">
+              <input id="eraser-width" type="range" min="8" max="48" step="2" value="24" />
+              <output id="eraser-width-value" for="eraser-width">24px</output>
+            </span>
+          </label>
+        </div>
+
+        <div id="tool-picker" class="floating-toolbar" role="toolbar" aria-label="드로잉 도구">
+          <button
+            type="button"
+            class="tool-button"
+            data-tool="pen"
+            aria-label="펜"
+            aria-pressed="true"
+            title="펜"
+          >
+            <span class="icon icon-glyph" aria-hidden="true">✎</span>
+          </button>
+          <button
+            type="button"
+            class="tool-button"
+            data-tool="eraser"
+            aria-label="지우개"
+            aria-pressed="false"
+            title="지우개"
+          >
+            <span class="icon icon-eraser" aria-hidden="true"></span>
+          </button>
+          <span class="toolbar-divider" aria-hidden="true"></span>
+          <button
+            id="undo"
+            type="button"
+            class="tool-button"
+            aria-label="실행 취소"
+            title="실행 취소"
+            disabled
+          >
+            <span class="icon icon-glyph" aria-hidden="true">↶</span>
+          </button>
+          <button
+            id="redo"
+            type="button"
+            class="tool-button"
+            aria-label="다시 실행"
+            title="다시 실행"
+            disabled
+          >
+            <span class="icon icon-glyph" aria-hidden="true">↷</span>
+          </button>
+          <button
+            id="clear"
+            type="button"
+            class="tool-button"
+            aria-label="전체 지우기"
+            title="전체 지우기"
+          >
+            <span class="icon icon-trash" aria-hidden="true"></span>
+          </button>
+          <span class="toolbar-divider" aria-hidden="true"></span>
+          <button
+            id="settings-toggle"
+            type="button"
+            class="tool-button"
+            aria-label="도구 설정"
+            aria-expanded="false"
+            aria-controls="settings-panel"
+            title="도구 설정"
+          >
+            <span class="icon icon-glyph icon-gear" aria-hidden="true">⚙</span>
+          </button>
+        </div>
+      </section>
       <pre id="dump-output" hidden></pre>
     </main>
     <script type="module" src="./main.ts"></script>

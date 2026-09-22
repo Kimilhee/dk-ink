@@ -1,5 +1,5 @@
 :root {
-  color-scheme: light dark;
+  color-scheme: light;
   font-family: system-ui, sans-serif;
 }
 body {
@@ -30,24 +30,10 @@ output#status {
   color: #55637a;
   font-size: 13px;
 }
-.options,
 .actions {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
-}
-.picker {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  padding: 4px 8px;
-  background: #fff;
-  border: 1px solid #dde3ea;
-  border-radius: 8px;
-  font-size: 13px;
-}
-.picker > span {
-  color: #55637a;
 }
 button {
   font: inherit;
@@ -62,19 +48,196 @@ button:disabled {
   opacity: 0.45;
   cursor: default;
 }
-button[aria-pressed="true"] {
+.segmented-control button[aria-pressed="true"] {
   background: #182231;
   border-color: #182231;
   color: #fff;
 }
+.canvas-stage {
+  position: relative;
+}
 #ink {
-  height: 280px;
+  display: block;
+  width: 100%;
+  height: 420px;
   border: 1px solid #dde3ea;
-  border-radius: 10px;
+  border-radius: 16px;
   background-image:
     linear-gradient(#edf1f5 1px, transparent 1px),
     linear-gradient(90deg, #edf1f5 1px, transparent 1px);
   background-size: 24px 24px;
+}
+.floating-toolbar {
+  position: absolute;
+  left: 50%;
+  bottom: 18px;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 7px;
+  border: 1px solid rgb(255 255 255 / 80%);
+  border-radius: 14px;
+  background: rgb(255 255 255 / 92%);
+  box-shadow: 0 10px 30px rgb(24 34 49 / 18%);
+  backdrop-filter: blur(12px);
+  transform: translateX(-50%);
+}
+.tool-button {
+  display: grid;
+  width: 40px;
+  height: 40px;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+}
+.tool-button:hover:not(:disabled) {
+  background: #edf1f5;
+}
+.tool-button[aria-pressed="true"],
+.tool-button[aria-expanded="true"] {
+  background: #182231;
+  color: #fff;
+}
+.tool-button:focus-visible {
+  outline: 3px solid rgb(15 118 110 / 28%);
+  outline-offset: 1px;
+}
+.toolbar-divider {
+  width: 1px;
+  height: 24px;
+  margin: 0 2px;
+  background: #dde3ea;
+}
+.icon {
+  position: relative;
+  display: block;
+  width: 20px;
+  height: 20px;
+}
+.icon-glyph {
+  font-family: Arial, sans-serif;
+  font-size: 25px;
+  line-height: 20px;
+}
+.icon-gear {
+  font-size: 21px;
+}
+.icon-eraser {
+  width: 15px;
+  height: 10px;
+  border: 2px solid currentColor;
+  border-radius: 2px;
+  transform: rotate(-42deg);
+}
+.icon-eraser::after {
+  position: absolute;
+  top: -2px;
+  right: 3px;
+  width: 2px;
+  height: 10px;
+  background: currentColor;
+  content: "";
+}
+.icon-trash {
+  width: 12px;
+  height: 13px;
+  margin-top: 4px;
+  border: 2px solid currentColor;
+  border-top: 0;
+  border-radius: 0 0 2px 2px;
+}
+.icon-trash::before {
+  position: absolute;
+  top: -4px;
+  left: -3px;
+  width: 18px;
+  height: 2px;
+  border-radius: 2px;
+  background: currentColor;
+  content: "";
+}
+.icon-trash::after {
+  position: absolute;
+  top: -7px;
+  left: 3px;
+  width: 6px;
+  height: 3px;
+  border: 2px solid currentColor;
+  border-bottom: 0;
+  border-radius: 3px 3px 0 0;
+  content: "";
+}
+.settings-panel {
+  position: absolute;
+  right: 18px;
+  bottom: 78px;
+  z-index: 3;
+  box-sizing: border-box;
+  width: min(320px, calc(100% - 36px));
+  padding: 18px;
+  border: 1px solid #dde3ea;
+  border-radius: 16px;
+  background: rgb(255 255 255 / 96%);
+  box-shadow: 0 16px 44px rgb(24 34 49 / 20%);
+  backdrop-filter: blur(12px);
+}
+.settings-heading {
+  display: grid;
+  gap: 3px;
+  margin-bottom: 18px;
+}
+.settings-heading h2 {
+  margin: 0;
+  font-size: 16px;
+}
+.settings-heading span {
+  color: #68758a;
+  font-size: 12px;
+}
+.setting-row {
+  display: grid;
+  grid-template-columns: 88px 1fr;
+  align-items: center;
+  gap: 12px;
+  margin: 0;
+  padding: 12px 0;
+  border: 0;
+  border-top: 1px solid #edf1f5;
+  font-size: 13px;
+}
+.setting-label {
+  color: #55637a;
+}
+.segmented-control {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px;
+  padding: 3px;
+  border-radius: 8px;
+  background: #edf1f5;
+}
+.segmented-control button {
+  padding: 5px 9px;
+  border: 0;
+  background: transparent;
+}
+.range-control {
+  display: grid;
+  grid-template-columns: 1fr 38px;
+  align-items: center;
+  gap: 8px;
+}
+.range-control input {
+  width: 100%;
+  accent-color: #182231;
+}
+.range-control output {
+  color: #55637a;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
 }
 #dump-output {
   margin: 0;
@@ -93,4 +256,25 @@ button[aria-pressed="true"] {
 /* .picker의 display: flex가 UA의 [hidden] 규칙을 덮어쓴다. */
 [hidden] {
   display: none !important;
+}
+@media (max-width: 560px) {
+  main {
+    padding: 12px;
+  }
+  #ink {
+    height: 58vh;
+    min-height: 360px;
+  }
+  .floating-toolbar {
+    bottom: 12px;
+  }
+  .tool-button {
+    width: 38px;
+    height: 38px;
+  }
+  .settings-panel {
+    right: 12px;
+    bottom: 68px;
+    width: calc(100% - 24px);
+  }
 }
