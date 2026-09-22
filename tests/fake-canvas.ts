@@ -15,7 +15,10 @@ export interface FakePointerInit {
   y: number;
   pressure?: number;
   pointerId?: number;
+  /** `getCoalescedEvents()`가 돌려줄 점. 빈 배열도 실제로 일어난다. */
   coalesced?: Array<{ x: number; y: number; pressure?: number }>;
+  /** `getCoalescedEvents()`가 빈 배열을 돌려주는 상황을 재현한다. */
+  emptyCoalesced?: boolean;
 }
 
 export function createFakeCanvas(width = 400, height = 200): FakeCanvas {
@@ -90,6 +93,7 @@ export function createFakeCanvas(width = 400, height = 200): FakeCanvas {
                 pressure: point.pressure ?? 0.5,
               }))
           : undefined,
+        ...(init.emptyCoalesced ? { getCoalescedEvents: () => [] } : {}),
       };
       for (const handler of listeners.get(type) ?? []) handler(event);
     },

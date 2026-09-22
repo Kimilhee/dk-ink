@@ -54,6 +54,15 @@ test("뭉친 이벤트(coalesced)까지 점으로 풀어낸다", () => {
   expect(editor.getStrokes()[0].map((point) => point.x)).toEqual([0, 10, 20, 30, 30]);
 });
 
+test("뭉친 이벤트가 빈 배열이면 이벤트 자신을 점으로 쓴다", () => {
+  fake.emit("pointerdown", { x: 0, y: 0 });
+  fake.emit("pointermove", { x: 10, y: 5, emptyCoalesced: true });
+  fake.emit("pointermove", { x: 20, y: 9, emptyCoalesced: true });
+  fake.emit("pointerup", { x: 30, y: 0 });
+  // 빈 배열을 그대로 쓰면 중간 점이 사라져 시작·끝만 남는다.
+  expect(editor.getStrokes()[0].map((point) => point.x)).toEqual([0, 10, 20, 30]);
+});
+
 test("진행 중인 획은 다른 포인터를 무시한다", () => {
   fake.emit("pointerdown", { x: 10, y: 10, pointerId: 1 });
   fake.emit("pointermove", { x: 20, y: 20, pointerId: 2 });

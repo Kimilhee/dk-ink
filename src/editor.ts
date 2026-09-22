@@ -143,7 +143,10 @@ export function createInkEditor(
     if (!activeTool || event.pointerId !== activePointerId) return;
     event.preventDefault();
     // 저사양 기기는 이벤트를 뭉쳐 보낸다. 뭉친 것까지 풀어야 궤적이 각지지 않는다.
-    const events = event.getCoalescedEvents?.() ?? [event];
+    // 빈 배열이 올 수 있다 (Safari는 미구현, 신뢰되지 않은 합성 이벤트는 []). 그때는
+    // 이벤트 자신이 유일한 점이다 — 빈 배열을 그대로 쓰면 획이 시작·끝점만 남는다.
+    const coalesced = event.getCoalescedEvents?.();
+    const events = coalesced?.length ? coalesced : [event];
 
     if (activeTool === "eraser") {
       for (const coalesced of events) {
