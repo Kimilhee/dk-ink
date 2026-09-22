@@ -69,10 +69,7 @@ export function createFakeCanvas(
   const canvas = {
     width,
     height,
-    style: {
-      setProperty() {},
-      removeProperty() {},
-    } as unknown as CSSStyleDeclaration,
+    style: createFakeStyle(),
     dataset: {} as DOMStringMap,
     getContext: () => context2d,
     getBoundingClientRect: () => ({ left: 0, top: 0, width, height }),
@@ -124,6 +121,23 @@ export function createFakeCanvas(
       return cursorDrawCount;
     },
   };
+}
+
+/** 값을 실제로 담는 CSSStyleDeclaration 대역. 스타일 복원을 검사하려면 필요하다. */
+function createFakeStyle(): CSSStyleDeclaration {
+  const values = new Map<string, { value: string; priority: string }>();
+  return {
+    setProperty(name: string, value: string, priority = "") {
+      values.set(name, { value, priority });
+    },
+    getPropertyValue: (name: string) => values.get(name)?.value ?? "",
+    getPropertyPriority: (name: string) => values.get(name)?.priority ?? "",
+    removeProperty(name: string) {
+      const previous = values.get(name)?.value ?? "";
+      values.delete(name);
+      return previous;
+    },
+  } as unknown as CSSStyleDeclaration;
 }
 
 export interface BrowserGlobals {

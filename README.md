@@ -49,8 +49,10 @@ editor.destroy();
 ```
 
 캔버스의 **크기·배경·테두리는 앱이 정한다.** 동작에 필요한 CSS(`touch-action: none` 등)만
-라이브러리가 캔버스에 직접 넣으므로 스타일시트를 따로 불러올 필요가 없다. 현재 도구는
-`data-tool` 속성으로 노출되니 `canvas[data-tool="eraser"] { cursor: crosshair }` 처럼 쓰면 된다.
+라이브러리가 캔버스에 직접 넣으므로 스타일시트를 따로 불러올 필요가 없다. 넣기 전의 인라인
+값은 기억해 두었다가 `destroy()`에서 되돌리므로, 앱이 걸어둔 스타일을 덮어쓴 채 떠나지 않는다.
+현재 도구는 `data-tool` 속성으로 노출되니 `canvas[data-tool="eraser"] { cursor: crosshair }`
+처럼 쓰면 된다.
 
 `InkPoint.t`는 `PointerEvent.timeStamp` 그대로다 (`performance.now()`와 같은 시간 원점).
 뭉쳐 들어온 점들도 각자 실제 샘플 시각을 가지므로 필기 속도를 특징으로 쓰거나 세션을 원래
@@ -88,17 +90,17 @@ const actions: InkAction[] = [];
 
 ### `InkEditor`
 
-| 멤버                               | 설명                                                                |
-| ---------------------------------- | ------------------------------------------------------------------- |
-| `tool`                             | `"pen"` \| `"eraser"`. 읽기·쓰기.                                   |
-| `drawing`                          | 획이 진행 중인지.                                                   |
-| `canUndo` / `canRedo`              | 버튼 활성 상태에 쓴다.                                              |
-| `getStrokes()`                     | 내부 상태와 분리된 복사본.                                          |
-| `setStrokes(strokes, options?)`    | 통째로 교체. `{ recordHistory: false }`면 되돌리기 이력을 건너뛴다. |
-| `getStyle()` / `setStyle(partial)` | 색·굵기·모드·지우개 지름.                                           |
-| `undo()` / `redo()` / `clear()`    | 바뀐 게 있으면 `true`.                                              |
-| `resize()`                         | `ResizeObserver`가 부르므로 보통 직접 쓸 일이 없다.                 |
-| `destroy()`                        | 리스너·옵저버 해제.                                                 |
+| 멤버                               | 설명                                                                                               |
+| ---------------------------------- | -------------------------------------------------------------------------------------------------- |
+| `tool`                             | `"pen"` \| `"eraser"`. 읽기·쓰기.                                                                  |
+| `drawing`                          | 획이 진행 중인지.                                                                                  |
+| `canUndo` / `canRedo`              | 버튼 활성 상태에 쓴다.                                                                             |
+| `getStrokes()`                     | 내부 상태와 분리된 복사본.                                                                         |
+| `setStrokes(strokes, options?)`    | 통째로 교체. `{ recordHistory: false }`면 되돌리기 이력을 건너뛴다.                                |
+| `getStyle()` / `setStyle(partial)` | 색·굵기·모드·지우개 지름.                                                                          |
+| `undo()` / `redo()` / `clear()`    | 바뀐 게 있으면 `true`.                                                                             |
+| `resize()`                         | `ResizeObserver`가 부르므로 보통 직접 쓸 일이 없다.                                                |
+| `destroy()`                        | 리스너·옵저버 해제, 이력 비움, 캔버스 스타일·`data-tool`을 부착 이전으로 복원. 그린 내용은 그대로. |
 
 ### 옵션
 

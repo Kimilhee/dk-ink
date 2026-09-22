@@ -45,7 +45,12 @@ export interface InkEditor {
   clear(): void;
   /** 캔버스 크기가 바뀌었을 때. ResizeObserver가 자동으로 부르므로 보통 필요 없다. */
   resize(): void;
-  /** 이벤트 리스너와 ResizeObserver를 해제한다. */
+  /**
+   * 에디터를 떼어낸다: 리스너와 `ResizeObserver`를 해제하고, 되돌리기 이력을 비우고,
+   * 캔버스에 걸었던 인라인 스타일과 `data-tool`을 **부착 이전 값으로 되돌린다.**
+   *
+   * 그려진 내용은 지우지 않는다. 캔버스를 비우려면 `clear()`를 먼저 부르면 된다.
+   */
   destroy(): void;
 }
 
@@ -255,10 +260,8 @@ export function createInkEditor(
     canvas.dataset.tool = tool;
   }
 
-  // 없으면 펜/터치 입력이 스크롤·텍스트 선택 제스처로 먹힌다. 동작 요건이므로 여기서 박는다.
-  canvas.style.touchAction = "none";
-  canvas.style.setProperty("-webkit-user-select", "none");
-  canvas.style.userSelect = "none";
+  const restoreStyle = applyRequiredStyle(canvas);
+  const previousToolAttribute = canvas.dataset.tool;
   applyTool();
   canvas.addEventListener("pointerdown", pointerDown);
   canvas.addEventListener("pointermove", pointerMove);
@@ -324,16 +327,38 @@ export function createInkEditor(
     destroy() {
       cancelScheduledRedraw();
       observer.disconnect();
-      delete canvas.dataset.tool;
-      canvas.style.removeProperty("touch-action");
-      canvas.style.removeProperty("-webkit-user-select");
-      canvas.style.removeProperty("user-select");
+      if (previousToolAttribute === undefined) delete canvas.dataset.tool;
+      else canvas.dataset.tool = previousToolAttribute;
+      restoreStyle();
       canvas.removeEventListener("pointerdown", pointerDown);
       canvas.removeEventListener("pointermove", pointerMove);
       canvas.removeEventListener("pointerup", pointerUp);
       canvas.removeEventListener("pointercancel", pointerUp);
       history.reset();
     },
+  };
+}
+
+/** 동작에 필요한 인라인 스타일이 없으면 펜/터치 입력이 스크롤·텍스트 선택으로 먹힌다. */
+const REQUIRED_STYLE = ["touch-action", "-webkit-user-select", "user-select"];
+
+/**
+ * 필수 스타일을 걸고, 부착 이전 상태로 되돌리는 함수를 준다.
+ *
+ * 그냥 `removeProperty`로 치우면 앱이 미리 걸어둔 인라인 값까지 같이 날아간다.
+ * 우리가 덮어쓴 것만 정확히 되돌려야 캔버스를 붙였다 떼는 사용법이 안전하다.
+ */
+function applyRequiredStyle(canvas: HTMLCanvasElement): () => void {
+  const saved = REQUIRED_STYLE.map(
+    (name) =>
+      [name, canvas.style.getPropertyValue(name), canvas.style.getPropertyPriority(name)] as const,
+  );
+  for (const name of REQUIRED_STYLE) canvas.style.setProperty(name, "none");
+  return () => {
+    for (const [name, value, priority] of saved) {
+      if (value) canvas.style.setProperty(name, value, priority);
+      else canvas.style.removeProperty(name);
+    }
   };
 }
 
