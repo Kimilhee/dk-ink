@@ -17,8 +17,10 @@ export interface FakePointerInit {
   y: number;
   pressure?: number;
   pointerId?: number;
+  /** `PointerEvent.timeStamp`. 생략하면 호출마다 1씩 오른다. */
+  timeStamp?: number;
   /** `getCoalescedEvents()`가 돌려줄 점. 빈 배열도 실제로 일어난다. */
-  coalesced?: Array<{ x: number; y: number; pressure?: number }>;
+  coalesced?: Array<{ x: number; y: number; pressure?: number; timeStamp?: number }>;
   /** `getCoalescedEvents()`가 빈 배열을 돌려주는 상황을 재현한다. */
   emptyCoalesced?: boolean;
 }
@@ -31,6 +33,7 @@ export function createFakeCanvas(
   const listeners = new Map<string, Set<(event: unknown) => void>>();
   let renderCount = 0;
   let cursorDrawCount = 0;
+  let clock = 0;
 
   const context2d = new Proxy(
     {
@@ -93,18 +96,21 @@ export function createFakeCanvas(
   return {
     canvas,
     emit(type, init) {
+      clock += 1;
       const event = {
         pointerId: init.pointerId ?? 1,
         clientX: init.x,
         clientY: init.y,
         pressure: init.pressure ?? 0.5,
+        timeStamp: init.timeStamp ?? clock,
         preventDefault() {},
         getCoalescedEvents: init.coalesced
           ? () =>
-              init.coalesced!.map((point) => ({
+              init.coalesced!.map((point, index) => ({
                 clientX: point.x,
                 clientY: point.y,
                 pressure: point.pressure ?? 0.5,
+                timeStamp: point.timeStamp ?? clock + index / 100,
               }))
           : undefined,
         ...(init.emptyCoalesced ? { getCoalescedEvents: () => [] } : {}),

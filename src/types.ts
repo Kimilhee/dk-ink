@@ -4,8 +4,14 @@ export interface Point {
   y: number;
 }
 
-/** 필기 점. `t`는 `performance.now()` 기준 밀리초. */
 export interface InkPoint extends Point {
+  /**
+   * `PointerEvent.timeStamp` 그대로. `performance.now()`와 같은 시간 원점을 쓰는
+   * 밀리초 값이라 두 값을 섞어 빼도 된다.
+   *
+   * 뭉친 이벤트 안의 점들도 각자 실제 샘플 시각을 갖는다 — 필기 속도를 특징으로 쓰거나
+   * 세션을 원래 속도로 재생하려면 이 값이 프레임 단위로 뭉개지면 안 된다.
+   */
   t: number;
   /** PointerEvent.pressure (0~1). 필압을 보고하지 않는 입력에서는 undefined. */
   pressure?: number;

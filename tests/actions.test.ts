@@ -118,3 +118,30 @@ test("되돌리기·전체지우기·교체도 이력에 남는다", () => {
   if (set.type !== "set") return;
   expect(set.strokes[0][0].x).toBe(1);
 });
+
+test("뭉친 이벤트 안의 점들이 각자 시각을 갖는다", () => {
+  fake.emit("pointerdown", { x: 0, y: 0, timeStamp: 100 });
+  fake.emit("pointermove", {
+    x: 30,
+    y: 0,
+    coalesced: [
+      { x: 10, y: 0, timeStamp: 104 },
+      { x: 20, y: 0, timeStamp: 108 },
+      { x: 30, y: 0, timeStamp: 112 },
+    ],
+  });
+  fake.emit("pointerup", { x: 40, y: 0, timeStamp: 120 });
+
+  // 핸들러 실행 시각을 찍으면 뭉친 3점이 전부 같은 값이 되어 프레임 내부 타이밍이 사라진다.
+  expect(editor.getStrokes()[0].map((point) => point.t)).toEqual([100, 104, 108, 112, 120]);
+});
+
+test("필기 속도를 점 간격으로 복원할 수 있다", () => {
+  fake.emit("pointerdown", { x: 0, y: 0, timeStamp: 1000 });
+  fake.emit("pointermove", { x: 10, y: 0, timeStamp: 1008 });
+  fake.emit("pointerup", { x: 40, y: 0, timeStamp: 1016 });
+
+  const stroke = editor.getStrokes()[0];
+  const gaps = stroke.slice(1).map((point, index) => point.t - stroke[index].t);
+  expect(gaps).toEqual([8, 8]);
+});

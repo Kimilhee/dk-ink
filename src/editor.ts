@@ -91,7 +91,10 @@ export function createInkEditor(
   }
 
   function timedPoint(event: PointerEvent): InkPoint {
-    return { ...pointFromEvent(event), t: performance.now(), pressure: event.pressure };
+    // `performance.now()`가 아니라 이벤트가 들고 온 시각을 쓴다. 뭉친 이벤트는 한 프레임에
+    // 몰려 들어오므로 핸들러 실행 시각을 찍으면 그 안의 점들이 전부 같은 시각이 되고,
+    // 뭉친 것을 푼 의미가 사라진다. `timeStamp`는 점마다 실제로 샘플된 시각이다.
+    return { ...pointFromEvent(event), t: event.timeStamp, pressure: event.pressure };
   }
 
   function appendPoint(event: PointerEvent): void {

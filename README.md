@@ -52,6 +52,10 @@ editor.destroy();
 라이브러리가 캔버스에 직접 넣으므로 스타일시트를 따로 불러올 필요가 없다. 현재 도구는
 `data-tool` 속성으로 노출되니 `canvas[data-tool="eraser"] { cursor: crosshair }` 처럼 쓰면 된다.
 
+`InkPoint.t`는 `PointerEvent.timeStamp` 그대로다 (`performance.now()`와 같은 시간 원점).
+뭉쳐 들어온 점들도 각자 실제 샘플 시각을 가지므로 필기 속도를 특징으로 쓰거나 세션을 원래
+속도로 재생할 수 있다.
+
 ### 동작 이력과 재생
 
 `onChange`의 두 번째 인자가 **무슨 편집이 일어났는지**를 담는다:
