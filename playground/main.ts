@@ -10,6 +10,12 @@ import {
 
 const canvas = element<HTMLCanvasElement>("ink");
 const dumpOutput = element<HTMLPreElement>("dump-output");
+const toolbar = element<HTMLElement>("tool-picker");
+const dragHandle = element<HTMLButtonElement>("toolbar-drag-handle");
+const eraserButton = toolbar.querySelector<HTMLButtonElement>('[data-tool="eraser"]');
+const settingsPanel = element<HTMLElement>("settings-panel");
+const settingsToggle = element<HTMLButtonElement>("settings-toggle");
+if (!eraserButton) throw new Error("Eraser button is missing");
 /**
  * 마지막 [전체 지우기] 이후의 편집. 지우개 제스처까지 순서대로 들어 있다.
  *
@@ -19,6 +25,10 @@ const dumpOutput = element<HTMLPreElement>("dump-output");
  */
 const actions: InkAction[] = [];
 let replaying = false;
+let eraserHoldPointerId: number | undefined;
+let erasedWhileHolding = false;
+let suppressEraserClick = false;
+let toolbarDrag: { pointerId: number; offsetX: number; offsetY: number } | undefined;
 
 const editor = createInkEditor(canvas, {
   onChange(strokes, action) {
@@ -36,12 +46,29 @@ const editor = createInkEditor(canvas, {
   },
 });
 
-element<HTMLElement>("tool-picker").addEventListener("click", (event) => {
+toolbar.addEventListener("click", (event) => {
   const button = buttonFrom(event, "[data-tool]");
   if (!button) return;
+  if (button.dataset.tool === "eraser" && suppressEraserClick) return;
   editor.tool = button.dataset.tool === "eraser" ? "eraser" : "pen";
   syncButtons();
 });
+
+eraserButton.addEventListener("pointerdown", (event) => {
+  if (event.button !== 0 || eraserHoldPointerId !== undefined) return;
+  eraserHoldPointerId = event.pointerId;
+  erasedWhileHolding = false;
+  eraserButton.setPointerCapture(event.pointerId);
+  editor.tool = "eraser";
+  syncButtons();
+});
+
+canvas.addEventListener("pointerdown", () => {
+  if (eraserHoldPointerId !== undefined) erasedWhileHolding = true;
+});
+
+eraserButton.addEventListener("pointerup", finishEraserHold);
+eraserButton.addEventListener("pointercancel", finishEraserHold);
 
 element<HTMLElement>("width-mode-picker").addEventListener("click", (event) => {
   const button = buttonFrom(event, "[data-width-mode]");
@@ -50,10 +77,11 @@ element<HTMLElement>("width-mode-picker").addEventListener("click", (event) => {
   syncButtons();
 });
 
-element<HTMLInputElement>("stroke-width").addEventListener("input", (event) => {
-  const value = Number((event.target as HTMLInputElement).value);
-  editor.setStyle({ strokeWidth: value });
-  element<HTMLOutputElement>("stroke-width-value").value = `${value}px`;
+element<HTMLElement>("stroke-width-picker").addEventListener("click", (event) => {
+  const button = buttonFrom(event, "[data-stroke-width]");
+  if (!button) return;
+  editor.setStyle({ strokeWidth: Number(button.dataset.strokeWidth) });
+  syncButtons();
 });
 
 element<HTMLInputElement>("eraser-width").addEventListener("input", (event) => {
@@ -74,11 +102,67 @@ element<HTMLButtonElement>("clear").addEventListener("click", () => {
   editor.clear();
   syncButtons();
 });
-element<HTMLButtonElement>("settings-toggle").addEventListener("click", () => {
-  const panel = element<HTMLElement>("settings-panel");
-  const expanded = panel.hidden;
-  panel.hidden = !expanded;
-  element<HTMLButtonElement>("settings-toggle").setAttribute("aria-expanded", String(expanded));
+settingsToggle.addEventListener("click", () => {
+  setSettingsOpen(settingsPanel.hasAttribute("hidden"));
+});
+element<HTMLButtonElement>("settings-close").addEventListener("click", () =>
+  setSettingsOpen(false),
+);
+
+document.addEventListener(
+  "pointerdown",
+  (event) => {
+    const target = event.target;
+    if (
+      settingsPanel.hidden ||
+      !(target instanceof Element) ||
+      settingsPanel.contains(target) ||
+      settingsToggle.contains(target)
+    ) {
+      return;
+    }
+    setSettingsOpen(false);
+    if (target.closest(".canvas-stage") && !target.closest(".floating-toolbar")) {
+      event.preventDefault();
+      event.stopPropagation();
+    }
+  },
+  { capture: true },
+);
+
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape") setSettingsOpen(false);
+});
+
+dragHandle.addEventListener("pointerdown", (event) => {
+  if (event.button !== 0) return;
+  const bounds = toolbar.getBoundingClientRect();
+  toolbarDrag = {
+    pointerId: event.pointerId,
+    offsetX: event.clientX - bounds.left,
+    offsetY: event.clientY - bounds.top,
+  };
+  dragHandle.setPointerCapture(event.pointerId);
+  toolbar.classList.add("is-dragging");
+  event.preventDefault();
+});
+
+dragHandle.addEventListener("pointermove", (event) => {
+  if (!toolbarDrag || event.pointerId !== toolbarDrag.pointerId) return;
+  const stageBounds = element<HTMLElement>("canvas-stage").getBoundingClientRect();
+  positionToolbar(
+    event.clientX - stageBounds.left - toolbarDrag.offsetX,
+    event.clientY - stageBounds.top - toolbarDrag.offsetY,
+  );
+});
+
+dragHandle.addEventListener("pointerup", finishToolbarDrag);
+dragHandle.addEventListener("pointercancel", finishToolbarDrag);
+
+window.addEventListener("resize", () => {
+  const stageBounds = element<HTMLElement>("canvas-stage").getBoundingClientRect();
+  const toolbarBounds = toolbar.getBoundingClientRect();
+  positionToolbar(toolbarBounds.left - stageBounds.left, toolbarBounds.top - stageBounds.top);
 });
 element<HTMLButtonElement>("dump").addEventListener("click", () => {
   const strokes = editor.getStrokes();
@@ -167,13 +251,52 @@ function syncButtons(): void {
     "[data-width-mode]",
     (button) => button.dataset.widthMode === style.widthMode,
   );
-  element<HTMLInputElement>("stroke-width").value = String(style.strokeWidth);
-  element<HTMLOutputElement>("stroke-width-value").value = `${style.strokeWidth}px`;
+  press(
+    "stroke-width-picker",
+    "[data-stroke-width]",
+    (button) => Number(button.dataset.strokeWidth) === style.strokeWidth,
+  );
   element<HTMLInputElement>("eraser-width").value = String(style.eraserWidth);
   element<HTMLOutputElement>("eraser-width-value").value = `${style.eraserWidth}px`;
   element<HTMLButtonElement>("undo").disabled = !editor.canUndo;
   element<HTMLButtonElement>("redo").disabled = !editor.canRedo;
   element<HTMLButtonElement>("replay").disabled = replaying || actions.length === 0;
+}
+
+function finishEraserHold(event: PointerEvent): void {
+  if (event.pointerId !== eraserHoldPointerId) return;
+  eraserHoldPointerId = undefined;
+  if (!erasedWhileHolding) return;
+
+  editor.tool = "pen";
+  erasedWhileHolding = false;
+  suppressEraserClick = true;
+  setTimeout(() => {
+    suppressEraserClick = false;
+  });
+  syncButtons();
+}
+
+function setSettingsOpen(open: boolean): void {
+  settingsPanel.hidden = !open;
+  settingsToggle.setAttribute("aria-expanded", String(open));
+}
+
+function positionToolbar(left: number, top: number): void {
+  const stage = element<HTMLElement>("canvas-stage");
+  const margin = 8;
+  const maxLeft = stage.clientWidth - toolbar.offsetWidth - margin;
+  const maxTop = stage.clientHeight - toolbar.offsetHeight - margin;
+  toolbar.style.left = `${Math.max(margin, Math.min(maxLeft, left))}px`;
+  toolbar.style.top = `${Math.max(margin, Math.min(maxTop, top))}px`;
+  toolbar.style.bottom = "auto";
+  toolbar.style.transform = "none";
+}
+
+function finishToolbarDrag(event: PointerEvent): void {
+  if (!toolbarDrag || event.pointerId !== toolbarDrag.pointerId) return;
+  toolbarDrag = undefined;
+  toolbar.classList.remove("is-dragging");
 }
 
 function press(

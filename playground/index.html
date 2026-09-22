@@ -17,13 +17,18 @@
         <button id="replay" type="button" disabled>재생</button>
       </div>
 
-      <section class="canvas-stage" aria-label="드로잉 영역">
+      <section id="canvas-stage" class="canvas-stage" aria-label="드로잉 영역">
         <canvas id="ink" aria-label="필기 캔버스"></canvas>
 
         <div id="settings-panel" class="settings-panel" hidden>
           <div class="settings-heading">
-            <h2>도구 설정</h2>
-            <span>선의 느낌과 도구 크기를 조절하세요.</span>
+            <div>
+              <h2>도구 설정</h2>
+              <span>선의 느낌과 도구 크기를 조절하세요.</span>
+            </div>
+            <button id="settings-close" type="button" aria-label="설정 닫기" title="설정 닫기">
+              ×
+            </button>
           </div>
 
           <div class="setting-row">
@@ -34,18 +39,26 @@
               role="group"
               aria-label="필기 방식"
             >
-              <button type="button" data-width-mode="pressure" aria-pressed="true">필압</button>
-              <button type="button" data-width-mode="constant" aria-pressed="false">일정</button>
+              <button type="button" data-width-mode="pressure" aria-pressed="true">필압적용</button>
+              <button type="button" data-width-mode="constant" aria-pressed="false">
+                고정두께
+              </button>
             </div>
           </div>
 
-          <label class="setting-row" for="stroke-width">
+          <div class="setting-row">
             <span class="setting-label">펜 두께</span>
-            <span class="range-control">
-              <input id="stroke-width" type="range" min="1" max="12" step="1" value="3" />
-              <output id="stroke-width-value" for="stroke-width">3px</output>
-            </span>
-          </label>
+            <div
+              id="stroke-width-picker"
+              class="segmented-control width-control"
+              role="group"
+              aria-label="펜 두께"
+            >
+              <button type="button" data-stroke-width="2" aria-pressed="false">2</button>
+              <button type="button" data-stroke-width="3" aria-pressed="true">3</button>
+              <button type="button" data-stroke-width="4" aria-pressed="false">4</button>
+            </div>
+          </div>
 
           <label class="setting-row" for="eraser-width">
             <span class="setting-label">지우개 두께</span>
@@ -57,6 +70,15 @@
         </div>
 
         <div id="tool-picker" class="floating-toolbar" role="toolbar" aria-label="드로잉 도구">
+          <button
+            id="toolbar-drag-handle"
+            type="button"
+            class="drag-handle"
+            aria-label="도구 모음 이동"
+            title="드래그해서 이동"
+          >
+            <span aria-hidden="true">⠿</span>
+          </button>
           <button
             type="button"
             class="tool-button"
@@ -117,7 +139,7 @@
             aria-controls="settings-panel"
             title="도구 설정"
           >
-            <span class="icon icon-glyph icon-gear" aria-hidden="true">⚙</span>
+            <span class="icon icon-glyph icon-gear" aria-hidden="true">⚙︎</span>
           </button>
         </div>
       </section>
