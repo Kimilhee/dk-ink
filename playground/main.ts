@@ -24,7 +24,8 @@ const penButton = toolbar.querySelector<HTMLButtonElement>('[data-tool="pen"]');
 const eraserButton = toolbar.querySelector<HTMLButtonElement>('[data-tool="eraser"]');
 const settingsPanel = element<HTMLElement>("settings-panel");
 const settingsToggle = element<HTMLButtonElement>("settings-toggle");
-const penHoverTip = element<HTMLElement>("pen-hover-tip");
+const holdStatus = element<HTMLElement>("hold-status");
+const debugLog = element<HTMLElement>("debug-log");
 if (!penButton || !eraserButton) throw new Error("Tool buttons are missing");
 element<HTMLElement>("app-version").textContent = `v${packageJson.version}`;
 /**
@@ -188,20 +189,53 @@ activateOnPress("settings-toggle", () => {
   setSettingsOpen(settingsPanel.hasAttribute("hidden"));
 });
 activateOnPress("settings-close", () => setSettingsOpen(false));
-activateOnPress("pen-hover-tip-close", () => {
-  penHoverTip.hidden = true;
+activateOnPress("debug-log-clear", () => {
+  debugLog.replaceChildren();
 });
 
-// 스타일러스가 화면에 닿지 않고 근접만 해도(호버) `pointermove`가 `pointerType: "pen"`,
-// `buttons: 0`으로 들어온다. 이 호버 표시가 떠 있는 동안 일부 기기(디지타이저)는 손가락
-// 터치 자체를 OS 레벨에서 브라우저까지 보내지 않는다 — 막힌 터치는 관찰할 수 없으니, 대신
-// 원인인 호버 자체를 감지해서 세션당 한 번만 안내한다. 획 사이사이 펜을 들 때마다 계속
-// 호버가 뜨므로, 매번 띄우면 정상적인 필기 중에도 계속 거슬린다.
-let penHoverTipShown = false;
+// 스타일러스가 화면에 닿지 않고 근접만 해도(호버) `pointermove`가 `pointerType: "pen"`으로
+// 들어온다. 이 호버가 떠 있는 동안 일부 기기(디지타이저)는 손가락 터치를 화면 어디서든 OS
+// 레벨에서 막아 브라우저까지 보내지 않는다 — 웹 페이지가 고칠 수 없는 기기 동작이다. 막힌
+// 터치 자체는 관찰할 수 없으니, 대신 원인인 호버를 감지해 도구 모음을 회색으로 바꿔 "지금은
+// 손가락이 안 먹는다"를 눈으로 바로 알 수 있게 한다.
+//
+// 펜이 멀어질 때 `pointerout`이 항상 오지는 않아, 마지막 펜 이벤트 이후 일정 시간이 지나면
+// 호버가 끝난 것으로 본다.
+//
+// 단, 펜이 도구 모음 위에 떠 있을 때는 회색으로 만들지 않는다. 회색은 "여기는 지금 누를 수
+// 없다"는 뜻인데, 그 자리의 펜은 실제로 아이콘을 누를 수 있기 때문이다.
+let penNearTimer: ReturnType<typeof setTimeout> | undefined;
+function markPenNear(overToolbar: boolean): void {
+  if (penNearTimer !== undefined) clearTimeout(penNearTimer);
+  toolbar.classList.toggle("is-pen-near", !overToolbar);
+  penNearTimer = setTimeout(() => {
+    penNearTimer = undefined;
+    toolbar.classList.remove("is-pen-near");
+    logDebug("펜 호버 끝 → 손가락 터치 가능");
+  }, 700);
+}
+
+function penOverToolbar(event: PointerEvent): boolean {
+  return containsPoint(toolbar, event.clientX, event.clientY);
+}
+
 document.addEventListener("pointermove", (event) => {
-  if (penHoverTipShown || event.pointerType !== "pen" || event.buttons !== 0) return;
-  penHoverTipShown = true;
-  penHoverTip.hidden = false;
+  if (event.pointerType !== "pen") return;
+  if (!toolbar.classList.contains("is-pen-near") && !penOverToolbar(event)) {
+    logDebug("펜 호버 시작 → 손가락 터치가 막힐 수 있음");
+  }
+  markPenNear(penOverToolbar(event));
+});
+document.addEventListener("pointerdown", (event) => {
+  logDebug(`pointerdown ${event.pointerType} id=${event.pointerId}`);
+  if (event.pointerType === "pen") markPenNear(penOverToolbar(event));
+});
+document.addEventListener("pointerup", (event) => {
+  logDebug(`pointerup ${event.pointerType} id=${event.pointerId}`);
+  if (event.pointerType === "pen") markPenNear(penOverToolbar(event));
+});
+document.addEventListener("pointercancel", (event) => {
+  logDebug(`pointercancel ${event.pointerType} id=${event.pointerId}`);
 });
 
 document.addEventListener(
@@ -385,9 +419,29 @@ function containsPoint(element: HTMLElement, x: number, y: number): boolean {
 
 function applyMomentaryEraser(event: MomentaryEraserEvent): void {
   const nextTool = momentaryEraser.handle(event);
+  updateHoldStatus();
   if (!nextTool) return;
   editor.tool = nextTool;
   syncButtons();
+}
+
+function updateHoldStatus(): void {
+  holdStatus.textContent = momentaryEraser.active ? "홀드: 활성" : "홀드: 없음";
+}
+
+/** 테스트 1(먼저 누른 손가락이 펜 사용 중에도 유지되는지) 진단용: 실제로 도착한
+ * 이벤트를 그대로 보여준다 — 막힌 터치는 로그에도 안 남으니, "이후로 로그가 없다"도
+ * 유의미한 신호다. */
+function logDebug(message: string): void {
+  const now = new Date();
+  const time = [now.getHours(), now.getMinutes(), now.getSeconds()]
+    .map((n) => String(n).padStart(2, "0"))
+    .join(":");
+  const line = document.createElement("div");
+  line.textContent = `${time}.${String(now.getMilliseconds()).padStart(3, "0")} ${message}`;
+  debugLog.append(line);
+  while (debugLog.childElementCount > 40) debugLog.firstElementChild?.remove();
+  debugLog.scrollTop = debugLog.scrollHeight;
 }
 
 function activateOnPress(buttonId: string, action: () => void): void {

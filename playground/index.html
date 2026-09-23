@@ -12,15 +12,12 @@
         <output id="status">획 0개</output>
       </header>
 
-      <div id="pen-hover-tip" class="pen-hover-tip" role="status" hidden>
-        <span
-          >이 기기는 스타일러스가 화면 가까이 있는 동안 손가락 터치를 인식하지 못할 수
-          있어요(기기/OS 동작). 반응이 없다면 스타일러스를 화면에서 잠시 떼 보세요.</span
-        >
-        <button id="pen-hover-tip-close" type="button" aria-label="안내 닫기" title="안내 닫기">
-          ×
-        </button>
-      </div>
+      <details id="debug-panel" class="debug-panel" open>
+        <summary>지우개 홀드 진단</summary>
+        <div id="hold-status" class="hold-status">홀드: 없음</div>
+        <pre id="debug-log" class="debug-log"></pre>
+        <button id="debug-log-clear" type="button">로그 지우기</button>
+      </details>
 
       <div class="actions">
         <button id="dump" type="button">획 JSON 보기</button>
