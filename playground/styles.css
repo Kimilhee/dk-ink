@@ -48,7 +48,7 @@ output#status {
   cursor: pointer;
   color: #55637a;
 }
-.hold-status {
+.tool-status {
   margin: 8px 0 4px;
   font-variant-numeric: tabular-nums;
 }

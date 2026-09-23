@@ -4,17 +4,11 @@ import {
   eraseStrokes,
   InkHistory,
   type InkAction,
+  type InkTool,
   type Stroke,
   type WidthMode,
 } from "../src/index.ts";
 import packageJson from "../package.json" with { type: "json" };
-import {
-  type EraserContact,
-  isFingerTouch,
-  MomentaryEraser,
-  type MomentaryEraserEvent,
-  supportsTouchTypeDetection,
-} from "./momentary-eraser.ts";
 
 const canvas = element<HTMLCanvasElement>("ink");
 const dumpOutput = element<HTMLPreElement>("dump-output");
@@ -24,7 +18,7 @@ const penButton = toolbar.querySelector<HTMLButtonElement>('[data-tool="pen"]');
 const eraserButton = toolbar.querySelector<HTMLButtonElement>('[data-tool="eraser"]');
 const settingsPanel = element<HTMLElement>("settings-panel");
 const settingsToggle = element<HTMLButtonElement>("settings-toggle");
-const holdStatus = element<HTMLElement>("hold-status");
+const toolStatus = element<HTMLElement>("tool-status");
 const debugLog = element<HTMLElement>("debug-log");
 if (!penButton || !eraserButton) throw new Error("Tool buttons are missing");
 element<HTMLElement>("app-version").textContent = `v${packageJson.version}`;
@@ -37,13 +31,11 @@ element<HTMLElement>("app-version").textContent = `v${packageJson.version}`;
  */
 const actions: InkAction[] = [];
 let replaying = false;
-const momentaryEraser = new MomentaryEraser();
 let toolbarDrag: { pointerId: number; offsetX: number; offsetY: number } | undefined;
 
 const editor = createInkEditor(canvas, {
   onChange(strokes, action) {
     if (replaying) return;
-    if (action.type === "erase") applyMomentaryEraser({ type: "stroke-ended" });
     if (action.type === "clear") {
       actions.length = 0;
     } else if (actions.length === 0 && action.type !== "stroke") {
@@ -57,101 +49,15 @@ const editor = createInkEditor(canvas, {
   },
 });
 
-toolbar.addEventListener("click", (event) => {
-  if ((event as MouseEvent).detail !== 0) return;
-  const button = buttonFrom(event, "[data-tool]");
-  if (!button) return;
-  if (button.dataset.tool === "pen") momentaryEraser.reset();
-  editor.tool = button.dataset.tool === "eraser" ? "eraser" : "pen";
-  syncButtons();
-});
-
-penButton.addEventListener("pointerdown", (event) => {
-  if (event.button !== 0) return;
-  momentaryEraser.reset();
-  editor.tool = "pen";
-  syncButtons();
-});
-penButton.addEventListener(
-  "touchstart",
-  (event) => {
-    event.preventDefault();
-    momentaryEraser.reset();
-    editor.tool = "pen";
-    syncButtons();
-  },
-  { passive: false },
-);
-
-// 지우개 버튼의 누름·뗌은 Pointer Events와 Touch Events 양쪽에서 들어온다.
-// 스타일러스가 두 이벤트를 동시에 내는 기기가 있는가 하면, 손가락의 `touchstart`가
-// 유독 전달되지 않는 기기도 있다. 하나만 믿으면 어느 쪽 기기에서든 깨지므로 둘 다
-// 받아들인다 — 상태 모듈의 `press`/`contact-released` 처리는 중복 호출에도
-// 안전하도록 만들어져 있다 (`press`는 그대로 덮어쓰고, 해제는 `matches()`가 이미
-// 끝난 접촉을 걸러낸다).
-function contactFromPointer(event: PointerEvent): EraserContact {
-  return event.pointerType === "touch"
-    ? { source: "finger", id: event.pointerId }
-    : { source: "pointer", id: event.pointerId };
-}
-
-eraserButton.addEventListener("pointerdown", (event) => {
-  if (event.button !== 0) return;
-  applyMomentaryEraser({ type: "press", contact: contactFromPointer(event) });
-  try {
-    eraserButton.setPointerCapture(event.pointerId);
-  } catch {
-    // 펜 입력과 동시에 손가락 포인터가 취소되어도 지우개 선택은 유지한다.
-  }
-});
-// `touchType`을 못 읽는 브라우저(Safari 이외 전부)에서는 Touch 기반 판정이 스타일러스를
-// 손가락으로 오판해, 같은 접촉을 두고 Pointer Events 기반 판정과 서로 다른 결론을 내며
-// 경쟁한다 — 그 결과가 "가끔은 바뀌고 가끔은 안 바뀐다"로 나타난다. 그런 브라우저에서는
-// Touch 리스너 자체를 걸지 않고 위의 Pointer Events 경로만 신뢰한다.
-if (supportsTouchTypeDetection) {
-  eraserButton.addEventListener(
-    "touchstart",
-    (event) => {
-      const touch = Array.from(event.changedTouches).find(isFingerTouch);
-      if (!touch) return;
-      event.preventDefault();
-      applyMomentaryEraser({
-        type: "press",
-        contact: { source: "finger", id: touch.identifier },
-      });
-    },
-    { passive: false },
-  );
-  window.addEventListener("touchend", finishFingerEraserHold, { capture: true });
-  window.addEventListener("touchcancel", (event) => {
-    for (const touch of event.changedTouches) {
-      if (!isFingerTouch(touch)) continue;
-      applyMomentaryEraser({
-        type: "contact-canceled",
-        contact: { source: "finger", id: touch.identifier },
-      });
-    }
-  });
-}
-
-canvas.addEventListener("pointerdown", () => {
-  applyMomentaryEraser({ type: "canvas-used" });
-});
-
-eraserButton.addEventListener("pointerup", (event) => {
-  finishEraserHold(
-    contactFromPointer(event),
-    containsPoint(eraserButton, event.clientX, event.clientY),
-  );
-  try {
-    eraserButton.releasePointerCapture(event.pointerId);
-  } catch {
-    // 이미 풀렸거나 애초에 잡히지 않은 캡처는 무시한다.
-  }
-});
-eraserButton.addEventListener("pointercancel", (event) => {
-  applyMomentaryEraser({ type: "contact-canceled", contact: contactFromPointer(event) });
-});
+// 도구는 토글이다. 누르면 그 도구가 선택된 채로 남고, 다른 도구를 눌러야 바뀐다.
+//
+// 예전에는 "지우개를 손가락으로 누른 채 유지 → 떼면 펜으로 복귀"라는 순간 지우개가 있었는데,
+// 실제 기기(갤럭시탭 P580/P610) 검증에서 그 전제가 깨졌다. 스타일러스가 화면에 근접하면
+// 디지타이저가 이미 눌려 있던 손가락 접촉까지 끊고, 손가락을 실제로 뗄 때 `pointerup`도
+// `pointercancel`도 보내지 않는다. 해제를 관찰할 수 없으면 복귀 조건 자체가 성립하지 않아
+// 그 메커니즘을 걷어냈다. 자세한 검증 결과는 docs/prd/eraser-interaction.md 참고.
+selectToolOnPress(penButton, "pen");
+selectToolOnPress(eraserButton, "eraser");
 
 element<HTMLElement>("width-mode-picker").addEventListener("click", (event) => {
   const button = buttonFrom(event, "[data-width-mode]");
@@ -401,26 +307,7 @@ function syncButtons(): void {
   element<HTMLButtonElement>("undo").disabled = !editor.canUndo;
   element<HTMLButtonElement>("redo").disabled = !editor.canRedo;
   element<HTMLButtonElement>("replay").disabled = replaying || actions.length === 0;
-}
-
-function finishEraserHold(contact: EraserContact, overButton: boolean): void {
-  applyMomentaryEraser({ type: "contact-released", contact, overButton });
-}
-
-function finishFingerEraserHold(event: TouchEvent): void {
-  const fingerStillDown = Array.from(event.touches).some(
-    (touch) =>
-      isFingerTouch(touch) && momentaryEraser.matches({ source: "finger", id: touch.identifier }),
-  );
-  if (fingerStillDown) return;
-
-  for (const touch of event.changedTouches) {
-    if (!isFingerTouch(touch)) continue;
-    const contact = { source: "finger", id: touch.identifier } as const;
-    if (!momentaryEraser.matches(contact)) continue;
-    finishEraserHold(contact, containsPoint(eraserButton!, touch.clientX, touch.clientY));
-    return;
-  }
+  toolStatus.textContent = `도구: ${editor.tool === "eraser" ? "지우개" : "펜"}`;
 }
 
 function containsPoint(element: HTMLElement, x: number, y: number): boolean {
@@ -428,21 +315,8 @@ function containsPoint(element: HTMLElement, x: number, y: number): boolean {
   return x >= bounds.left && x <= bounds.right && y >= bounds.top && y <= bounds.bottom;
 }
 
-function applyMomentaryEraser(event: MomentaryEraserEvent): void {
-  const nextTool = momentaryEraser.handle(event);
-  updateHoldStatus();
-  if (!nextTool) return;
-  editor.tool = nextTool;
-  syncButtons();
-}
-
-function updateHoldStatus(): void {
-  holdStatus.textContent = momentaryEraser.active ? "홀드: 활성" : "홀드: 없음";
-}
-
-/** 테스트 1(먼저 누른 손가락이 펜 사용 중에도 유지되는지) 진단용: 실제로 도착한
- * 이벤트를 그대로 보여준다 — 막힌 터치는 로그에도 안 남으니, "이후로 로그가 없다"도
- * 유의미한 신호다. */
+/** 진단용: 실제로 도착한 이벤트를 그대로 보여준다 — 막힌 터치는 로그에도 안 남으니,
+ * "이후로 로그가 없다"도 유의미한 신호다. */
 function logDebug(message: string): void {
   const now = new Date();
   const time = [now.getHours(), now.getMinutes(), now.getSeconds()]
@@ -482,6 +356,32 @@ function activateOnPress(buttonId: string, action: () => void): void {
   );
   button.addEventListener("click", (event) => {
     if (event.detail === 0) activate();
+  });
+}
+
+/**
+ * 도구 선택 버튼. `activateOnPress`와 달리 중복 호출 방어가 없다 — 도구 선택은 멱등이라
+ * 같은 입력이 `pointerdown`과 `touchstart` 양쪽으로 들어와도 결과가 같기 때문이다.
+ */
+function selectToolOnPress(button: HTMLButtonElement, tool: InkTool): void {
+  const select = () => {
+    editor.tool = tool;
+    syncButtons();
+  };
+  button.addEventListener("pointerdown", (event) => {
+    if (event.button === 0) select();
+  });
+  button.addEventListener(
+    "touchstart",
+    (event) => {
+      event.preventDefault();
+      select();
+    },
+    { passive: false },
+  );
+  // 키보드로 선택했을 때(`detail === 0`)도 같은 도구 상태를 쓸 수 있어야 한다.
+  button.addEventListener("click", (event) => {
+    if (event.detail === 0) select();
   });
 }
 
