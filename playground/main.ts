@@ -31,6 +31,20 @@ const actions: InkAction[] = [];
 let replaying = false;
 let toolbarDrag: { pointerId: number; offsetX: number; offsetY: number } | undefined;
 
+/**
+ * 손가락으로 캔버스에 필기하는 것을 막는다. 기본은 꺼짐 — 스타일러스로 쓰는 동안 손바닥이나
+ * 손가락이 닿아 획이 그어지는 일을 없애기 위해서다. 도구 모음 조작은 막지 않는다.
+ *
+ * 리스너를 `createInkEditor`보다 **먼저** 걸어야 한다. 같은 요소에 등록된 리스너는 등록
+ * 순서대로 실행되고, `stopImmediatePropagation()`은 아직 실행되지 않은 리스너만 막는다.
+ */
+let fingerDrawingEnabled = false;
+canvas.addEventListener("pointerdown", (event) => {
+  if (fingerDrawingEnabled || event.pointerType !== "touch") return;
+  event.stopImmediatePropagation();
+  event.preventDefault();
+});
+
 const editor = createInkEditor(canvas, {
   onChange(strokes, action) {
     if (replaying) return;
@@ -77,6 +91,13 @@ document.addEventListener("pointermove", (event) => {
   const inside = containsPoint(toolToggle, event.clientX, event.clientY);
   if (inside && !pointerInsideToggle) toggleTool();
   pointerInsideToggle = inside;
+});
+
+element<HTMLElement>("finger-input-picker").addEventListener("click", (event) => {
+  const button = buttonFrom(event, "[data-finger-input]");
+  if (!button) return;
+  fingerDrawingEnabled = button.dataset.fingerInput === "on";
+  syncButtons();
 });
 
 element<HTMLElement>("tool-switch-picker").addEventListener("click", (event) => {
@@ -286,6 +307,11 @@ function syncButtons(): void {
   toolToggle.setAttribute(
     "aria-label",
     `${erasing ? "지우개" : "펜"} 사용 중. 누르면 ${erasing ? "펜" : "지우개"}으로 바뀝니다`,
+  );
+  press(
+    "finger-input-picker",
+    "[data-finger-input]",
+    (button) => (button.dataset.fingerInput === "on") === fingerDrawingEnabled,
   );
   press(
     "tool-switch-picker",
