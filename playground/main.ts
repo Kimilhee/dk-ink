@@ -46,25 +46,6 @@ function loadSettings(): StoredSettings {
   }
 }
 
-function saveSettings(): void {
-  const style = editor.getStyle();
-  try {
-    localStorage.setItem(
-      SETTINGS_KEY,
-      JSON.stringify({
-        fingerDrawing: fingerDrawingEnabled,
-        toolSwitch: toolSwitchMode,
-        color: style.color,
-        widthMode: style.widthMode,
-        strokeWidth: style.strokeWidth,
-        eraserWidth: style.eraserWidth,
-      }),
-    );
-  } catch {
-    // 저장에 실패해도 이번 세션의 설정은 그대로 쓴다.
-  }
-}
-
 function storedNumber(value: unknown): number | undefined {
   return typeof value === "number" && Number.isFinite(value) ? value : undefined;
 }
@@ -414,6 +395,32 @@ function finishToolbarDrag(event: PointerEvent): void {
   if (!toolbarDrag || event.pointerId !== toolbarDrag.pointerId) return;
   toolbarDrag = undefined;
   toolbar.classList.remove("is-dragging");
+}
+
+/**
+ * 지금 설정을 통째로 저장한다. 읽는 쪽은 위의 `loadSettings`다.
+ *
+ * 모듈 위쪽이 아니라 여기 있는 이유: 아직 선언되지 않은 `editor`·`fingerDrawingEnabled`를
+ * 참조하기 때문이다. 실제로 불리는 건 핸들러 안이라 동작에는 문제가 없지만, 선언 순서를
+ * 보는 `no-use-before-define`이 그 구분을 못 한다.
+ */
+function saveSettings(): void {
+  const style = editor.getStyle();
+  try {
+    localStorage.setItem(
+      SETTINGS_KEY,
+      JSON.stringify({
+        fingerDrawing: fingerDrawingEnabled,
+        toolSwitch: toolSwitchMode,
+        color: style.color,
+        widthMode: style.widthMode,
+        strokeWidth: style.strokeWidth,
+        eraserWidth: style.eraserWidth,
+      }),
+    );
+  } catch {
+    // 저장에 실패해도 이번 세션의 설정은 그대로 쓴다.
+  }
 }
 
 function setStatus(value: string): void {
