@@ -10,6 +10,7 @@ import {
 import packageJson from "../package.json" with { type: "json" };
 import {
   type EraserContact,
+  isFingerTouch,
   MomentaryEraser,
   type MomentaryEraserEvent,
 } from "./momentary-eraser.ts";
@@ -111,7 +112,10 @@ canvas.addEventListener("pointerdown", () => {
 
 eraserButton.addEventListener("pointerup", (event) => {
   if (event.pointerType !== "touch") {
-    finishEraserHold({ source: "pointer", id: event.pointerId });
+    finishEraserHold(
+      { source: "pointer", id: event.pointerId },
+      containsPoint(eraserButton, event.clientX, event.clientY),
+    );
   }
 });
 eraserButton.addEventListener("pointercancel", (event) => {
@@ -324,8 +328,8 @@ function syncButtons(): void {
   element<HTMLButtonElement>("replay").disabled = replaying || actions.length === 0;
 }
 
-function finishEraserHold(contact: EraserContact): void {
-  applyMomentaryEraser({ type: "contact-released", contact });
+function finishEraserHold(contact: EraserContact, overButton: boolean): void {
+  applyMomentaryEraser({ type: "contact-released", contact, overButton });
 }
 
 function finishFingerEraserHold(event: TouchEvent): void {
@@ -339,13 +343,14 @@ function finishFingerEraserHold(event: TouchEvent): void {
     if (!isFingerTouch(touch)) continue;
     const contact = { source: "finger", id: touch.identifier } as const;
     if (!momentaryEraser.matches(contact)) continue;
-    finishEraserHold(contact);
+    finishEraserHold(contact, containsPoint(eraserButton!, touch.clientX, touch.clientY));
     return;
   }
 }
 
-function isFingerTouch(touch: Touch): boolean {
-  return (touch as Touch & { touchType?: "direct" | "stylus" }).touchType !== "stylus";
+function containsPoint(element: HTMLElement, x: number, y: number): boolean {
+  const bounds = element.getBoundingClientRect();
+  return x >= bounds.left && x <= bounds.right && y >= bounds.top && y <= bounds.bottom;
 }
 
 function applyMomentaryEraser(event: MomentaryEraserEvent): void {
@@ -363,7 +368,7 @@ function activateOnPress(buttonId: string, action: () => void): void {
   button.addEventListener(
     "touchstart",
     (event) => {
-      if (button.disabled) return;
+      if (button.disabled || !Array.from(event.changedTouches).some(isFingerTouch)) return;
       event.preventDefault();
       action();
     },

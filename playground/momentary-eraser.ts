@@ -6,9 +6,13 @@ export type EraserContact = {
 export type MomentaryEraserEvent =
   | { type: "press"; contact: EraserContact }
   | { type: "canvas-used" }
-  | { type: "contact-released"; contact: EraserContact }
+  | { type: "contact-released"; contact: EraserContact; overButton: boolean }
   | { type: "contact-canceled"; contact: EraserContact }
   | { type: "stroke-ended" };
+
+export function isFingerTouch(touch: object): boolean {
+  return !("touchType" in touch) || touch.touchType !== "stylus";
+}
 
 export class MomentaryEraser {
   #contact: EraserContact | undefined;
@@ -33,7 +37,7 @@ export class MomentaryEraser {
       return;
     }
     if (event.type === "contact-released") {
-      if (!this.matches(event.contact)) return;
+      if (!this.matches(event.contact) || !event.overButton) return;
       const nextTool = this.#used ? "pen" : undefined;
       this.reset();
       return nextTool;

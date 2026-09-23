@@ -1,6 +1,7 @@
 import { expect, test } from "vite-plus/test";
 import {
   type EraserContact,
+  isFingerTouch,
   MomentaryEraser,
   type MomentaryEraserEvent,
 } from "../playground/momentary-eraser.ts";
@@ -48,6 +49,25 @@ test("같은 식별자를 재사용한 펜 종료는 손가락 홀드를 끝내�
   expect(release(hold, finger)).toBe("pen");
 });
 
+test("지우개 아이콘 밖에서 끝난 입력은 손가락 홀드를 끝내지 않는다", () => {
+  const hold = start(finger);
+  hold.handle({ type: "canvas-used" });
+
+  const result = hold.handle({
+    type: "contact-released",
+    contact: finger,
+    overButton: false,
+  });
+
+  expect(result).toBeUndefined();
+  expect(hold.active).toBe(true);
+});
+
+test("스타일러스 Touch 입력은 손가락으로 취급하지 않는다", () => {
+  expect(isFingerTouch({ touchType: "stylus" })).toBe(false);
+  expect(isFingerTouch({ touchType: "direct" })).toBe(true);
+});
+
 function start(contact: EraserContact): MomentaryEraser {
   const hold = new MomentaryEraser();
   expect(hold.handle({ type: "press", contact })).toBe("eraser");
@@ -55,7 +75,7 @@ function start(contact: EraserContact): MomentaryEraser {
 }
 
 function release(hold: MomentaryEraser, contact: EraserContact): "pen" | "eraser" | undefined {
-  return hold.handle({ type: "contact-released", contact });
+  return hold.handle({ type: "contact-released", contact, overButton: true });
 }
 
 function run(hold: MomentaryEraser, ...events: MomentaryEraserEvent[]): void {
