@@ -47,15 +47,36 @@ const editor = createInkEditor(canvas, {
   },
 });
 
-// 펜과 지우개는 버튼 하나를 번갈아 누르며 쓴다. "누르고 있는 동안만 지우개" 같은 순간
+// 펜과 지우개는 버튼 하나를 번갈아 써서 바꾼다. "누르고 있는 동안만 지우개" 같은 순간
 // 전환을 여러 방식으로 시도했지만 이 기기에서는 어느 것도 성립하지 않았다 — 경위는
 // docs/prd/eraser-interaction.md 참고.
 //
+// 전환을 일으키는 입력은 설정에서 고른다. 두 방식을 동시에 켜면 안 된다 — 호버 상태에서
+// 버튼을 탭하면 `pointerenter`와 `pointerdown`이 잇따라 들어와 두 번 뒤집히고 제자리로
+// 돌아온다.
+let toolSwitchMode: "click" | "hover" = "click";
+
+function toggleTool(): void {
+  editor.tool = editor.tool === "eraser" ? "pen" : "eraser";
+  syncButtons();
+}
+
 // 도구를 지정하는 대신 뒤집는 동작이라 멱등이 아니다. 같은 손가락 입력이 `pointerdown`과
 // `touchstart` 양쪽으로 들어오면 두 번 뒤집혀 제자리로 돌아오므로, 중복 호출을 걸러주는
 // `activateOnPress`로 배선해야 한다.
 activateOnPress("tool-toggle", () => {
-  editor.tool = editor.tool === "eraser" ? "pen" : "eraser";
+  if (toolSwitchMode === "click") toggleTool();
+});
+// 포인터가 버튼 영역에 들어오는 순간 전환한다. `pointerenter`는 버블링하지 않고 자식으로
+// 옮겨 다녀도 다시 발생하지 않아, 영역에 "처음 들어온" 시점과 정확히 맞는다.
+toolToggle.addEventListener("pointerenter", () => {
+  if (toolSwitchMode === "hover") toggleTool();
+});
+
+element<HTMLElement>("tool-switch-picker").addEventListener("click", (event) => {
+  const button = buttonFrom(event, "[data-tool-switch]");
+  if (!button) return;
+  toolSwitchMode = button.dataset.toolSwitch === "hover" ? "hover" : "click";
   syncButtons();
 });
 
@@ -259,6 +280,11 @@ function syncButtons(): void {
   toolToggle.setAttribute(
     "aria-label",
     `${erasing ? "지우개" : "펜"} 사용 중. 누르면 ${erasing ? "펜" : "지우개"}으로 바뀝니다`,
+  );
+  press(
+    "tool-switch-picker",
+    "[data-tool-switch]",
+    (button) => button.dataset.toolSwitch === toolSwitchMode,
   );
   press(
     "width-mode-picker",
