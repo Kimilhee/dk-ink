@@ -134,6 +134,10 @@ document.addEventListener("pointermove", (event) => {
   pointerInsideToggle = inside;
 });
 
+// `pickable`은 함수 선언이라 끌어올려지지만 이 배열은 아니다. 첫 호출보다 아래에 두면
+// 호출 시점에 `undefined`라 거기서 모듈 실행이 통째로 멈춘다.
+const pickerSyncs: Array<() => void> = [];
+
 pickable("finger-input-picker", "finger-input", {
   apply: (value) => {
     fingerDrawingEnabled = value === "on";
@@ -305,8 +309,6 @@ function syncButtons(): void {
  * `dataset` 대신 `getAttribute`를 쓰는 이유: 속성명(`data-width-mode`)을 카멜케이스
  * (`widthMode`)로 바꾸는 변환을 두지 않아도 되기 때문이다.
  */
-const pickerSyncs: Array<() => void> = [];
-
 function pickable(
   containerId: string,
   attribute: string,
