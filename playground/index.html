@@ -87,24 +87,14 @@
             <span aria-hidden="true">⠿</span>
           </button>
           <button
+            id="tool-toggle"
             type="button"
-            class="tool-button"
-            data-tool="pen"
-            aria-label="펜"
-            aria-pressed="true"
-            title="펜"
+            class="tool-button tool-toggle"
+            aria-label="펜 사용 중. 누르면 지우개로 바뀝니다"
+            title="펜/지우개 전환"
           >
-            <span class="icon icon-glyph" aria-hidden="true">✎</span>
-          </button>
-          <button
-            type="button"
-            class="tool-button"
-            data-tool="eraser"
-            aria-label="지우개"
-            aria-pressed="false"
-            title="지우개"
-          >
-            <span class="icon icon-eraser" aria-hidden="true"></span>
+            <span class="icon icon-glyph is-active" data-tool="pen" aria-hidden="true">✎</span>
+            <span class="icon icon-eraser" data-tool="eraser" aria-hidden="true"></span>
           </button>
           <span class="toolbar-divider" aria-hidden="true"></span>
           <button

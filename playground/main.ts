@@ -4,7 +4,6 @@ import {
   eraseStrokes,
   InkHistory,
   type InkAction,
-  type InkTool,
   type Stroke,
   type WidthMode,
 } from "../src/index.ts";
@@ -15,13 +14,11 @@ const canvas = element<HTMLCanvasElement>("ink");
 const dumpOutput = element<HTMLPreElement>("dump-output");
 const toolbar = element<HTMLElement>("tool-picker");
 const dragHandle = element<HTMLButtonElement>("toolbar-drag-handle");
-const penButton = toolbar.querySelector<HTMLButtonElement>('[data-tool="pen"]');
-const eraserButton = toolbar.querySelector<HTMLButtonElement>('[data-tool="eraser"]');
+const toolToggle = element<HTMLButtonElement>("tool-toggle");
 const settingsPanel = element<HTMLElement>("settings-panel");
 const settingsToggle = element<HTMLButtonElement>("settings-toggle");
 const toolStatus = element<HTMLElement>("tool-status");
 const debugLog = element<HTMLElement>("debug-log");
-if (!penButton || !eraserButton) throw new Error("Tool buttons are missing");
 element<HTMLElement>("app-version").textContent = `v${packageJson.version}`;
 /**
  * 마지막 [전체 지우기] 이후의 편집. 지우개 제스처까지 순서대로 들어 있다.
@@ -50,11 +47,17 @@ const editor = createInkEditor(canvas, {
   },
 });
 
-// 도구는 토글이다. 누르면 그 도구가 선택된 채로 남고, 다른 도구를 눌러야 바뀐다.
-// "누르고 있는 동안만 지우개" 같은 순간 전환을 여러 방식으로 시도했지만 이 기기에서는
-// 어느 것도 성립하지 않았다 — 경위는 docs/prd/eraser-interaction.md 참고.
-selectToolOnPress(penButton, "pen");
-selectToolOnPress(eraserButton, "eraser");
+// 펜과 지우개는 버튼 하나를 번갈아 누르며 쓴다. "누르고 있는 동안만 지우개" 같은 순간
+// 전환을 여러 방식으로 시도했지만 이 기기에서는 어느 것도 성립하지 않았다 — 경위는
+// docs/prd/eraser-interaction.md 참고.
+//
+// 도구를 지정하는 대신 뒤집는 동작이라 멱등이 아니다. 같은 손가락 입력이 `pointerdown`과
+// `touchstart` 양쪽으로 들어오면 두 번 뒤집혀 제자리로 돌아오므로, 중복 호출을 걸러주는
+// `activateOnPress`로 배선해야 한다.
+activateOnPress("tool-toggle", () => {
+  editor.tool = editor.tool === "eraser" ? "pen" : "eraser";
+  syncButtons();
+});
 
 element<HTMLElement>("width-mode-picker").addEventListener("click", (event) => {
   const button = buttonFrom(event, "[data-width-mode]");
@@ -249,7 +252,14 @@ setStatus("획 0개");
 
 function syncButtons(): void {
   const style = editor.getStyle();
-  press("tool-picker", "[data-tool]", (button) => button.dataset.tool === editor.tool);
+  for (const icon of toolToggle.querySelectorAll<HTMLElement>("[data-tool]")) {
+    icon.classList.toggle("is-active", icon.dataset.tool === editor.tool);
+  }
+  const erasing = editor.tool === "eraser";
+  toolToggle.setAttribute(
+    "aria-label",
+    `${erasing ? "지우개" : "펜"} 사용 중. 누르면 ${erasing ? "펜" : "지우개"}으로 바뀝니다`,
+  );
   press(
     "width-mode-picker",
     "[data-width-mode]",
@@ -319,32 +329,6 @@ function activateOnPress(buttonId: string, action: () => void): void {
   );
   button.addEventListener("click", (event) => {
     if (event.detail === 0) activate();
-  });
-}
-
-/**
- * 도구 선택 버튼. `activateOnPress`와 달리 중복 호출 방어가 없다 — 도구 선택은 멱등이라
- * 같은 입력이 `pointerdown`과 `touchstart` 양쪽으로 들어와도 결과가 같기 때문이다.
- */
-function selectToolOnPress(button: HTMLButtonElement, tool: InkTool): void {
-  const select = () => {
-    editor.tool = tool;
-    syncButtons();
-  };
-  button.addEventListener("pointerdown", (event) => {
-    if (event.button === 0) select();
-  });
-  button.addEventListener(
-    "touchstart",
-    (event) => {
-      event.preventDefault();
-      select();
-    },
-    { passive: false },
-  );
-  // 키보드로 선택했을 때(`detail === 0`)도 같은 도구 상태를 쓸 수 있어야 한다.
-  button.addEventListener("click", (event) => {
-    if (event.detail === 0) select();
   });
 }
 

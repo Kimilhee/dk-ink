@@ -1,7 +1,8 @@
 :root {
   color-scheme: light;
   font-family: system-ui, sans-serif;
-  --active-color: #173f6b;
+  --active-color: #2563eb;
+  --idle-icon-color: #9aa4b2;
 }
 body {
   margin: 0;
@@ -138,6 +139,9 @@ button:disabled {
   background: #99a2af;
   color: #f4f6f9;
 }
+.floating-toolbar.is-pen-near .tool-toggle .icon.is-active {
+  color: #6b7480;
+}
 .floating-toolbar.is-pen-near .toolbar-divider {
   background: #c8cfd8;
 }
@@ -153,6 +157,22 @@ button:disabled {
 }
 .tool-button:hover:not(:disabled):not([aria-pressed="true"]):not([aria-expanded="true"]) {
   background: #edf1f5;
+}
+/* 펜·지우개를 한 버튼에 담고 활성 쪽만 색으로 구분한다. 아이콘이 둘 다 보여야 무엇에서
+   무엇으로 바뀌는지 알 수 있어, 배경을 칠하는 대신 아이콘 색만 바꾼다. */
+.tool-toggle {
+  display: flex;
+  gap: 7px;
+  align-items: center;
+  width: auto;
+  padding: 0 9px;
+}
+.tool-toggle .icon {
+  color: var(--idle-icon-color);
+  transition: color 0.12s ease-out;
+}
+.tool-toggle .icon.is-active {
+  color: var(--active-color);
 }
 .tool-button[aria-pressed="true"],
 .tool-button[aria-expanded="true"] {
