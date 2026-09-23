@@ -252,8 +252,8 @@ setStatus("획 0개");
 
 function syncButtons(): void {
   const style = editor.getStyle();
-  for (const icon of toolToggle.querySelectorAll<HTMLElement>("[data-tool]")) {
-    icon.classList.toggle("is-active", icon.dataset.tool === editor.tool);
+  for (const slot of toolToggle.querySelectorAll<HTMLElement>("[data-tool]")) {
+    slot.classList.toggle("is-active", slot.dataset.tool === editor.tool);
   }
   const erasing = editor.tool === "eraser";
   toolToggle.setAttribute(

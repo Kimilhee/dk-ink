@@ -15,7 +15,7 @@ const DEFAULT_STYLE: InkStyle = {
   color: "#182231",
   strokeWidth: 3,
   widthMode: "pressure",
-  eraserWidth: 24,
+  eraserWidth: 50,
   showEraserCursor: true,
   eraserCursorFill: "rgb(15 118 110 / 12%)",
   eraserCursorStroke: "#0f766e",

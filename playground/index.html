@@ -70,8 +70,8 @@
           <label class="setting-row" for="eraser-width">
             <span class="setting-label">지우개 두께</span>
             <span class="range-control">
-              <input id="eraser-width" type="range" min="8" max="100" step="2" value="24" />
-              <output id="eraser-width-value" for="eraser-width">24px</output>
+              <input id="eraser-width" type="range" min="8" max="100" step="2" value="50" />
+              <output id="eraser-width-value" for="eraser-width">50px</output>
             </span>
           </label>
         </div>
@@ -93,8 +93,12 @@
             aria-label="펜 사용 중. 누르면 지우개로 바뀝니다"
             title="펜/지우개 전환"
           >
-            <span class="icon icon-glyph is-active" data-tool="pen" aria-hidden="true">✎</span>
-            <span class="icon icon-eraser" data-tool="eraser" aria-hidden="true"></span>
+            <span class="tool-slot is-active" data-tool="pen" aria-hidden="true">
+              <span class="icon icon-glyph icon-pen">✎</span>
+            </span>
+            <span class="tool-slot" data-tool="eraser" aria-hidden="true">
+              <span class="icon icon-eraser"></span>
+            </span>
           </button>
           <span class="toolbar-divider" aria-hidden="true"></span>
           <button
@@ -136,21 +140,7 @@
             aria-controls="settings-panel"
             title="도구 설정"
           >
-            <svg
-              class="icon"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="1.5"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              aria-hidden="true"
-            >
-              <circle cx="12" cy="12" r="3.2" />
-              <path
-                d="M12 2.8a1.4 1.4 0 0 1 1.4 1.4v.7a1.4 1.4 0 0 0 2.1 1.2l.6-.35a1.4 1.4 0 0 1 1.9.5l.6 1.05a1.4 1.4 0 0 1-.5 1.9l-.6.35a1.4 1.4 0 0 0 0 2.4l.6.35a1.4 1.4 0 0 1 .5 1.9l-.6 1.05a1.4 1.4 0 0 1-1.9.5l-.6-.35a1.4 1.4 0 0 0-2.1 1.2v.7a1.4 1.4 0 0 1-1.4 1.4h-1.2a1.4 1.4 0 0 1-1.4-1.4v-.7a1.4 1.4 0 0 0-2.1-1.2l-.6.35a1.4 1.4 0 0 1-1.9-.5l-.6-1.05a1.4 1.4 0 0 1 .5-1.9l.6-.35a1.4 1.4 0 0 0 0-2.4l-.6-.35a1.4 1.4 0 0 1-.5-1.9l.6-1.05a1.4 1.4 0 0 1 1.9-.5l.6.35a1.4 1.4 0 0 0 2.1-1.2v-.7A1.4 1.4 0 0 1 10.8 2.8z"
-              />
-            </svg>
+            <span class="icon icon-glyph icon-gear" aria-hidden="true">⚙︎</span>
           </button>
         </div>
       </section>
