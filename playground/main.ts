@@ -9,6 +9,7 @@ import {
   type WidthMode,
 } from "../src/index.ts";
 import packageJson from "../package.json" with { type: "json" };
+import { watchPenHover } from "./pen-hover.ts";
 
 const canvas = element<HTMLCanvasElement>("ink");
 const dumpOutput = element<HTMLPreElement>("dump-output");
@@ -50,12 +51,8 @@ const editor = createInkEditor(canvas, {
 });
 
 // 도구는 토글이다. 누르면 그 도구가 선택된 채로 남고, 다른 도구를 눌러야 바뀐다.
-//
-// 예전에는 "지우개를 손가락으로 누른 채 유지 → 떼면 펜으로 복귀"라는 순간 지우개가 있었는데,
-// 실제 기기(갤럭시탭 P580/P610) 검증에서 그 전제가 깨졌다. 스타일러스가 화면에 근접하면
-// 디지타이저가 이미 눌려 있던 손가락 접촉까지 끊고, 손가락을 실제로 뗄 때 `pointerup`도
-// `pointercancel`도 보내지 않는다. 해제를 관찰할 수 없으면 복귀 조건 자체가 성립하지 않아
-// 그 메커니즘을 걷어냈다. 자세한 검증 결과는 docs/prd/eraser-interaction.md 참고.
+// "누르고 있는 동안만 지우개" 같은 순간 전환을 여러 방식으로 시도했지만 이 기기에서는
+// 어느 것도 성립하지 않았다 — 경위는 docs/prd/eraser-interaction.md 참고.
 selectToolOnPress(penButton, "pen");
 selectToolOnPress(eraserButton, "eraser");
 
@@ -99,115 +96,22 @@ activateOnPress("debug-log-clear", () => {
   debugLog.replaceChildren();
 });
 
-// 스타일러스가 화면에 닿지 않고 근접만 해도(호버) `pointermove`가 `pointerType: "pen"`으로
-// 들어온다. 이 호버가 떠 있는 동안 일부 기기(디지타이저)는 손가락 터치를 화면 어디서든 OS
-// 레벨에서 막아 브라우저까지 보내지 않는다 — 웹 페이지가 고칠 수 없는 기기 동작이다. 막힌
-// 터치 자체는 관찰할 수 없으니, 대신 원인인 호버를 감지해 도구 모음을 회색으로 바꿔 "지금은
-// 손가락이 안 먹는다"를 눈으로 바로 알 수 있게 한다.
-//
-// 펜이 호버 범위를 벗어나면 `pointerout`이 `relatedTarget: null`로 들어온다(엘리먼트 사이를
-// 옮겨 다닐 때는 `relatedTarget`이 다음 엘리먼트를 가리키므로 구분된다). 이걸 들으면 화면에서
-// 포인터가 사라지는 순간에 맞춰 즉시 회색을 풀 수 있다. 타이머는 이 이벤트를 안 보내는 기기를
-// 위한 폴백으로만 남긴다.
-//
-// 단, 펜이 도구 모음 위에 떠 있을 때는 회색으로 만들지 않는다. 회색은 "여기는 지금 누를 수
-// 없다"는 뜻인데, 그 자리의 펜은 실제로 아이콘을 누를 수 있기 때문이다.
-let penNearTimer: ReturnType<typeof setTimeout> | undefined;
-function markPenNear(overToolbar: boolean): void {
-  if (penNearTimer !== undefined) clearTimeout(penNearTimer);
-  toolbar.classList.toggle("is-pen-near", !overToolbar);
-  penNearTimer = setTimeout(() => endPenNear("시간 초과"), 700);
+// 펜이 근접한 동안에는 이 기기에서 손가락 터치가 막히므로 도구 모음을 회색으로 표시한다.
+// 단 펜이 도구 모음 위에 있을 때는 제외한다 — 회색은 "지금 누를 수 없다"는 뜻인데 그 자리의
+// 펜은 실제로 아이콘을 누를 수 있어, 표시가 사실과 어긋나기 때문이다.
+watchPenHover(
+  (event) => containsPoint(toolbar, event.clientX, event.clientY),
+  (near, reason) => {
+    toolbar.classList.toggle("is-pen-near", near);
+    logDebug(
+      near ? "펜 호버 시작 → 손가락 터치가 막힐 수 있음" : `펜 호버 끝(${reason}) → 터치 가능`,
+    );
+  },
+);
+
+for (const type of ["pointerdown", "pointerup", "pointercancel"] as const) {
+  document.addEventListener(type, (event) => logDebug(`${type} ${describePointer(event)}`));
 }
-
-function endPenNear(reason: string): void {
-  if (penNearTimer !== undefined) clearTimeout(penNearTimer);
-  penNearTimer = undefined;
-  if (toolbar.classList.contains("is-pen-near")) {
-    logDebug(`펜 호버 끝(${reason}) → 손가락 터치 가능`);
-  }
-  toolbar.classList.remove("is-pen-near");
-}
-
-function penOverToolbar(event: PointerEvent): boolean {
-  return containsPoint(toolbar, event.clientX, event.clientY);
-}
-
-document.addEventListener("pointermove", (event) => {
-  if (event.pointerType !== "pen") return;
-  if (!toolbar.classList.contains("is-pen-near") && !penOverToolbar(event)) {
-    logDebug("펜 호버 시작 → 손가락 터치가 막힐 수 있음");
-  }
-  markPenNear(penOverToolbar(event));
-});
-document.addEventListener("pointerout", (event) => {
-  if (event.pointerType !== "pen" || event.relatedTarget !== null) return;
-  endPenNear("pointerout");
-  // 펜이 호버 범위를 벗어나면 버튼 상태를 더 볼 수 없다. 눌린 채로 기억해 두면 다음에
-  // 돌아올 때 뗀 것으로 오인해 도구가 멋대로 바뀌므로 여기서 잊는다.
-  penContact = false;
-  sideButtonDown = false;
-});
-document.addEventListener("pointerdown", (event) => {
-  logDebug(`pointerdown ${describeButtons(event)}`);
-  if (event.pointerType !== "pen") return;
-  penContact = true;
-  markPenNear(penOverToolbar(event));
-});
-document.addEventListener("pointerup", (event) => {
-  logDebug(`pointerup ${describeButtons(event)}`);
-  if (event.pointerType !== "pen") return;
-  penContact = false;
-  markPenNear(penOverToolbar(event));
-});
-document.addEventListener("pointercancel", (event) => {
-  logDebug(`pointercancel ${describeButtons(event)}`);
-  if (event.pointerType === "pen") penContact = false;
-});
-
-/**
- * S펜 측면 버튼으로 도구를 바꾼다. 버튼을 **클릭**(눌렀다 뗌)하면 펜↔지우개가 토글된다.
- *
- * "버튼을 누른 채 지우고 떼면 복귀"가 더 자연스럽겠지만 이 기기에서는 불가능하다.
- * 측면 버튼이 `buttons` 비트 1을 차지하는데 이건 화면 접촉과 **같은 비트**라, 버튼을
- * 누른 상태에서는 화면에 닿아도 `buttons` 값이 1에서 바뀌지 않는다. 그러면 브라우저가
- * `pointerdown`을 발생시키지 않아 획 자체가 시작되지 않는다 — 버튼을 누르고 있는 동안은
- * 그리기도 지우기도 되지 않는다는 뜻이다.
- *
- * 그래서 누르고 있는 동안이 아니라 버튼을 **뗀 순간** 도구를 바꾼다. 손가락을 전혀 쓰지
- * 않으므로, 스타일러스 호버 중 손가락 터치가 막히는 이 기기의 제약과 무관하다.
- *
- * 호버 중(`pressure === 0`)일 때만 버튼으로 판정한다. 화면에 닿아 그리는 중에는 비트 1이
- * 접촉 때문에 서 있으므로, 이걸 버튼으로 오인하면 획을 끝낼 때마다 도구가 바뀐다.
- */
-let penContact = false;
-let sideButtonDown = false;
-
-function trackSideButton(event: PointerEvent): void {
-  const pressed = (event.buttons & 1) !== 0 && event.pressure === 0 && !penContact;
-  if (pressed === sideButtonDown) return;
-  sideButtonDown = pressed;
-  if (pressed) return;
-
-  // 뗀 순간 전환한다. 누른 순간에 바꾸면, 버튼을 누르고 있는 동안은 어차피 쓸 수 없는
-  // 도구가 선택된 채로 기다리게 된다.
-  editor.tool = editor.tool === "eraser" ? "pen" : "eraser";
-  syncButtons();
-  logDebug(`측면 버튼 클릭 → ${editor.tool === "eraser" ? "지우개" : "펜"}`);
-}
-
-let lastPenButtons = 0;
-document.addEventListener("pointermove", (event) => {
-  if (event.pointerType !== "pen") return;
-  if (event.buttons !== lastPenButtons) {
-    lastPenButtons = event.buttons;
-    logDebug(`펜 버튼 변화 ${describeButtons(event)}`);
-  }
-  trackSideButton(event);
-});
-// 측면 버튼이 Pointer Events 대신 컨텍스트 메뉴로 빠지는 기기도 있어 함께 살펴본다.
-document.addEventListener("contextmenu", (event) => {
-  logDebug(`contextmenu (기본 동작 유지) target=${describeTarget(event.target)}`);
-});
 
 document.addEventListener(
   "pointerdown",
@@ -383,27 +287,9 @@ function logDebug(message: string): void {
   debugLog.scrollTop = debugLog.scrollHeight;
 }
 
-/**
- * `buttons`는 비트마스크다: 1=접촉/주버튼, 2=측면(barrel) 버튼, 32=지우개 팁.
- * 어느 비트가 섰는지 이름으로 같이 보여줘야 로그만 보고 판단할 수 있다.
- */
-function describeButtons(event: PointerEvent): string {
-  const names = [
-    [1, "접촉"],
-    [2, "측면버튼"],
-    [4, "가운데"],
-    [32, "지우개팁"],
-  ] as const;
-  const active = names.filter(([bit]) => event.buttons & bit).map(([, name]) => name);
-  const decoded = active.length > 0 ? ` [${active.join("+")}]` : "";
-  // `pressure`가 0이면 화면에 닿지 않은 호버 상태다 — 접촉과 측면 버튼을 가르는 기준이다.
-  const pressure = event.pressure.toFixed(2);
-  return `${event.pointerType} id=${event.pointerId} button=${event.button} buttons=${event.buttons}${decoded} p=${pressure}`;
-}
-
-function describeTarget(target: EventTarget | null): string {
-  if (!(target instanceof Element)) return "?";
-  return target.id || target.className || target.tagName.toLowerCase();
+/** `p`(pressure)가 0이면 화면에 닿지 않은 호버 상태다. */
+function describePointer(event: PointerEvent): string {
+  return `${event.pointerType} id=${event.pointerId} p=${event.pressure.toFixed(2)}`;
 }
 
 function activateOnPress(buttonId: string, action: () => void): void {
