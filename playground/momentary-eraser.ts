@@ -1,7 +1,6 @@
 export class MomentaryEraser {
   #pointerId: number | undefined;
   #used = false;
-  #canceled = false;
 
   get active(): boolean {
     return this.#pointerId !== undefined;
@@ -10,7 +9,10 @@ export class MomentaryEraser {
   start(pointerId: number): void {
     this.#pointerId = pointerId;
     this.#used = false;
-    this.#canceled = false;
+  }
+
+  matches(pointerId: number): boolean {
+    return pointerId === this.#pointerId;
   }
 
   use(): void {
@@ -24,18 +26,13 @@ export class MomentaryEraser {
     return restorePen;
   }
 
-  cancel(pointerId: number): boolean {
-    if (pointerId !== this.#pointerId) return false;
-    this.#canceled = true;
-    if (!this.#used) return false;
-    this.#reset();
-    return true;
+  cancel(pointerId: number): void {
+    if (!this.matches(pointerId)) return;
+    // 취소는 손가락을 뗐다는 뜻이 아니다. 실제 release까지 지우개를 유지한다.
   }
 
   finishErase(): boolean {
-    if (!this.#canceled || !this.#used) return false;
-    this.#reset();
-    return true;
+    return false;
   }
 
   reset(): void {
@@ -45,6 +42,5 @@ export class MomentaryEraser {
   #reset(): void {
     this.#pointerId = undefined;
     this.#used = false;
-    this.#canceled = false;
   }
 }

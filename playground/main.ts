@@ -57,14 +57,24 @@ toolbar.addEventListener("click", (event) => {
 });
 
 penButton.addEventListener("pointerdown", (event) => {
-  if (event.button !== 0) return;
+  if (event.button !== 0 || event.pointerType === "touch") return;
   momentaryEraser.reset();
   editor.tool = "pen";
   syncButtons();
 });
+penButton.addEventListener(
+  "touchstart",
+  (event) => {
+    event.preventDefault();
+    momentaryEraser.reset();
+    editor.tool = "pen";
+    syncButtons();
+  },
+  { passive: false },
+);
 
 eraserButton.addEventListener("pointerdown", (event) => {
-  if (event.button !== 0) return;
+  if (event.button !== 0 || event.pointerType === "touch") return;
   momentaryEraser.start(event.pointerId);
   editor.tool = "eraser";
   syncButtons();
@@ -74,16 +84,32 @@ eraserButton.addEventListener("pointerdown", (event) => {
     // 펜 입력과 동시에 손가락 포인터가 취소되어도 지우개 선택은 유지한다.
   }
 });
+eraserButton.addEventListener(
+  "touchstart",
+  (event) => {
+    const touch = event.changedTouches[0];
+    if (!touch) return;
+    event.preventDefault();
+    momentaryEraser.start(touch.identifier);
+    editor.tool = "eraser";
+    syncButtons();
+  },
+  { passive: false },
+);
 
 canvas.addEventListener("pointerdown", () => {
   momentaryEraser.use();
 });
 
-eraserButton.addEventListener("pointerup", finishEraserHold);
+eraserButton.addEventListener("pointerup", (event) => {
+  if (event.pointerType !== "touch") finishEraserHold(event.pointerId);
+});
 eraserButton.addEventListener("pointercancel", (event) => {
-  if (!momentaryEraser.cancel(event.pointerId)) return;
-  editor.tool = "pen";
-  syncButtons();
+  if (event.pointerType !== "touch") momentaryEraser.cancel(event.pointerId);
+});
+window.addEventListener("touchend", finishFingerEraserHold, { capture: true });
+window.addEventListener("touchcancel", () => {
+  // 팜 리젝션의 취소는 손가락을 뗀 신호가 아니므로 상태를 바꾸지 않는다.
 });
 
 element<HTMLElement>("width-mode-picker").addEventListener("click", (event) => {
@@ -121,9 +147,7 @@ activateOnPress("clear", () => {
 activateOnPress("settings-toggle", () => {
   setSettingsOpen(settingsPanel.hasAttribute("hidden"));
 });
-element<HTMLButtonElement>("settings-close").addEventListener("click", () =>
-  setSettingsOpen(false),
-);
+activateOnPress("settings-close", () => setSettingsOpen(false));
 
 document.addEventListener(
   "pointerdown",
@@ -279,17 +303,34 @@ function syncButtons(): void {
   element<HTMLButtonElement>("replay").disabled = replaying || actions.length === 0;
 }
 
-function finishEraserHold(event: PointerEvent): void {
-  if (!momentaryEraser.release(event.pointerId)) return;
+function finishEraserHold(pointerId: number): void {
+  if (!momentaryEraser.release(pointerId)) return;
   editor.tool = "pen";
   syncButtons();
+}
+
+function finishFingerEraserHold(event: TouchEvent): void {
+  for (const touch of event.changedTouches) {
+    if (!momentaryEraser.matches(touch.identifier)) continue;
+    finishEraserHold(touch.identifier);
+    return;
+  }
 }
 
 function activateOnPress(buttonId: string, action: () => void): void {
   const button = element<HTMLButtonElement>(buttonId);
   button.addEventListener("pointerdown", (event) => {
-    if (event.button === 0 && !button.disabled) action();
+    if (event.button === 0 && event.pointerType !== "touch" && !button.disabled) action();
   });
+  button.addEventListener(
+    "touchstart",
+    (event) => {
+      if (button.disabled) return;
+      event.preventDefault();
+      action();
+    },
+    { passive: false },
+  );
   button.addEventListener("click", (event) => {
     if (event.detail === 0 && !button.disabled) action();
   });
