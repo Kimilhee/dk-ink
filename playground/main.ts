@@ -64,7 +64,7 @@ toolbar.addEventListener("click", (event) => {
 });
 
 penButton.addEventListener("pointerdown", (event) => {
-  if (event.button !== 0 || event.pointerType === "touch") return;
+  if (event.button !== 0) return;
   momentaryEraser.reset();
   editor.tool = "pen";
   syncButtons();
@@ -80,12 +80,21 @@ penButton.addEventListener(
   { passive: false },
 );
 
+// 지우개 버튼의 누름·뗌은 Pointer Events와 Touch Events 양쪽에서 들어온다.
+// 스타일러스가 두 이벤트를 동시에 내는 기기가 있는가 하면, 손가락의 `touchstart`가
+// 유독 전달되지 않는 기기도 있다. 하나만 믿으면 어느 쪽 기기에서든 깨지므로 둘 다
+// 받아들인다 — 상태 모듈의 `press`/`contact-released` 처리는 중복 호출에도
+// 안전하도록 만들어져 있다 (`press`는 그대로 덮어쓰고, 해제는 `matches()`가 이미
+// 끝난 접촉을 걸러낸다).
+function contactFromPointer(event: PointerEvent): EraserContact {
+  return event.pointerType === "touch"
+    ? { source: "finger", id: event.pointerId }
+    : { source: "pointer", id: event.pointerId };
+}
+
 eraserButton.addEventListener("pointerdown", (event) => {
-  if (event.button !== 0 || event.pointerType === "touch") return;
-  applyMomentaryEraser({
-    type: "press",
-    contact: { source: "pointer", id: event.pointerId },
-  });
+  if (event.button !== 0) return;
+  applyMomentaryEraser({ type: "press", contact: contactFromPointer(event) });
   try {
     eraserButton.setPointerCapture(event.pointerId);
   } catch {
@@ -111,20 +120,13 @@ canvas.addEventListener("pointerdown", () => {
 });
 
 eraserButton.addEventListener("pointerup", (event) => {
-  if (event.pointerType !== "touch") {
-    finishEraserHold(
-      { source: "pointer", id: event.pointerId },
-      containsPoint(eraserButton, event.clientX, event.clientY),
-    );
-  }
+  finishEraserHold(
+    contactFromPointer(event),
+    containsPoint(eraserButton, event.clientX, event.clientY),
+  );
 });
 eraserButton.addEventListener("pointercancel", (event) => {
-  if (event.pointerType !== "touch") {
-    applyMomentaryEraser({
-      type: "contact-canceled",
-      contact: { source: "pointer", id: event.pointerId },
-    });
-  }
+  applyMomentaryEraser({ type: "contact-canceled", contact: contactFromPointer(event) });
 });
 window.addEventListener("touchend", finishFingerEraserHold, { capture: true });
 window.addEventListener("touchcancel", (event) => {
@@ -362,20 +364,31 @@ function applyMomentaryEraser(event: MomentaryEraserEvent): void {
 
 function activateOnPress(buttonId: string, action: () => void): void {
   const button = element<HTMLButtonElement>(buttonId);
+  // 스타일러스는 `pointerdown`과 `touchstart`를 모두 발생시킨다. 손가락만 걸러내면
+  // 스타일러스가 어느 쪽에서도 안 걸리는 기기가 생기므로, 둘 다 받아들이는 대신
+  // 같은 입력이 두 번 들어와도 한 번만 반응하도록 짧게 잠근다.
+  let lastActivated = 0;
+  const activate = () => {
+    if (button.disabled) return;
+    const now = performance.now();
+    if (now - lastActivated < 500) return;
+    lastActivated = now;
+    action();
+  };
   button.addEventListener("pointerdown", (event) => {
-    if (event.button === 0 && event.pointerType !== "touch" && !button.disabled) action();
+    if (event.button === 0 && event.pointerType !== "touch") activate();
   });
   button.addEventListener(
     "touchstart",
     (event) => {
-      if (button.disabled || !Array.from(event.changedTouches).some(isFingerTouch)) return;
+      if (button.disabled) return;
       event.preventDefault();
-      action();
+      activate();
     },
     { passive: false },
   );
   button.addEventListener("click", (event) => {
-    if (event.detail === 0 && !button.disabled) action();
+    if (event.detail === 0) activate();
   });
 }
 
