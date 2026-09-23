@@ -24,6 +24,7 @@ const penButton = toolbar.querySelector<HTMLButtonElement>('[data-tool="pen"]');
 const eraserButton = toolbar.querySelector<HTMLButtonElement>('[data-tool="eraser"]');
 const settingsPanel = element<HTMLElement>("settings-panel");
 const settingsToggle = element<HTMLButtonElement>("settings-toggle");
+const penHoverTip = element<HTMLElement>("pen-hover-tip");
 if (!penButton || !eraserButton) throw new Error("Tool buttons are missing");
 element<HTMLElement>("app-version").textContent = `v${packageJson.version}`;
 /**
@@ -187,6 +188,21 @@ activateOnPress("settings-toggle", () => {
   setSettingsOpen(settingsPanel.hasAttribute("hidden"));
 });
 activateOnPress("settings-close", () => setSettingsOpen(false));
+activateOnPress("pen-hover-tip-close", () => {
+  penHoverTip.hidden = true;
+});
+
+// 스타일러스가 화면에 닿지 않고 근접만 해도(호버) `pointermove`가 `pointerType: "pen"`,
+// `buttons: 0`으로 들어온다. 이 호버 표시가 떠 있는 동안 일부 기기(디지타이저)는 손가락
+// 터치 자체를 OS 레벨에서 브라우저까지 보내지 않는다 — 막힌 터치는 관찰할 수 없으니, 대신
+// 원인인 호버 자체를 감지해서 세션당 한 번만 안내한다. 획 사이사이 펜을 들 때마다 계속
+// 호버가 뜨므로, 매번 띄우면 정상적인 필기 중에도 계속 거슬린다.
+let penHoverTipShown = false;
+document.addEventListener("pointermove", (event) => {
+  if (penHoverTipShown || event.pointerType !== "pen" || event.buttons !== 0) return;
+  penHoverTipShown = true;
+  penHoverTip.hidden = false;
+});
 
 document.addEventListener(
   "pointerdown",

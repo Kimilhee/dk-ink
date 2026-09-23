@@ -12,6 +12,16 @@
         <output id="status">획 0개</output>
       </header>
 
+      <div id="pen-hover-tip" class="pen-hover-tip" role="status" hidden>
+        <span
+          >스타일러스가 화면 가까이 있으면 손가락 터치가 잘 안 먹을 수 있어요. 도구를 바꿀 땐 펜으로
+          아이콘을 탭해보세요.</span
+        >
+        <button id="pen-hover-tip-close" type="button" aria-label="안내 닫기" title="안내 닫기">
+          ×
+        </button>
+      </div>
+
       <div class="actions">
         <button id="dump" type="button">획 JSON 보기</button>
         <button id="replay" type="button" disabled>재생</button>
