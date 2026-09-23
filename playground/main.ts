@@ -13,6 +13,7 @@ const settingsToggle = element<HTMLButtonElement>("settings-toggle");
 const toolStatus = element<HTMLElement>("tool-status");
 const debugLog = element<HTMLElement>("debug-log");
 element<HTMLElement>("app-version").textContent = `v${packageJson.version}`;
+
 let toolbarDrag: { pointerId: number; offsetX: number; offsetY: number } | undefined;
 
 /**
@@ -130,45 +131,30 @@ document.addEventListener("pointermove", (event) => {
   pointerInsideToggle = inside;
 });
 
-element<HTMLElement>("finger-input-picker").addEventListener("click", (event) => {
-  const button = buttonFrom(event, "[data-finger-input]");
-  if (!button) return;
-  fingerDrawingEnabled = button.dataset.fingerInput === "on";
-  syncButtons();
-  saveSettings();
+pickable("finger-input-picker", "finger-input", {
+  apply: (value) => {
+    fingerDrawingEnabled = value === "on";
+  },
+  current: () => (fingerDrawingEnabled ? "on" : "off"),
 });
-
-element<HTMLElement>("tool-switch-picker").addEventListener("click", (event) => {
-  const button = buttonFrom(event, "[data-tool-switch]");
-  if (!button) return;
-  toolSwitchMode = button.dataset.toolSwitch === "hover" ? "hover" : "click";
-  syncButtons();
-  saveSettings();
+pickable("tool-switch-picker", "tool-switch", {
+  apply: (value) => {
+    toolSwitchMode = value === "hover" ? "hover" : "click";
+  },
+  current: () => toolSwitchMode,
 });
-
-element<HTMLElement>("color-picker").addEventListener("click", (event) => {
-  const button = buttonFrom(event, "[data-color]");
-  if (!button?.dataset.color) return;
-  // 이미 그린 획은 자기 색을 들고 있어 여기서 바뀌지 않는다. 앞으로 그릴 획에만 적용된다.
-  editor.setStyle({ color: button.dataset.color });
-  syncButtons();
-  saveSettings();
+// 이미 그린 획은 자기 색을 들고 있어 여기서 바뀌지 않는다. 앞으로 그릴 획에만 적용된다.
+pickable("color-picker", "color", {
+  apply: (value) => editor.setStyle({ color: value }),
+  current: () => editor.getStyle().color,
 });
-
-element<HTMLElement>("width-mode-picker").addEventListener("click", (event) => {
-  const button = buttonFrom(event, "[data-width-mode]");
-  if (!button) return;
-  editor.setStyle({ widthMode: button.dataset.widthMode as WidthMode });
-  syncButtons();
-  saveSettings();
+pickable("width-mode-picker", "width-mode", {
+  apply: (value) => editor.setStyle({ widthMode: value as WidthMode }),
+  current: () => editor.getStyle().widthMode,
 });
-
-element<HTMLElement>("stroke-width-picker").addEventListener("click", (event) => {
-  const button = buttonFrom(event, "[data-stroke-width]");
-  if (!button) return;
-  editor.setStyle({ strokeWidth: Number(button.dataset.strokeWidth) });
-  syncButtons();
-  saveSettings();
+pickable("stroke-width-picker", "stroke-width", {
+  apply: (value) => editor.setStyle({ strokeWidth: Number(value) }),
+  current: () => String(editor.getStyle().strokeWidth),
 });
 
 element<HTMLInputElement>("eraser-width").addEventListener("input", (event) => {
@@ -270,11 +256,11 @@ window.addEventListener("resize", () => {
   const toolbarBounds = toolbar.getBoundingClientRect();
   positionToolbar(toolbarBounds.left - stageBounds.left, toolbarBounds.top - stageBounds.top);
 });
+
 element<HTMLButtonElement>("dump").addEventListener("click", () => {
-  const strokes = editor.getStrokes();
   dumpOutput.hidden = false;
   dumpOutput.textContent = JSON.stringify(
-    strokes.map((stroke) => ({
+    editor.getStrokes().map((stroke) => ({
       style: stroke.style,
       points: stroke.points.map((point) => ({
         x: Math.round(point.x),
@@ -293,40 +279,53 @@ setStatus("획 0개");
 
 function syncButtons(): void {
   const style = editor.getStyle();
+  const erasing = editor.tool === "eraser";
   for (const slot of toolToggle.querySelectorAll<HTMLElement>("[data-tool]")) {
     slot.classList.toggle("is-active", slot.dataset.tool === editor.tool);
   }
-  const erasing = editor.tool === "eraser";
   toolToggle.setAttribute(
     "aria-label",
     `${erasing ? "지우개" : "펜"} 사용 중. 누르면 ${erasing ? "펜" : "지우개"}으로 바뀝니다`,
   );
-  press(
-    "finger-input-picker",
-    "[data-finger-input]",
-    (button) => (button.dataset.fingerInput === "on") === fingerDrawingEnabled,
-  );
-  press(
-    "tool-switch-picker",
-    "[data-tool-switch]",
-    (button) => button.dataset.toolSwitch === toolSwitchMode,
-  );
-  press("color-picker", "[data-color]", (button) => button.dataset.color === style.color);
-  press(
-    "width-mode-picker",
-    "[data-width-mode]",
-    (button) => button.dataset.widthMode === style.widthMode,
-  );
-  press(
-    "stroke-width-picker",
-    "[data-stroke-width]",
-    (button) => Number(button.dataset.strokeWidth) === style.strokeWidth,
-  );
+  for (const sync of pickerSyncs) sync();
   element<HTMLInputElement>("eraser-width").value = String(style.eraserWidth);
   element<HTMLOutputElement>("eraser-width-value").value = `${style.eraserWidth}px`;
   element<HTMLButtonElement>("undo").disabled = !editor.canUndo;
   element<HTMLButtonElement>("redo").disabled = !editor.canRedo;
-  toolStatus.textContent = `도구: ${editor.tool === "eraser" ? "지우개" : "펜"}`;
+  toolStatus.textContent = `도구: ${erasing ? "지우개" : "펜"}`;
+}
+
+/**
+ * 값 하나를 고르는 버튼 묶음(색·두께·필기 방식…)을 배선한다. 어느 묶음이든 하는 일이 같다
+ * — 눌린 버튼의 `data-*` 값을 읽어 적용하고, 현재 값과 같은 버튼에 `aria-pressed`를 켠다.
+ *
+ * `dataset` 대신 `getAttribute`를 쓰는 이유: 속성명(`data-width-mode`)을 카멜케이스
+ * (`widthMode`)로 바꾸는 변환을 두지 않아도 되기 때문이다.
+ */
+const pickerSyncs: Array<() => void> = [];
+
+function pickable(
+  containerId: string,
+  attribute: string,
+  handlers: { apply: (value: string) => void; current: () => string },
+): void {
+  const container = element<HTMLElement>(containerId);
+  const selector = `[data-${attribute}]`;
+  const valueOf = (button: Element) => button.getAttribute(`data-${attribute}`);
+
+  container.addEventListener("click", (event) => {
+    const value = (event.target as HTMLElement).closest(selector);
+    if (!value) return;
+    handlers.apply(valueOf(value) ?? "");
+    syncButtons();
+    saveSettings();
+  });
+
+  pickerSyncs.push(() => {
+    for (const button of container.querySelectorAll(selector)) {
+      button.setAttribute("aria-pressed", String(valueOf(button) === handlers.current()));
+    }
+  });
 }
 
 function containsPoint(element: HTMLElement, x: number, y: number): boolean {
@@ -403,22 +402,6 @@ function finishToolbarDrag(event: PointerEvent): void {
   if (!toolbarDrag || event.pointerId !== toolbarDrag.pointerId) return;
   toolbarDrag = undefined;
   toolbar.classList.remove("is-dragging");
-}
-
-function press(
-  containerId: string,
-  selector: string,
-  active: (button: HTMLButtonElement) => boolean,
-): void {
-  for (const button of element<HTMLElement>(containerId).querySelectorAll<HTMLButtonElement>(
-    selector,
-  )) {
-    button.setAttribute("aria-pressed", String(active(button)));
-  }
-}
-
-function buttonFrom(event: Event, selector: string): HTMLButtonElement | null {
-  return (event.target as HTMLElement).closest<HTMLButtonElement>(selector);
 }
 
 function setStatus(value: string): void {
