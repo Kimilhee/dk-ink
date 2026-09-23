@@ -10,11 +10,13 @@ body {
   color: #182231;
 }
 main {
-  max-width: 760px;
-  margin: 0 auto;
-  padding: 16px;
   display: flex;
   flex-direction: column;
+  box-sizing: border-box;
+  /* `dvh`는 모바일 주소창이 접히고 펴질 때까지 반영한다. 지원하지 않으면 앞줄이 쓰인다. */
+  height: 100vh;
+  height: 100dvh;
+  padding: 16px;
   gap: 12px;
 }
 header {
@@ -92,13 +94,14 @@ button:disabled {
 }
 .canvas-stage {
   position: relative;
+  flex: 1;
+  /* flex 항목의 기본 `min-height: auto`를 풀어야 내용이 아니라 남은 공간에 맞춰 줄어든다. */
+  min-height: 0;
 }
 #ink {
   display: block;
   width: 100%;
-  height: 420px;
-  border: 1px solid #dde3ea;
-  border-radius: 16px;
+  height: 100%;
   background-image:
     linear-gradient(#edf1f5 1px, transparent 1px),
     linear-gradient(90deg, #edf1f5 1px, transparent 1px);
@@ -122,28 +125,22 @@ button:disabled {
   touch-action: none;
   transform: translateY(-50%);
   user-select: none;
-  transition: filter 0.15s ease-out;
 }
 /* 스타일러스가 화면 근처에 있으면 일부 기기는 손가락 터치를 아예 안 받는다(기기/OS 동작,
-   웹 페이지가 고칠 수 없음). 그 상태를 색으로 바로 알 수 있게 도구 모음을 흑백 처리한다 —
+   웹 페이지가 고칠 수 없음). 그 상태를 아이콘 색으로만 알린다 — 도구 모음의 배경은 그대로
+   둔다. 판 전체가 물드는 것보다 아이콘만 죽는 편이 덜 거슬리면서 신호는 충분하다.
    펜으로는 여전히 눌린다, 눈으로 보이는 신호만 바뀐다. */
-.floating-toolbar.is-pen-near {
-  border-color: #d5dae1;
-  background: #e6e9ee;
-  color: #5b6472;
+.floating-toolbar.is-pen-near .icon {
+  color: var(--idle-icon-color);
 }
 /* 선택된 도구의 파란 강조도 회색으로 낮춘다. 안 그러면 "지금 못 누른다"는 신호 위에
-   평소와 같은 강조색이 남아 상태가 섞여 보인다. */
-.floating-toolbar.is-pen-near .tool-button[aria-pressed="true"],
-.floating-toolbar.is-pen-near .tool-button[aria-expanded="true"] {
-  background: #99a2af;
-  color: #f4f6f9;
-}
+   평소와 같은 강조색이 남아 상태가 섞여 보인다. 활성은 진한 회색으로 남겨 비활성과의
+   구분은 유지한다. */
 .floating-toolbar.is-pen-near .tool-toggle .icon.is-active {
-  color: #6b7480;
+  color: #5b6472;
 }
-.floating-toolbar.is-pen-near .toolbar-divider {
-  background: #c8cfd8;
+.floating-toolbar.is-pen-near .tool-button[aria-expanded="true"] {
+  background: #dde3ea;
 }
 .tool-button {
   display: grid;
@@ -155,7 +152,7 @@ button:disabled {
   border-radius: 9px;
   background: transparent;
 }
-.tool-button:hover:not(:disabled):not([aria-pressed="true"]):not([aria-expanded="true"]) {
+.tool-button:hover:not(:disabled):not([aria-expanded="true"]) {
   background: #edf1f5;
 }
 /* 펜·지우개를 한 버튼에 담고 활성 쪽만 색으로 구분한다. 아이콘이 둘 다 보여야 무엇에서
@@ -169,12 +166,10 @@ button:disabled {
 }
 .tool-toggle .icon {
   color: var(--idle-icon-color);
-  transition: color 0.12s ease-out;
 }
 .tool-toggle .icon.is-active {
   color: var(--active-color);
 }
-.tool-button[aria-pressed="true"],
 .tool-button[aria-expanded="true"] {
   background: var(--active-color);
   color: #fff;
@@ -216,6 +211,7 @@ button:disabled {
   display: block;
   width: 20px;
   height: 20px;
+  transition: color 0.12s ease-out;
 }
 .icon-glyph {
   font-family: Arial, sans-serif;
@@ -229,7 +225,8 @@ button:disabled {
 .icon-eraser {
   width: 18px;
   height: 12px;
-  border: 2px solid currentColor;
+  /* 펜 글리프(✎)의 획이 가늘어서 2px면 지우개만 뭉툭해 보인다. */
+  border: 1.5px solid currentColor;
   border-radius: 2px;
   transform: rotate(-42deg);
 }
@@ -237,7 +234,7 @@ button:disabled {
   position: absolute;
   top: -2px;
   right: 3px;
-  width: 2px;
+  width: 1.5px;
   height: 12px;
   background: currentColor;
   content: "";
@@ -384,10 +381,6 @@ button:disabled {
 @media (max-width: 560px) {
   main {
     padding: 12px;
-  }
-  #ink {
-    height: 58vh;
-    min-height: 360px;
   }
   .floating-toolbar {
     left: 12px;
