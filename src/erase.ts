@@ -17,37 +17,50 @@ export function eraseStrokes(
   let changed = false;
 
   for (const stroke of strokes) {
-    if (!intersectsEraser(stroke, from, to, radius)) {
+    if (!intersectsEraser(stroke.points, from, to, radius)) {
       output.push(stroke);
       continue;
     }
     changed = true;
-    output.push(...splitOutsideEraser(stroke, from, to, radius));
+    // 쪼개진 조각은 원래 획을 이어받은 것이므로 그릴 때 쓴 속성도 그대로 물려받는다.
+    for (const points of splitOutsideEraser(stroke.points, from, to, radius)) {
+      output.push({ points, style: { ...stroke.style } });
+    }
   }
   return { strokes: output, changed };
 }
 
-function intersectsEraser(stroke: Stroke, from: Point, to: Point, radius: number): boolean {
-  if (stroke.length === 1) return distanceToSegment(stroke[0], from, to) <= radius;
-  for (let index = 1; index < stroke.length; index += 1) {
-    if (segmentDistance(stroke[index - 1], stroke[index], from, to) <= radius) return true;
+function intersectsEraser(
+  points: readonly InkPoint[],
+  from: Point,
+  to: Point,
+  radius: number,
+): boolean {
+  if (points.length === 1) return distanceToSegment(points[0], from, to) <= radius;
+  for (let index = 1; index < points.length; index += 1) {
+    if (segmentDistance(points[index - 1], points[index], from, to) <= radius) return true;
   }
   return false;
 }
 
-function splitOutsideEraser(stroke: Stroke, from: Point, to: Point, radius: number): Stroke[] {
-  if (stroke.length === 1) return [];
-  const sampled: Stroke = [stroke[0]];
-  for (let index = 1; index < stroke.length; index += 1) {
-    const start = stroke[index - 1];
-    const end = stroke[index];
+function splitOutsideEraser(
+  points: readonly InkPoint[],
+  from: Point,
+  to: Point,
+  radius: number,
+): InkPoint[][] {
+  if (points.length === 1) return [];
+  const sampled: InkPoint[] = [points[0]];
+  for (let index = 1; index < points.length; index += 1) {
+    const start = points[index - 1];
+    const end = points[index];
     const steps = Math.max(1, Math.ceil(Math.hypot(end.x - start.x, end.y - start.y) / 1.5));
     for (let step = 1; step <= steps; step += 1)
       sampled.push(interpolate(start, end, step / steps));
   }
 
-  const fragments: Stroke[] = [];
-  let fragment: Stroke = [];
+  const fragments: InkPoint[][] = [];
+  let fragment: InkPoint[] = [];
   for (const point of sampled) {
     if (distanceToSegment(point, from, to) > radius) {
       fragment.push(point);

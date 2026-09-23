@@ -17,8 +17,26 @@ export interface InkPoint extends Point {
   pressure?: number;
 }
 
-/** 펜을 대고 뗄 때까지의 점 배열. 전부 JSON 직렬화 가능하다. */
-export type Stroke = InkPoint[];
+/**
+ * 획 하나에 고정되는 그리기 속성.
+ *
+ * 전역 스타일과 따로 두는 이유: 이미 그린 획은 나중에 색이나 굵기를 바꿔도 그대로여야
+ * 한다. 사람이 그때 그 펜으로 쓴 것이기 때문이다.
+ */
+export interface StrokeStyle {
+  color: string;
+  /** 획 굵기(px). `pressure` 모드에서는 최대 굵기다. */
+  strokeWidth: number;
+  widthMode: WidthMode;
+  /** 0~1. 1이면 불투명하다. */
+  opacity: number;
+}
+
+/** 펜을 대고 뗄 때까지의 점과, 그릴 때 쓴 속성. 전부 JSON 직렬화 가능하다. */
+export interface Stroke {
+  points: InkPoint[];
+  style: StrokeStyle;
+}
 
 export type InkTool = "pen" | "eraser";
 
@@ -46,12 +64,15 @@ export type InkAction =
 
 export type InkActionType = InkAction["type"];
 
+/** 앞으로 그릴 획에 쓸 설정. 이미 그린 획에는 영향을 주지 않는다. */
 export interface InkStyle {
   /** 잉크 색. Canvas에 그대로 넘긴다. */
   color: string;
   /** 획 굵기(px). `pressure` 모드에서는 최대 굵기다. */
   strokeWidth: number;
   widthMode: WidthMode;
+  /** 잉크 불투명도(0~1). 1보다 작으면 겹쳐 쓴 글씨가 비친다. */
+  opacity: number;
   /** 지우개 지름(px). */
   eraserWidth: number;
   /** 지우는 동안 커서 원을 그린다. 펜을 떼면 사라진다. */

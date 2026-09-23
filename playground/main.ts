@@ -43,6 +43,7 @@ const SETTINGS_KEY = "dk-ink-playground-settings";
 type StoredSettings = {
   fingerDrawing?: unknown;
   toolSwitch?: unknown;
+  color?: unknown;
   widthMode?: unknown;
   strokeWidth?: unknown;
   eraserWidth?: unknown;
@@ -68,6 +69,7 @@ function saveSettings(): void {
       JSON.stringify({
         fingerDrawing: fingerDrawingEnabled,
         toolSwitch: toolSwitchMode,
+        color: style.color,
         widthMode: style.widthMode,
         strokeWidth: style.strokeWidth,
         eraserWidth: style.eraserWidth,
@@ -99,6 +101,7 @@ canvas.addEventListener("pointerdown", (event) => {
 });
 
 const editor = createInkEditor(canvas, {
+  color: typeof stored.color === "string" ? stored.color : undefined,
   widthMode:
     stored.widthMode === "constant" || stored.widthMode === "pressure"
       ? stored.widthMode
@@ -111,7 +114,13 @@ const editor = createInkEditor(canvas, {
       actions.length = 0;
     } else if (actions.length === 0 && action.type !== "stroke") {
       // 지운 뒤 되돌리기처럼 이력 없이 나타난 획은 세션의 시작 상태로 잡는다.
-      actions.push({ type: "set", strokes: strokes.map((s) => s.map((point) => ({ ...point }))) });
+      actions.push({
+        type: "set",
+        strokes: strokes.map((stroke) => ({
+          points: stroke.points.map((point) => ({ ...point })),
+          style: { ...stroke.style },
+        })),
+      });
     } else {
       actions.push(action);
     }
@@ -127,7 +136,7 @@ const editor = createInkEditor(canvas, {
 // 전환을 일으키는 입력은 설정에서 고른다. 두 방식을 동시에 켜면 안 된다 — 호버 상태에서
 // 버튼을 탭하면 `pointerenter`와 `pointerdown`이 잇따라 들어와 두 번 뒤집히고 제자리로
 // 돌아온다.
-let toolSwitchMode: "click" | "hover" = stored.toolSwitch === "hover" ? "hover" : "click";
+let toolSwitchMode: "click" | "hover" = stored.toolSwitch === "click" ? "click" : "hover";
 
 function toggleTool(): void {
   editor.tool = editor.tool === "eraser" ? "pen" : "eraser";
@@ -164,6 +173,15 @@ element<HTMLElement>("tool-switch-picker").addEventListener("click", (event) => 
   const button = buttonFrom(event, "[data-tool-switch]");
   if (!button) return;
   toolSwitchMode = button.dataset.toolSwitch === "hover" ? "hover" : "click";
+  syncButtons();
+  saveSettings();
+});
+
+element<HTMLElement>("color-picker").addEventListener("click", (event) => {
+  const button = buttonFrom(event, "[data-color]");
+  if (!button?.dataset.color) return;
+  // 이미 그린 획은 자기 색을 들고 있어 여기서 바뀌지 않는다. 앞으로 그릴 획에만 적용된다.
+  editor.setStyle({ color: button.dataset.color });
   syncButtons();
   saveSettings();
 });
@@ -287,14 +305,15 @@ element<HTMLButtonElement>("dump").addEventListener("click", () => {
   const strokes = editor.getStrokes();
   dumpOutput.hidden = false;
   dumpOutput.textContent = JSON.stringify(
-    strokes.map((stroke) =>
-      stroke.map((point) => ({
+    strokes.map((stroke) => ({
+      style: stroke.style,
+      points: stroke.points.map((point) => ({
         x: Math.round(point.x),
         y: Math.round(point.y),
         t: Math.round(point.t),
         pressure: point.pressure === undefined ? undefined : Number(point.pressure.toFixed(3)),
       })),
-    ),
+    })),
     undefined,
     1,
   );
@@ -316,11 +335,11 @@ element<HTMLButtonElement>("replay").addEventListener("click", async () => {
   for (const action of actions) {
     if (action.type === "stroke") {
       history.commit(state);
-      const partial: Stroke = [];
+      const partial: Stroke = { points: [], style: { ...action.stroke.style } };
       state = [...state, partial];
-      for (const point of action.stroke) {
-        const previous = partial[partial.length - 1];
-        partial.push(point);
+      for (const point of action.stroke.points) {
+        const previous = partial.points[partial.points.length - 1];
+        partial.points.push(point);
         show();
         if (previous) await delay(point.t - previous.t);
       }
@@ -382,6 +401,7 @@ function syncButtons(): void {
     "[data-tool-switch]",
     (button) => button.dataset.toolSwitch === toolSwitchMode,
   );
+  press("color-picker", "[data-color]", (button) => button.dataset.color === style.color);
   press(
     "width-mode-picker",
     "[data-width-mode]",

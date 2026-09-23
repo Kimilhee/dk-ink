@@ -1,4 +1,4 @@
-import type { Point, Stroke } from "./types.ts";
+import type { InkPoint, Point } from "./types.ts";
 
 interface OutlineSample extends Point {
   radius: number;
@@ -14,10 +14,10 @@ const MIN_POINT_DISTANCE = 0.35;
  */
 export function drawOutlineStroke(
   context: CanvasRenderingContext2D,
-  stroke: Stroke,
+  points: readonly InkPoint[],
   widthForPressure: (pressure?: number) => number,
 ): void {
-  const samples = smoothSamples(stroke, widthForPressure);
+  const samples = smoothSamples(points, widthForPressure);
   if (samples.length === 0) return;
   if (samples.length === 1) {
     context.beginPath();
@@ -63,11 +63,11 @@ export function drawOutlineStroke(
 }
 
 function smoothSamples(
-  stroke: Stroke,
+  points: readonly InkPoint[],
   widthForPressure: (pressure?: number) => number,
 ): OutlineSample[] {
   const samples: OutlineSample[] = [];
-  for (const point of stroke) {
+  for (const point of points) {
     const previous = samples[samples.length - 1];
     if (previous && Math.hypot(point.x - previous.x, point.y - previous.y) < MIN_POINT_DISTANCE) {
       continue;

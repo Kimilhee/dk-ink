@@ -1,11 +1,15 @@
 import { afterEach, beforeEach, expect, test } from "vite-plus/test";
-import { createInkEditor, type InkAction, type InkEditor } from "../src/index.ts";
+import { createInkEditor, type InkAction, type InkEditor, type StrokeStyle } from "../src/index.ts";
 import {
   createFakeCanvas,
   installBrowserGlobals,
   type BrowserGlobals,
   type FakeCanvas,
 } from "./fake-canvas.ts";
+
+function editorStrokeStyle(): StrokeStyle {
+  return { color: "#000", strokeWidth: 3, widthMode: "pressure", opacity: 1 };
+}
 
 let fake: FakeCanvas;
 let editor: InkEditor;
@@ -42,9 +46,9 @@ test("펜을 대고 움직이고 떼면 획 하나가 남는다", () => {
   drawStroke();
   const strokes = editor.getStrokes();
   expect(strokes).toHaveLength(1);
-  expect(strokes[0]).toHaveLength(3);
-  expect(strokes[0][0]).toMatchObject({ x: 10, y: 10, pressure: 0.3 });
-  expect(strokes[0][0].t).toBeTypeOf("number");
+  expect(strokes[0].points).toHaveLength(3);
+  expect(strokes[0].points[0]).toMatchObject({ x: 10, y: 10, pressure: 0.3 });
+  expect(strokes[0].points[0].t).toBeTypeOf("number");
   expect(types()).toEqual(["stroke"]);
   expect(editor.drawing).toBe(false);
 });
@@ -61,7 +65,7 @@ test("뭉친 이벤트(coalesced)까지 점으로 풀어낸다", () => {
     ],
   });
   fake.emit("pointerup", { x: 30, y: 0 });
-  expect(editor.getStrokes()[0].map((point) => point.x)).toEqual([0, 10, 20, 30, 30]);
+  expect(editor.getStrokes()[0].points.map((point) => point.x)).toEqual([0, 10, 20, 30, 30]);
 });
 
 test("뭉친 이벤트가 빈 배열이면 이벤트 자신을 점으로 쓴다", () => {
@@ -70,7 +74,7 @@ test("뭉친 이벤트가 빈 배열이면 이벤트 자신을 점으로 쓴다"
   fake.emit("pointermove", { x: 20, y: 9, emptyCoalesced: true });
   fake.emit("pointerup", { x: 30, y: 0 });
   // 빈 배열을 그대로 쓰면 중간 점이 사라져 시작·끝만 남는다.
-  expect(editor.getStrokes()[0].map((point) => point.x)).toEqual([0, 10, 20, 30]);
+  expect(editor.getStrokes()[0].points.map((point) => point.x)).toEqual([0, 10, 20, 30]);
 });
 
 test("진행 중인 획은 다른 포인터를 무시한다", () => {
@@ -80,7 +84,7 @@ test("진행 중인 획은 다른 포인터를 무시한다", () => {
   expect(editor.drawing).toBe(true);
   fake.emit("pointerup", { x: 30, y: 10, pointerId: 1 });
   expect(editor.getStrokes()).toHaveLength(1);
-  expect(editor.getStrokes()[0].map((point) => point.x)).toEqual([10, 30]);
+  expect(editor.getStrokes()[0].points.map((point) => point.x)).toEqual([10, 30]);
 });
 
 test("되돌리기와 다시 실행이 획 상태를 왕복한다", () => {
@@ -94,6 +98,33 @@ test("되돌리기와 다시 실행이 획 상태를 왕복한다", () => {
   expect(editor.getStrokes()).toHaveLength(2);
   expect(editor.redo()).toBe(false);
   expect(types()).toEqual(["stroke", "stroke", "undo", "redo"]);
+});
+
+test("이미 그린 획은 나중에 스타일을 바꿔도 그대로다", () => {
+  editor.setStyle({ color: "#111111", strokeWidth: 2, opacity: 0.5 });
+  drawStroke();
+
+  editor.setStyle({ color: "#ff0000", strokeWidth: 9, opacity: 1 });
+  drawStroke(50);
+
+  const [first, second] = editor.getStrokes();
+  expect(first.style).toMatchObject({ color: "#111111", strokeWidth: 2, opacity: 0.5 });
+  expect(second.style).toMatchObject({ color: "#ff0000", strokeWidth: 9, opacity: 1 });
+});
+
+test("지우개로 쪼갠 조각은 원래 획의 스타일을 물려받는다", () => {
+  editor.setStyle({ color: "#00ff00", strokeWidth: 7 });
+  drawStroke(10);
+  const before = editor.getStrokes()[0].style;
+
+  editor.tool = "eraser";
+  editor.setStyle({ eraserWidth: 4, color: "#0000ff" });
+  fake.emit("pointerdown", { x: 20, y: 10 });
+  fake.emit("pointerup", { x: 20, y: 10 });
+
+  for (const stroke of editor.getStrokes()) {
+    expect(stroke.style).toEqual(before);
+  }
 });
 
 test("전체 지우기는 되돌릴 수 있다", () => {
@@ -160,7 +191,7 @@ test("포인터 캡처가 실패해도 획은 계속 기록된다", () => {
     failing.emit("pointermove", { x: 20, y: 10 });
     failing.emit("pointerup", { x: 30, y: 10 });
     // 캡처 실패로 pointerDown이 중단되면 획이 아예 안 생기고 이후 입력도 먹힌다.
-    expect(captureless.getStrokes()[0]?.map((point) => point.x)).toEqual([10, 20, 30]);
+    expect(captureless.getStrokes()[0]?.points.map((point) => point.x)).toEqual([10, 20, 30]);
 
     failing.emit("pointerdown", { x: 10, y: 50, pointerId: 2 });
     failing.emit("pointerup", { x: 30, y: 50, pointerId: 2 });
@@ -173,12 +204,14 @@ test("포인터 캡처가 실패해도 획은 계속 기록된다", () => {
 test("getStrokes는 내부 상태와 분리된 복사본을 준다", () => {
   drawStroke();
   const strokes = editor.getStrokes();
-  strokes[0][0].x = 999;
-  expect(editor.getStrokes()[0][0].x).toBe(10);
+  strokes[0].points[0].x = 999;
+  expect(editor.getStrokes()[0].points[0].x).toBe(10);
 });
 
 test("recordHistory: false로 넣은 획은 되돌리기 이력을 더럽히지 않는다", () => {
-  editor.setStrokes([[{ x: 1, y: 2, t: 0 }]], { recordHistory: false });
+  editor.setStrokes([{ points: [{ x: 1, y: 2, t: 0 }], style: editorStrokeStyle() }], {
+    recordHistory: false,
+  });
   expect(editor.getStrokes()).toHaveLength(1);
   expect(editor.canUndo).toBe(false);
 });

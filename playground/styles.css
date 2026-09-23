@@ -351,6 +351,37 @@ button:disabled {
   border: 0;
   background: transparent;
 }
+.color-control {
+  display: flex;
+  gap: 10px;
+}
+.swatch {
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: 1px solid rgb(24 34 49 / 12%);
+  border-radius: 50%;
+  background: var(--swatch);
+}
+/* 선택된 색은 테두리를 띄워 표시한다. 원 안을 덧칠하면 그 색이 무엇인지 가려진다. */
+.swatch[aria-pressed="true"] {
+  border-color: transparent;
+  box-shadow:
+    0 0 0 2px #fff,
+    0 0 0 4px var(--swatch);
+}
+.swatch[data-color="#1d4ed8"] {
+  --swatch: #1d4ed8;
+}
+.swatch[data-color="#15803d"] {
+  --swatch: #15803d;
+}
+.swatch[data-color="#b91c1c"] {
+  --swatch: #b91c1c;
+}
+.swatch[data-color="#182231"] {
+  --swatch: #182231;
+}
 .width-control {
   grid-template-columns: repeat(3, 1fr);
 }

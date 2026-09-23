@@ -9,12 +9,14 @@ import type {
   InkTool,
   Point,
   Stroke,
+  StrokeStyle,
 } from "./types.ts";
 
 const DEFAULT_STYLE: InkStyle = {
-  color: "#182231",
+  color: "#1d4ed8",
   strokeWidth: 3,
   widthMode: "pressure",
+  opacity: 0.7,
   eraserWidth: 50,
   showEraserCursor: true,
   eraserCursorFill: "rgb(15 118 110 / 12%)",
@@ -104,7 +106,17 @@ export function createInkEditor(
 
   function appendPoint(event: PointerEvent): void {
     if (!current) return;
-    current.push(timedPoint(event));
+    current.points.push(timedPoint(event));
+  }
+
+  /** 지금 설정을 획에 박아 넣는다. 나중에 설정이 바뀌어도 이 획은 이 모습 그대로다. */
+  function snapshotStrokeStyle(): StrokeStyle {
+    return {
+      color: style.color,
+      strokeWidth: style.strokeWidth,
+      widthMode: style.widthMode,
+      opacity: style.opacity,
+    };
   }
 
   function eraseBetween(from: Point, to: Point): boolean {
@@ -115,7 +127,7 @@ export function createInkEditor(
 
   function redraw(): void {
     const bounds = canvas.getBoundingClientRect();
-    renderStrokes(context, strokes, style, bounds);
+    renderStrokes(context, strokes, bounds);
     if (eraserCursor && style.showEraserCursor) {
       drawEraserCursor(context, eraserCursor, style);
     }
@@ -167,7 +179,7 @@ export function createInkEditor(
       return;
     }
     history.commit(strokes);
-    current = [];
+    current = { points: [], style: snapshotStrokeStyle() };
     strokes = [...strokes, current];
     appendPoint(event);
     scheduleRedraw();
@@ -217,7 +229,12 @@ export function createInkEditor(
 
     const action: InkAction = erasing
       ? { type: "erase", path: eraserPath, width: style.eraserWidth }
-      : { type: "stroke", stroke: (current ?? []).map((point) => ({ ...point })) };
+      : {
+          type: "stroke",
+          stroke: current
+            ? { points: current.points.map((point) => ({ ...point })), style: { ...current.style } }
+            : { points: [], style: snapshotStrokeStyle() },
+        };
 
     activeTool = undefined;
     activePointerId = undefined;

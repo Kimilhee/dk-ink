@@ -49,5 +49,8 @@ export class InkHistory {
 }
 
 export function cloneStrokes(strokes: readonly Stroke[]): Stroke[] {
-  return strokes.map((stroke) => stroke.map((point) => ({ ...point })));
+  return strokes.map((stroke) => ({
+    points: stroke.points.map((point) => ({ ...point })),
+    style: { ...stroke.style },
+  }));
 }

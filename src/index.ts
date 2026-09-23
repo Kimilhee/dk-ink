@@ -12,5 +12,6 @@ export type {
   InkTool,
   Point,
   Stroke,
+  StrokeStyle,
   WidthMode,
 } from "./types.ts";

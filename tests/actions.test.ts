@@ -1,6 +1,16 @@
 import { afterEach, beforeEach, expect, test } from "vite-plus/test";
-import { createInkEditor, eraseStrokes, type InkAction, type InkEditor } from "../src/index.ts";
+import {
+  createInkEditor,
+  eraseStrokes,
+  type InkAction,
+  type InkEditor,
+  type StrokeStyle,
+} from "../src/index.ts";
 import { createFakeCanvas, installBrowserGlobals, type BrowserGlobals } from "./fake-canvas.ts";
+
+function strokeStyle(): StrokeStyle {
+  return { color: "#000", strokeWidth: 3, widthMode: "pressure", opacity: 1 };
+}
 
 let fake: ReturnType<typeof createFakeCanvas>;
 let editor: InkEditor;
@@ -29,8 +39,8 @@ test("펜 동작은 그은 획을 그대로 담는다", () => {
   const action = actions[0];
   expect(action.type).toBe("stroke");
   if (action.type !== "stroke") return;
-  expect(action.stroke.map((point) => point.x)).toEqual([10, 20, 30]);
-  expect(action.stroke[0].pressure).toBe(0.2);
+  expect(action.stroke.points.map((point) => point.x)).toEqual([10, 20, 30]);
+  expect(action.stroke.points[0].pressure).toBe(0.2);
 });
 
 test("펜 동작의 획은 이후 편집에 흔들리지 않는다", () => {
@@ -46,7 +56,7 @@ test("펜 동작의 획은 이후 편집에 흔들리지 않는다", () => {
 
   expect(editor.getStrokes()).toHaveLength(0);
   if (action.type !== "stroke") return;
-  expect(action.stroke).toHaveLength(2);
+  expect(action.stroke.points).toHaveLength(2);
 });
 
 test("지우개 동작은 결과가 아니라 지나간 경로와 두께를 담는다", () => {
@@ -92,8 +102,8 @@ test("기록한 경로를 다시 적용하면 같은 결과가 나온다", () =>
       erased.width,
     ).strokes;
   }
-  expect(replayed.map((stroke) => stroke.length)).toEqual(
-    editor.getStrokes().map((stroke) => stroke.length),
+  expect(replayed.map((stroke) => stroke.points.length)).toEqual(
+    editor.getStrokes().map((stroke) => stroke.points.length),
   );
 });
 
@@ -111,12 +121,12 @@ test("되돌리기·전체지우기·교체도 이력에 남는다", () => {
   editor.undo();
   editor.redo();
   editor.clear();
-  editor.setStrokes([[{ x: 1, y: 2, t: 0 }]]);
+  editor.setStrokes([{ points: [{ x: 1, y: 2, t: 0 }], style: strokeStyle() }]);
 
   expect(actions.map((action) => action.type)).toEqual(["stroke", "undo", "redo", "clear", "set"]);
   const set = actions[4];
   if (set.type !== "set") return;
-  expect(set.strokes[0][0].x).toBe(1);
+  expect(set.strokes[0].points[0].x).toBe(1);
 });
 
 test("뭉친 이벤트 안의 점들이 각자 시각을 갖는다", () => {
@@ -133,7 +143,7 @@ test("뭉친 이벤트 안의 점들이 각자 시각을 갖는다", () => {
   fake.emit("pointerup", { x: 40, y: 0, timeStamp: 120 });
 
   // 핸들러 실행 시각을 찍으면 뭉친 3점이 전부 같은 값이 되어 프레임 내부 타이밍이 사라진다.
-  expect(editor.getStrokes()[0].map((point) => point.t)).toEqual([100, 104, 108, 112, 120]);
+  expect(editor.getStrokes()[0].points.map((point) => point.t)).toEqual([100, 104, 108, 112, 120]);
 });
 
 test("필기 속도를 점 간격으로 복원할 수 있다", () => {
@@ -141,7 +151,7 @@ test("필기 속도를 점 간격으로 복원할 수 있다", () => {
   fake.emit("pointermove", { x: 10, y: 0, timeStamp: 1008 });
   fake.emit("pointerup", { x: 40, y: 0, timeStamp: 1016 });
 
-  const stroke = editor.getStrokes()[0];
-  const gaps = stroke.slice(1).map((point, index) => point.t - stroke[index].t);
+  const points = editor.getStrokes()[0].points;
+  const gaps = points.slice(1).map((point, index) => point.t - points[index].t);
   expect(gaps).toEqual([8, 8]);
 });

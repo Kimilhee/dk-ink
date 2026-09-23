@@ -107,15 +107,30 @@ const actions: InkAction[] = [];
 | 옵션                                      | 기본값                       |
 | ----------------------------------------- | ---------------------------- |
 | `tool`                                    | `"pen"`                      |
-| `color`                                   | `"#182231"`                  |
+| `color`                                   | `"#1d4ed8"`                  |
 | `strokeWidth`                             | `3` (필압 모드에선 최대)     |
 | `widthMode`                               | `"pressure"`                 |
-| `eraserWidth`                             | `24`                         |
+| `opacity`                                 | `0.7`                        |
+| `eraserWidth`                             | `50`                         |
 | `showEraserCursor`                        | `true`                       |
 | `eraserCursorFill` / `eraserCursorStroke` | 청록 계열                    |
 | `historyLimit`                            | `50` (`0`이면 되돌리기 없음) |
 | `strokes`                                 | 초기 획                      |
 | `onChange`                                | —                            |
+
+### 획은 자기 스타일을 들고 다닌다
+
+`Stroke`는 점 배열이 아니라 `{ points, style }`이다. 획을 시작할 때 그 시점의 색·굵기·모드·
+투명도를 복사해 넣으므로, 나중에 `setStyle`로 설정을 바꿔도 **이미 그린 획은 그대로다** —
+사람이 그때 그 펜으로 쓴 것이기 때문이다. 지우개로 쪼갠 조각도 원래 획의 스타일을 물려받는다.
+
+```ts
+type Stroke = { points: InkPoint[]; style: StrokeStyle };
+type StrokeStyle = { color: string; strokeWidth: number; widthMode: WidthMode; opacity: number };
+```
+
+`setStyle`은 **앞으로 그릴 획**의 설정을 바꾼다. 이미 그린 획을 바꾸려면 `getStrokes()`로
+받아 `style`을 고친 뒤 `setStrokes()`로 되돌려 넣으면 된다.
 
 ### 하위 함수
 
