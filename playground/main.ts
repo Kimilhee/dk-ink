@@ -13,6 +13,7 @@ import {
   isFingerTouch,
   MomentaryEraser,
   type MomentaryEraserEvent,
+  supportsTouchTypeDetection,
 } from "./momentary-eraser.ts";
 
 const canvas = element<HTMLCanvasElement>("ink");
@@ -101,19 +102,35 @@ eraserButton.addEventListener("pointerdown", (event) => {
     // 펜 입력과 동시에 손가락 포인터가 취소되어도 지우개 선택은 유지한다.
   }
 });
-eraserButton.addEventListener(
-  "touchstart",
-  (event) => {
-    const touch = Array.from(event.changedTouches).find(isFingerTouch);
-    if (!touch) return;
-    event.preventDefault();
-    applyMomentaryEraser({
-      type: "press",
-      contact: { source: "finger", id: touch.identifier },
-    });
-  },
-  { passive: false },
-);
+// `touchType`을 못 읽는 브라우저(Safari 이외 전부)에서는 Touch 기반 판정이 스타일러스를
+// 손가락으로 오판해, 같은 접촉을 두고 Pointer Events 기반 판정과 서로 다른 결론을 내며
+// 경쟁한다 — 그 결과가 "가끔은 바뀌고 가끔은 안 바뀐다"로 나타난다. 그런 브라우저에서는
+// Touch 리스너 자체를 걸지 않고 위의 Pointer Events 경로만 신뢰한다.
+if (supportsTouchTypeDetection) {
+  eraserButton.addEventListener(
+    "touchstart",
+    (event) => {
+      const touch = Array.from(event.changedTouches).find(isFingerTouch);
+      if (!touch) return;
+      event.preventDefault();
+      applyMomentaryEraser({
+        type: "press",
+        contact: { source: "finger", id: touch.identifier },
+      });
+    },
+    { passive: false },
+  );
+  window.addEventListener("touchend", finishFingerEraserHold, { capture: true });
+  window.addEventListener("touchcancel", (event) => {
+    for (const touch of event.changedTouches) {
+      if (!isFingerTouch(touch)) continue;
+      applyMomentaryEraser({
+        type: "contact-canceled",
+        contact: { source: "finger", id: touch.identifier },
+      });
+    }
+  });
+}
 
 canvas.addEventListener("pointerdown", () => {
   applyMomentaryEraser({ type: "canvas-used" });
@@ -124,19 +141,14 @@ eraserButton.addEventListener("pointerup", (event) => {
     contactFromPointer(event),
     containsPoint(eraserButton, event.clientX, event.clientY),
   );
+  try {
+    eraserButton.releasePointerCapture(event.pointerId);
+  } catch {
+    // 이미 풀렸거나 애초에 잡히지 않은 캡처는 무시한다.
+  }
 });
 eraserButton.addEventListener("pointercancel", (event) => {
   applyMomentaryEraser({ type: "contact-canceled", contact: contactFromPointer(event) });
-});
-window.addEventListener("touchend", finishFingerEraserHold, { capture: true });
-window.addEventListener("touchcancel", (event) => {
-  for (const touch of event.changedTouches) {
-    if (!isFingerTouch(touch)) continue;
-    applyMomentaryEraser({
-      type: "contact-canceled",
-      contact: { source: "finger", id: touch.identifier },
-    });
-  }
 });
 
 element<HTMLElement>("width-mode-picker").addEventListener("click", (event) => {
