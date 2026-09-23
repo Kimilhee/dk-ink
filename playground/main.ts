@@ -142,28 +142,67 @@ document.addEventListener("pointermove", (event) => {
 document.addEventListener("pointerout", (event) => {
   if (event.pointerType !== "pen" || event.relatedTarget !== null) return;
   endPenNear("pointerout");
+  // 펜이 호버 범위를 벗어나면 버튼 상태를 더 볼 수 없다. 눌린 채로 기억해 두면 다음에
+  // 돌아올 때 뗀 것으로 오인해 도구가 멋대로 바뀌므로 여기서 잊는다.
+  penContact = false;
+  sideButtonDown = false;
 });
 document.addEventListener("pointerdown", (event) => {
   logDebug(`pointerdown ${describeButtons(event)}`);
-  if (event.pointerType === "pen") markPenNear(penOverToolbar(event));
+  if (event.pointerType !== "pen") return;
+  penContact = true;
+  markPenNear(penOverToolbar(event));
 });
 document.addEventListener("pointerup", (event) => {
   logDebug(`pointerup ${describeButtons(event)}`);
-  if (event.pointerType === "pen") markPenNear(penOverToolbar(event));
+  if (event.pointerType !== "pen") return;
+  penContact = false;
+  markPenNear(penOverToolbar(event));
 });
 document.addEventListener("pointercancel", (event) => {
   logDebug(`pointercancel ${describeButtons(event)}`);
+  if (event.pointerType === "pen") penContact = false;
 });
 
-// S펜 측면 버튼이 웹까지 도달하는지 확인하기 위한 진단. 버튼을 누른 채 호버만 해도
-// `pointermove`의 `buttons`에 비트가 서는데, `pointermove`는 초당 수십 번 들어오므로
-// 값이 **바뀔 때만** 찍는다. 화면에 닿지 않은 상태에서 `buttons`가 0이 아니게 되면
-// 측면 버튼이 브라우저까지 온다는 뜻이고, 순간 지우개를 그 버튼으로 만들 수 있다.
+/**
+ * S펜 측면 버튼으로 도구를 바꾼다. 버튼을 **클릭**(눌렀다 뗌)하면 펜↔지우개가 토글된다.
+ *
+ * "버튼을 누른 채 지우고 떼면 복귀"가 더 자연스럽겠지만 이 기기에서는 불가능하다.
+ * 측면 버튼이 `buttons` 비트 1을 차지하는데 이건 화면 접촉과 **같은 비트**라, 버튼을
+ * 누른 상태에서는 화면에 닿아도 `buttons` 값이 1에서 바뀌지 않는다. 그러면 브라우저가
+ * `pointerdown`을 발생시키지 않아 획 자체가 시작되지 않는다 — 버튼을 누르고 있는 동안은
+ * 그리기도 지우기도 되지 않는다는 뜻이다.
+ *
+ * 그래서 누르고 있는 동안이 아니라 버튼을 **뗀 순간** 도구를 바꾼다. 손가락을 전혀 쓰지
+ * 않으므로, 스타일러스 호버 중 손가락 터치가 막히는 이 기기의 제약과 무관하다.
+ *
+ * 호버 중(`pressure === 0`)일 때만 버튼으로 판정한다. 화면에 닿아 그리는 중에는 비트 1이
+ * 접촉 때문에 서 있으므로, 이걸 버튼으로 오인하면 획을 끝낼 때마다 도구가 바뀐다.
+ */
+let penContact = false;
+let sideButtonDown = false;
+
+function trackSideButton(event: PointerEvent): void {
+  const pressed = (event.buttons & 1) !== 0 && event.pressure === 0 && !penContact;
+  if (pressed === sideButtonDown) return;
+  sideButtonDown = pressed;
+  if (pressed) return;
+
+  // 뗀 순간 전환한다. 누른 순간에 바꾸면, 버튼을 누르고 있는 동안은 어차피 쓸 수 없는
+  // 도구가 선택된 채로 기다리게 된다.
+  editor.tool = editor.tool === "eraser" ? "pen" : "eraser";
+  syncButtons();
+  logDebug(`측면 버튼 클릭 → ${editor.tool === "eraser" ? "지우개" : "펜"}`);
+}
+
 let lastPenButtons = 0;
 document.addEventListener("pointermove", (event) => {
-  if (event.pointerType !== "pen" || event.buttons === lastPenButtons) return;
-  lastPenButtons = event.buttons;
-  logDebug(`펜 버튼 변화 ${describeButtons(event)}`);
+  if (event.pointerType !== "pen") return;
+  if (event.buttons !== lastPenButtons) {
+    lastPenButtons = event.buttons;
+    logDebug(`펜 버튼 변화 ${describeButtons(event)}`);
+  }
+  trackSideButton(event);
 });
 // 측면 버튼이 Pointer Events 대신 컨텍스트 메뉴로 빠지는 기기도 있어 함께 살펴본다.
 document.addEventListener("contextmenu", (event) => {
@@ -357,7 +396,9 @@ function describeButtons(event: PointerEvent): string {
   ] as const;
   const active = names.filter(([bit]) => event.buttons & bit).map(([, name]) => name);
   const decoded = active.length > 0 ? ` [${active.join("+")}]` : "";
-  return `${event.pointerType} id=${event.pointerId} button=${event.button} buttons=${event.buttons}${decoded}`;
+  // `pressure`가 0이면 화면에 닿지 않은 호버 상태다 — 접촉과 측면 버튼을 가르는 기준이다.
+  const pressure = event.pressure.toFixed(2);
+  return `${event.pointerType} id=${event.pointerId} button=${event.button} buttons=${event.buttons}${decoded} p=${pressure}`;
 }
 
 function describeTarget(target: EventTarget | null): string {

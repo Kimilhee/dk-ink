@@ -1,6 +1,6 @@
 {
   "name": "dk-ink",
-  "version": "0.0.11",
+  "version": "0.0.12",
   "description": "Framework-agnostic handwriting (digital ink) editor for canvas: pressure strokes, vector eraser, undo.",
   "keywords": [
     "canvas",
