@@ -7,15 +7,17 @@ import {
   type Stroke,
   type WidthMode,
 } from "../src/index.ts";
+import { MomentaryEraser } from "./momentary-eraser.ts";
 
 const canvas = element<HTMLCanvasElement>("ink");
 const dumpOutput = element<HTMLPreElement>("dump-output");
 const toolbar = element<HTMLElement>("tool-picker");
 const dragHandle = element<HTMLButtonElement>("toolbar-drag-handle");
+const penButton = toolbar.querySelector<HTMLButtonElement>('[data-tool="pen"]');
 const eraserButton = toolbar.querySelector<HTMLButtonElement>('[data-tool="eraser"]');
 const settingsPanel = element<HTMLElement>("settings-panel");
 const settingsToggle = element<HTMLButtonElement>("settings-toggle");
-if (!eraserButton) throw new Error("Eraser button is missing");
+if (!penButton || !eraserButton) throw new Error("Tool buttons are missing");
 /**
  * 마지막 [전체 지우기] 이후의 편집. 지우개 제스처까지 순서대로 들어 있다.
  *
@@ -25,14 +27,13 @@ if (!eraserButton) throw new Error("Eraser button is missing");
  */
 const actions: InkAction[] = [];
 let replaying = false;
-let eraserHoldPointerId: number | undefined;
-let erasedWhileHolding = false;
-let suppressEraserClick = false;
+const momentaryEraser = new MomentaryEraser();
 let toolbarDrag: { pointerId: number; offsetX: number; offsetY: number } | undefined;
 
 const editor = createInkEditor(canvas, {
   onChange(strokes, action) {
     if (replaying) return;
+    if (action.type === "erase" && momentaryEraser.finishErase()) editor.tool = "pen";
     if (action.type === "clear") {
       actions.length = 0;
     } else if (actions.length === 0 && action.type !== "stroke") {
@@ -47,28 +48,43 @@ const editor = createInkEditor(canvas, {
 });
 
 toolbar.addEventListener("click", (event) => {
+  if ((event as MouseEvent).detail !== 0) return;
   const button = buttonFrom(event, "[data-tool]");
   if (!button) return;
-  if (button.dataset.tool === "eraser" && suppressEraserClick) return;
+  if (button.dataset.tool === "pen") momentaryEraser.reset();
   editor.tool = button.dataset.tool === "eraser" ? "eraser" : "pen";
   syncButtons();
 });
 
-eraserButton.addEventListener("pointerdown", (event) => {
-  if (event.button !== 0 || eraserHoldPointerId !== undefined) return;
-  eraserHoldPointerId = event.pointerId;
-  erasedWhileHolding = false;
-  eraserButton.setPointerCapture(event.pointerId);
-  editor.tool = "eraser";
+penButton.addEventListener("pointerdown", (event) => {
+  if (event.button !== 0) return;
+  momentaryEraser.reset();
+  editor.tool = "pen";
   syncButtons();
 });
 
+eraserButton.addEventListener("pointerdown", (event) => {
+  if (event.button !== 0) return;
+  momentaryEraser.start(event.pointerId);
+  editor.tool = "eraser";
+  syncButtons();
+  try {
+    eraserButton.setPointerCapture(event.pointerId);
+  } catch {
+    // 펜 입력과 동시에 손가락 포인터가 취소되어도 지우개 선택은 유지한다.
+  }
+});
+
 canvas.addEventListener("pointerdown", () => {
-  if (eraserHoldPointerId !== undefined) erasedWhileHolding = true;
+  momentaryEraser.use();
 });
 
 eraserButton.addEventListener("pointerup", finishEraserHold);
-eraserButton.addEventListener("pointercancel", finishEraserHold);
+eraserButton.addEventListener("pointercancel", (event) => {
+  if (!momentaryEraser.cancel(event.pointerId)) return;
+  editor.tool = "pen";
+  syncButtons();
+});
 
 element<HTMLElement>("width-mode-picker").addEventListener("click", (event) => {
   const button = buttonFrom(event, "[data-width-mode]");
@@ -90,19 +106,19 @@ element<HTMLInputElement>("eraser-width").addEventListener("input", (event) => {
   element<HTMLOutputElement>("eraser-width-value").value = `${value}px`;
 });
 
-element<HTMLButtonElement>("undo").addEventListener("click", () => {
+activateOnPress("undo", () => {
   editor.undo();
   syncButtons();
 });
-element<HTMLButtonElement>("redo").addEventListener("click", () => {
+activateOnPress("redo", () => {
   editor.redo();
   syncButtons();
 });
-element<HTMLButtonElement>("clear").addEventListener("click", () => {
+activateOnPress("clear", () => {
   editor.clear();
   syncButtons();
 });
-settingsToggle.addEventListener("click", () => {
+activateOnPress("settings-toggle", () => {
   setSettingsOpen(settingsPanel.hasAttribute("hidden"));
 });
 element<HTMLButtonElement>("settings-close").addEventListener("click", () =>
@@ -264,17 +280,19 @@ function syncButtons(): void {
 }
 
 function finishEraserHold(event: PointerEvent): void {
-  if (event.pointerId !== eraserHoldPointerId) return;
-  eraserHoldPointerId = undefined;
-  if (!erasedWhileHolding) return;
-
+  if (!momentaryEraser.release(event.pointerId)) return;
   editor.tool = "pen";
-  erasedWhileHolding = false;
-  suppressEraserClick = true;
-  setTimeout(() => {
-    suppressEraserClick = false;
-  });
   syncButtons();
+}
+
+function activateOnPress(buttonId: string, action: () => void): void {
+  const button = element<HTMLButtonElement>(buttonId);
+  button.addEventListener("pointerdown", (event) => {
+    if (event.button === 0 && !button.disabled) action();
+  });
+  button.addEventListener("click", (event) => {
+    if (event.detail === 0 && !button.disabled) action();
+  });
 }
 
 function setSettingsOpen(open: boolean): void {
