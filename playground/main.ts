@@ -1,12 +1,5 @@
 import "./styles.css";
-import {
-  createInkEditor,
-  eraseStrokes,
-  InkHistory,
-  type InkAction,
-  type Stroke,
-  type WidthMode,
-} from "../src/index.ts";
+import { createInkEditor, type WidthMode } from "../src/index.ts";
 import packageJson from "../package.json" with { type: "json" };
 import { watchPenHover } from "./pen-hover.ts";
 
@@ -20,15 +13,6 @@ const settingsToggle = element<HTMLButtonElement>("settings-toggle");
 const toolStatus = element<HTMLElement>("tool-status");
 const debugLog = element<HTMLElement>("debug-log");
 element<HTMLElement>("app-version").textContent = `v${packageJson.version}`;
-/**
- * 마지막 [전체 지우기] 이후의 편집. 지우개 제스처까지 순서대로 들어 있다.
- *
- * 전체 지우기는 "처음부터 다시"라는 뜻이므로 재생의 시작점도 거기로 옮긴다. 세션
- * 전체를 남겨야 하는 수집 도구라면 `clear`까지 그대로 쌓으면 된다 — 무엇을 재생으로
- * 볼지는 앱 정책이고, 라이브러리는 일어난 일을 빠짐없이 넘겨준다.
- */
-const actions: InkAction[] = [];
-let replaying = false;
 let toolbarDrag: { pointerId: number; offsetX: number; offsetY: number } | undefined;
 
 /**
@@ -108,23 +92,8 @@ const editor = createInkEditor(canvas, {
       : undefined,
   strokeWidth: storedNumber(stored.strokeWidth),
   eraserWidth: storedNumber(stored.eraserWidth),
-  onChange(strokes, action) {
-    if (replaying) return;
-    if (action.type === "clear") {
-      actions.length = 0;
-    } else if (actions.length === 0 && action.type !== "stroke") {
-      // 지운 뒤 되돌리기처럼 이력 없이 나타난 획은 세션의 시작 상태로 잡는다.
-      actions.push({
-        type: "set",
-        strokes: strokes.map((stroke) => ({
-          points: stroke.points.map((point) => ({ ...point })),
-          style: { ...stroke.style },
-        })),
-      });
-    } else {
-      actions.push(action);
-    }
-    setStatus(`획 ${strokes.length}개 · ${action.type} · 이력 ${actions.length}개`);
+  onChange(strokes) {
+    setStatus(`획 ${strokes.length}개`);
     syncButtons();
   },
 });
@@ -319,65 +288,6 @@ element<HTMLButtonElement>("dump").addEventListener("click", () => {
   );
 });
 
-// 세션을 처음부터 다시 실행한다. 펜은 점 단위로, 지우개는 경로 단위로 재적용하므로
-// 실제로 지워지는 과정이 그대로 보인다.
-element<HTMLButtonElement>("replay").addEventListener("click", async () => {
-  if (replaying || actions.length === 0) return;
-  replaying = true;
-  element<HTMLButtonElement>("replay").disabled = true;
-
-  // 재생도 편집과 같은 상태 전이를 거쳐야 undo/redo가 원래 자리에서 동작한다.
-  const history = new InkHistory(200);
-  let state: Stroke[] = [];
-  const show = () => editor.setStrokes(state, { recordHistory: false });
-  show();
-
-  for (const action of actions) {
-    if (action.type === "stroke") {
-      history.commit(state);
-      const partial: Stroke = { points: [], style: { ...action.stroke.style } };
-      state = [...state, partial];
-      for (const point of action.stroke.points) {
-        const previous = partial.points[partial.points.length - 1];
-        partial.points.push(point);
-        show();
-        if (previous) await delay(point.t - previous.t);
-      }
-    } else if (action.type === "erase") {
-      history.commit(state);
-      for (let index = 1; index < action.path.length; index += 1) {
-        const from = action.path[index - 1];
-        const to = action.path[index];
-        state = eraseStrokes(state, from, to, action.width).strokes;
-        show();
-        await delay(to.t - from.t);
-      }
-    } else if (action.type === "undo") {
-      state = history.undo(state) ?? state;
-      show();
-      await delay(220);
-    } else if (action.type === "redo") {
-      state = history.redo(state) ?? state;
-      show();
-      await delay(220);
-    } else if (action.type === "clear") {
-      history.commit(state);
-      state = [];
-      show();
-      await delay(220);
-    } else {
-      history.commit(state);
-      state = action.strokes;
-      show();
-      await delay(220);
-    }
-  }
-
-  replaying = false;
-  setStatus(`재생 완료 · 이력 ${actions.length}개`);
-  syncButtons();
-});
-
 syncButtons();
 setStatus("획 0개");
 
@@ -416,7 +326,6 @@ function syncButtons(): void {
   element<HTMLOutputElement>("eraser-width-value").value = `${style.eraserWidth}px`;
   element<HTMLButtonElement>("undo").disabled = !editor.canUndo;
   element<HTMLButtonElement>("redo").disabled = !editor.canRedo;
-  element<HTMLButtonElement>("replay").disabled = replaying || actions.length === 0;
   toolStatus.textContent = `도구: ${editor.tool === "eraser" ? "지우개" : "펜"}`;
 }
 
@@ -514,12 +423,6 @@ function buttonFrom(event: Event, selector: string): HTMLButtonElement | null {
 
 function setStatus(value: string): void {
   element<HTMLElement>("status").textContent = value;
-}
-
-/** 사람이 멈춰 있던 구간까지 그대로 기다리면 지루하므로 상한을 둔다. */
-function delay(ms: number): Promise<void> {
-  const capped = Math.max(0, Math.min(32, ms));
-  return new Promise((resolve) => setTimeout(resolve, capped));
 }
 
 function element<T extends HTMLElement>(id: string): T {

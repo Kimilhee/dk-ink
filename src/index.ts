@@ -4,8 +4,6 @@ export { cloneStrokes, InkHistory } from "./history.ts";
 export { drawOutlineStroke } from "./outline.ts";
 export { drawEraserCursor, pressureWidth, renderStrokes } from "./render.ts";
 export type {
-  InkAction,
-  InkActionType,
   InkEditorOptions,
   InkPoint,
   InkStyle,
