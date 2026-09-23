@@ -32,13 +32,66 @@ let replaying = false;
 let toolbarDrag: { pointerId: number; offsetX: number; offsetY: number } | undefined;
 
 /**
+ * 설정은 새로고침해도 남아야 한다. 저장하는 것은 설정뿐이고 그림이나 선택된 도구는 담지
+ * 않는다 — 그건 설정이 아니라 작업 상태다.
+ *
+ * `localStorage`는 사생활 보호 모드나 저장 용량 초과에서 접근 자체가 예외를 던지므로 읽기와
+ * 쓰기를 모두 감싼다. 저장이 안 되더라도 이번 세션은 정상 동작해야 한다.
+ */
+const SETTINGS_KEY = "dk-ink-playground-settings";
+
+type StoredSettings = {
+  fingerDrawing?: unknown;
+  toolSwitch?: unknown;
+  widthMode?: unknown;
+  strokeWidth?: unknown;
+  eraserWidth?: unknown;
+};
+
+function loadSettings(): StoredSettings {
+  try {
+    const raw = localStorage.getItem(SETTINGS_KEY);
+    if (!raw) return {};
+    const parsed: unknown = JSON.parse(raw);
+    // 남의 손을 탄 값일 수 있으니 모양만 확인하고, 각 항목은 쓰는 자리에서 검사한다.
+    return typeof parsed === "object" && parsed !== null ? (parsed as StoredSettings) : {};
+  } catch {
+    return {};
+  }
+}
+
+function saveSettings(): void {
+  const style = editor.getStyle();
+  try {
+    localStorage.setItem(
+      SETTINGS_KEY,
+      JSON.stringify({
+        fingerDrawing: fingerDrawingEnabled,
+        toolSwitch: toolSwitchMode,
+        widthMode: style.widthMode,
+        strokeWidth: style.strokeWidth,
+        eraserWidth: style.eraserWidth,
+      }),
+    );
+  } catch {
+    // 저장에 실패해도 이번 세션의 설정은 그대로 쓴다.
+  }
+}
+
+function storedNumber(value: unknown): number | undefined {
+  return typeof value === "number" && Number.isFinite(value) ? value : undefined;
+}
+
+const stored = loadSettings();
+
+/**
  * 손가락으로 캔버스에 필기하는 것을 막는다. 기본은 꺼짐 — 스타일러스로 쓰는 동안 손바닥이나
  * 손가락이 닿아 획이 그어지는 일을 없애기 위해서다. 도구 모음 조작은 막지 않는다.
  *
  * 리스너를 `createInkEditor`보다 **먼저** 걸어야 한다. 같은 요소에 등록된 리스너는 등록
  * 순서대로 실행되고, `stopImmediatePropagation()`은 아직 실행되지 않은 리스너만 막는다.
  */
-let fingerDrawingEnabled = false;
+let fingerDrawingEnabled = stored.fingerDrawing === true;
 canvas.addEventListener("pointerdown", (event) => {
   if (fingerDrawingEnabled || event.pointerType !== "touch") return;
   event.stopImmediatePropagation();
@@ -46,6 +99,12 @@ canvas.addEventListener("pointerdown", (event) => {
 });
 
 const editor = createInkEditor(canvas, {
+  widthMode:
+    stored.widthMode === "constant" || stored.widthMode === "pressure"
+      ? stored.widthMode
+      : undefined,
+  strokeWidth: storedNumber(stored.strokeWidth),
+  eraserWidth: storedNumber(stored.eraserWidth),
   onChange(strokes, action) {
     if (replaying) return;
     if (action.type === "clear") {
@@ -68,7 +127,7 @@ const editor = createInkEditor(canvas, {
 // 전환을 일으키는 입력은 설정에서 고른다. 두 방식을 동시에 켜면 안 된다 — 호버 상태에서
 // 버튼을 탭하면 `pointerenter`와 `pointerdown`이 잇따라 들어와 두 번 뒤집히고 제자리로
 // 돌아온다.
-let toolSwitchMode: "click" | "hover" = "click";
+let toolSwitchMode: "click" | "hover" = stored.toolSwitch === "hover" ? "hover" : "click";
 
 function toggleTool(): void {
   editor.tool = editor.tool === "eraser" ? "pen" : "eraser";
@@ -98,6 +157,7 @@ element<HTMLElement>("finger-input-picker").addEventListener("click", (event) =>
   if (!button) return;
   fingerDrawingEnabled = button.dataset.fingerInput === "on";
   syncButtons();
+  saveSettings();
 });
 
 element<HTMLElement>("tool-switch-picker").addEventListener("click", (event) => {
@@ -105,6 +165,7 @@ element<HTMLElement>("tool-switch-picker").addEventListener("click", (event) => 
   if (!button) return;
   toolSwitchMode = button.dataset.toolSwitch === "hover" ? "hover" : "click";
   syncButtons();
+  saveSettings();
 });
 
 element<HTMLElement>("width-mode-picker").addEventListener("click", (event) => {
@@ -112,6 +173,7 @@ element<HTMLElement>("width-mode-picker").addEventListener("click", (event) => {
   if (!button) return;
   editor.setStyle({ widthMode: button.dataset.widthMode as WidthMode });
   syncButtons();
+  saveSettings();
 });
 
 element<HTMLElement>("stroke-width-picker").addEventListener("click", (event) => {
@@ -119,12 +181,14 @@ element<HTMLElement>("stroke-width-picker").addEventListener("click", (event) =>
   if (!button) return;
   editor.setStyle({ strokeWidth: Number(button.dataset.strokeWidth) });
   syncButtons();
+  saveSettings();
 });
 
 element<HTMLInputElement>("eraser-width").addEventListener("input", (event) => {
   const value = Number((event.target as HTMLInputElement).value);
   editor.setStyle({ eraserWidth: value });
   element<HTMLOutputElement>("eraser-width-value").value = `${value}px`;
+  saveSettings();
 });
 
 activateOnPress("undo", () => {
