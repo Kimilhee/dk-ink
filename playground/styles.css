@@ -200,9 +200,6 @@ button:disabled {
 .icon-pen {
   transform: scaleX(-1);
 }
-.tool-toggle .icon.is-active {
-  color: var(--active-color);
-}
 .tool-button[aria-expanded="true"] {
   background: var(--active-color);
   color: #fff;
@@ -274,7 +271,7 @@ button:disabled {
   content: "";
 }
 .icon-trash {
-  font-size: 20px;
+  font-size: 23px;
   font-variant-emoji: text;
 }
 .settings-panel {
