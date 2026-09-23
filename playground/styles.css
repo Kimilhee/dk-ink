@@ -165,16 +165,35 @@ button:disabled {
   padding: 0 9px;
 }
 .tool-slot {
+  position: relative;
   display: block;
-  padding-bottom: 3px;
-  /* 선택 표시는 색과 밑줄 두 가지로 한다. 펜이 근접해 색이 죽는 동안에도 어느 쪽이
-     선택됐는지 알아볼 수 있어야 한다. */
-  border-bottom: 2px solid transparent;
+  padding-bottom: 5px;
   color: var(--idle-icon-color);
 }
+/* 선택 표시는 색과 밑줄 두 가지로 한다. 펜이 근접해 색이 죽는 동안에도 어느 쪽이 선택됐는지
+   알아볼 수 있어야 한다. 밑줄을 `border`가 아니라 `::after`로 두면 아이콘을 건드리지 않고
+   좌우로 옮길 수 있다. */
+.tool-slot::after {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  height: 2px;
+  border-radius: 1px;
+  background: currentColor;
+  content: "";
+  opacity: 0;
+}
 .tool-slot.is-active {
-  border-bottom-color: currentColor;
   color: var(--active-color);
+}
+.tool-slot.is-active::after {
+  opacity: 1;
+}
+/* 뒤집은 연필 글리프가 박스 안에서 오른쪽으로 치우쳐 보여, 밑줄만 그만큼 왼쪽으로 옮긴다. */
+.tool-slot[data-tool="pen"]::after {
+  right: 3px;
+  left: -3px;
 }
 /* 연필 촉이 왼쪽 아래를 향하게 뒤집는다. 밑줄이 같이 기울지 않도록 변형은 아이콘에만
    걸고 슬롯은 그대로 둔다. */

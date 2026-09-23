@@ -67,10 +67,16 @@ function toggleTool(): void {
 activateOnPress("tool-toggle", () => {
   if (toolSwitchMode === "click") toggleTool();
 });
-// 포인터가 버튼 영역에 들어오는 순간 전환한다. `pointerenter`는 버블링하지 않고 자식으로
-// 옮겨 다녀도 다시 발생하지 않아, 영역에 "처음 들어온" 시점과 정확히 맞는다.
-toolToggle.addEventListener("pointerenter", () => {
-  if (toolSwitchMode === "hover") toggleTool();
+// 포인터가 버튼 영역에 들어오는 순간 전환한다. `pointerenter`가 있지만 스타일러스 호버에서는
+// 기기에 따라 오지 않아, 호버 중에도 꾸준히 들어오는 `pointermove`의 좌표로 직접 판정한다.
+// 경계를 넘어선 첫 이벤트에서만 반응해야 하므로 직전 안팎 여부를 기억해 둔다.
+let pointerInsideToggle = false;
+document.addEventListener("pointermove", (event) => {
+  // 기본(탭) 모드에서는 매 이벤트마다 영역을 재는 비용을 치르지 않는다.
+  if (toolSwitchMode !== "hover") return;
+  const inside = containsPoint(toolToggle, event.clientX, event.clientY);
+  if (inside && !pointerInsideToggle) toggleTool();
+  pointerInsideToggle = inside;
 });
 
 element<HTMLElement>("tool-switch-picker").addEventListener("click", (event) => {
