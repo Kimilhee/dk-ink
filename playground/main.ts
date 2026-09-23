@@ -144,15 +144,30 @@ document.addEventListener("pointerout", (event) => {
   endPenNear("pointerout");
 });
 document.addEventListener("pointerdown", (event) => {
-  logDebug(`pointerdown ${event.pointerType} id=${event.pointerId}`);
+  logDebug(`pointerdown ${describeButtons(event)}`);
   if (event.pointerType === "pen") markPenNear(penOverToolbar(event));
 });
 document.addEventListener("pointerup", (event) => {
-  logDebug(`pointerup ${event.pointerType} id=${event.pointerId}`);
+  logDebug(`pointerup ${describeButtons(event)}`);
   if (event.pointerType === "pen") markPenNear(penOverToolbar(event));
 });
 document.addEventListener("pointercancel", (event) => {
-  logDebug(`pointercancel ${event.pointerType} id=${event.pointerId}`);
+  logDebug(`pointercancel ${describeButtons(event)}`);
+});
+
+// S펜 측면 버튼이 웹까지 도달하는지 확인하기 위한 진단. 버튼을 누른 채 호버만 해도
+// `pointermove`의 `buttons`에 비트가 서는데, `pointermove`는 초당 수십 번 들어오므로
+// 값이 **바뀔 때만** 찍는다. 화면에 닿지 않은 상태에서 `buttons`가 0이 아니게 되면
+// 측면 버튼이 브라우저까지 온다는 뜻이고, 순간 지우개를 그 버튼으로 만들 수 있다.
+let lastPenButtons = 0;
+document.addEventListener("pointermove", (event) => {
+  if (event.pointerType !== "pen" || event.buttons === lastPenButtons) return;
+  lastPenButtons = event.buttons;
+  logDebug(`펜 버튼 변화 ${describeButtons(event)}`);
+});
+// 측면 버튼이 Pointer Events 대신 컨텍스트 메뉴로 빠지는 기기도 있어 함께 살펴본다.
+document.addEventListener("contextmenu", (event) => {
+  logDebug(`contextmenu (기본 동작 유지) target=${describeTarget(event.target)}`);
 });
 
 document.addEventListener(
@@ -327,6 +342,27 @@ function logDebug(message: string): void {
   debugLog.append(line);
   while (debugLog.childElementCount > 40) debugLog.firstElementChild?.remove();
   debugLog.scrollTop = debugLog.scrollHeight;
+}
+
+/**
+ * `buttons`는 비트마스크다: 1=접촉/주버튼, 2=측면(barrel) 버튼, 32=지우개 팁.
+ * 어느 비트가 섰는지 이름으로 같이 보여줘야 로그만 보고 판단할 수 있다.
+ */
+function describeButtons(event: PointerEvent): string {
+  const names = [
+    [1, "접촉"],
+    [2, "측면버튼"],
+    [4, "가운데"],
+    [32, "지우개팁"],
+  ] as const;
+  const active = names.filter(([bit]) => event.buttons & bit).map(([, name]) => name);
+  const decoded = active.length > 0 ? ` [${active.join("+")}]` : "";
+  return `${event.pointerType} id=${event.pointerId} button=${event.button} buttons=${event.buttons}${decoded}`;
+}
+
+function describeTarget(target: EventTarget | null): string {
+  if (!(target instanceof Element)) return "?";
+  return target.id || target.className || target.tagName.toLowerCase();
 }
 
 function activateOnPress(buttonId: string, action: () => void): void {
