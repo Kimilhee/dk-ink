@@ -26,6 +26,12 @@ h1 {
   margin: 0;
   font-size: 20px;
 }
+.app-version {
+  color: #68758a;
+  font-size: 12px;
+  font-weight: 500;
+  vertical-align: middle;
+}
 output#status {
   font-variant-numeric: tabular-nums;
   color: #55637a;

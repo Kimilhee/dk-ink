@@ -7,7 +7,12 @@ import {
   type Stroke,
   type WidthMode,
 } from "../src/index.ts";
-import { MomentaryEraser } from "./momentary-eraser.ts";
+import packageJson from "../package.json" with { type: "json" };
+import {
+  type EraserContact,
+  MomentaryEraser,
+  type MomentaryEraserEvent,
+} from "./momentary-eraser.ts";
 
 const canvas = element<HTMLCanvasElement>("ink");
 const dumpOutput = element<HTMLPreElement>("dump-output");
@@ -18,6 +23,7 @@ const eraserButton = toolbar.querySelector<HTMLButtonElement>('[data-tool="erase
 const settingsPanel = element<HTMLElement>("settings-panel");
 const settingsToggle = element<HTMLButtonElement>("settings-toggle");
 if (!penButton || !eraserButton) throw new Error("Tool buttons are missing");
+element<HTMLElement>("app-version").textContent = `v${packageJson.version}`;
 /**
  * 마지막 [전체 지우기] 이후의 편집. 지우개 제스처까지 순서대로 들어 있다.
  *
@@ -33,7 +39,7 @@ let toolbarDrag: { pointerId: number; offsetX: number; offsetY: number } | undef
 const editor = createInkEditor(canvas, {
   onChange(strokes, action) {
     if (replaying) return;
-    if (action.type === "erase" && momentaryEraser.finishErase()) editor.tool = "pen";
+    if (action.type === "erase") applyMomentaryEraser({ type: "stroke-ended" });
     if (action.type === "clear") {
       actions.length = 0;
     } else if (actions.length === 0 && action.type !== "stroke") {
@@ -75,9 +81,10 @@ penButton.addEventListener(
 
 eraserButton.addEventListener("pointerdown", (event) => {
   if (event.button !== 0 || event.pointerType === "touch") return;
-  momentaryEraser.start(event.pointerId);
-  editor.tool = "eraser";
-  syncButtons();
+  applyMomentaryEraser({
+    type: "press",
+    contact: { source: "pointer", id: event.pointerId },
+  });
   try {
     eraserButton.setPointerCapture(event.pointerId);
   } catch {
@@ -87,29 +94,43 @@ eraserButton.addEventListener("pointerdown", (event) => {
 eraserButton.addEventListener(
   "touchstart",
   (event) => {
-    const touch = event.changedTouches[0];
+    const touch = Array.from(event.changedTouches).find(isFingerTouch);
     if (!touch) return;
     event.preventDefault();
-    momentaryEraser.start(touch.identifier);
-    editor.tool = "eraser";
-    syncButtons();
+    applyMomentaryEraser({
+      type: "press",
+      contact: { source: "finger", id: touch.identifier },
+    });
   },
   { passive: false },
 );
 
 canvas.addEventListener("pointerdown", () => {
-  momentaryEraser.use();
+  applyMomentaryEraser({ type: "canvas-used" });
 });
 
 eraserButton.addEventListener("pointerup", (event) => {
-  if (event.pointerType !== "touch") finishEraserHold(event.pointerId);
+  if (event.pointerType !== "touch") {
+    finishEraserHold({ source: "pointer", id: event.pointerId });
+  }
 });
 eraserButton.addEventListener("pointercancel", (event) => {
-  if (event.pointerType !== "touch") momentaryEraser.cancel(event.pointerId);
+  if (event.pointerType !== "touch") {
+    applyMomentaryEraser({
+      type: "contact-canceled",
+      contact: { source: "pointer", id: event.pointerId },
+    });
+  }
 });
 window.addEventListener("touchend", finishFingerEraserHold, { capture: true });
-window.addEventListener("touchcancel", () => {
-  // 팜 리젝션의 취소는 손가락을 뗀 신호가 아니므로 상태를 바꾸지 않는다.
+window.addEventListener("touchcancel", (event) => {
+  for (const touch of event.changedTouches) {
+    if (!isFingerTouch(touch)) continue;
+    applyMomentaryEraser({
+      type: "contact-canceled",
+      contact: { source: "finger", id: touch.identifier },
+    });
+  }
 });
 
 element<HTMLElement>("width-mode-picker").addEventListener("click", (event) => {
@@ -303,18 +324,35 @@ function syncButtons(): void {
   element<HTMLButtonElement>("replay").disabled = replaying || actions.length === 0;
 }
 
-function finishEraserHold(pointerId: number): void {
-  if (!momentaryEraser.release(pointerId)) return;
-  editor.tool = "pen";
-  syncButtons();
+function finishEraserHold(contact: EraserContact): void {
+  applyMomentaryEraser({ type: "contact-released", contact });
 }
 
 function finishFingerEraserHold(event: TouchEvent): void {
+  const fingerStillDown = Array.from(event.touches).some(
+    (touch) =>
+      isFingerTouch(touch) && momentaryEraser.matches({ source: "finger", id: touch.identifier }),
+  );
+  if (fingerStillDown) return;
+
   for (const touch of event.changedTouches) {
-    if (!momentaryEraser.matches(touch.identifier)) continue;
-    finishEraserHold(touch.identifier);
+    if (!isFingerTouch(touch)) continue;
+    const contact = { source: "finger", id: touch.identifier } as const;
+    if (!momentaryEraser.matches(contact)) continue;
+    finishEraserHold(contact);
     return;
   }
+}
+
+function isFingerTouch(touch: Touch): boolean {
+  return (touch as Touch & { touchType?: "direct" | "stylus" }).touchType !== "stylus";
+}
+
+function applyMomentaryEraser(event: MomentaryEraserEvent): void {
+  const nextTool = momentaryEraser.handle(event);
+  if (!nextTool) return;
+  editor.tool = nextTool;
+  syncButtons();
 }
 
 function activateOnPress(buttonId: string, action: () => void): void {
