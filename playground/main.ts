@@ -199,8 +199,10 @@ activateOnPress("debug-log-clear", () => {
 // 터치 자체는 관찰할 수 없으니, 대신 원인인 호버를 감지해 도구 모음을 회색으로 바꿔 "지금은
 // 손가락이 안 먹는다"를 눈으로 바로 알 수 있게 한다.
 //
-// 펜이 멀어질 때 `pointerout`이 항상 오지는 않아, 마지막 펜 이벤트 이후 일정 시간이 지나면
-// 호버가 끝난 것으로 본다.
+// 펜이 호버 범위를 벗어나면 `pointerout`이 `relatedTarget: null`로 들어온다(엘리먼트 사이를
+// 옮겨 다닐 때는 `relatedTarget`이 다음 엘리먼트를 가리키므로 구분된다). 이걸 들으면 화면에서
+// 포인터가 사라지는 순간에 맞춰 즉시 회색을 풀 수 있다. 타이머는 이 이벤트를 안 보내는 기기를
+// 위한 폴백으로만 남긴다.
 //
 // 단, 펜이 도구 모음 위에 떠 있을 때는 회색으로 만들지 않는다. 회색은 "여기는 지금 누를 수
 // 없다"는 뜻인데, 그 자리의 펜은 실제로 아이콘을 누를 수 있기 때문이다.
@@ -208,11 +210,16 @@ let penNearTimer: ReturnType<typeof setTimeout> | undefined;
 function markPenNear(overToolbar: boolean): void {
   if (penNearTimer !== undefined) clearTimeout(penNearTimer);
   toolbar.classList.toggle("is-pen-near", !overToolbar);
-  penNearTimer = setTimeout(() => {
-    penNearTimer = undefined;
-    toolbar.classList.remove("is-pen-near");
-    logDebug("펜 호버 끝 → 손가락 터치 가능");
-  }, 700);
+  penNearTimer = setTimeout(() => endPenNear("시간 초과"), 700);
+}
+
+function endPenNear(reason: string): void {
+  if (penNearTimer !== undefined) clearTimeout(penNearTimer);
+  penNearTimer = undefined;
+  if (toolbar.classList.contains("is-pen-near")) {
+    logDebug(`펜 호버 끝(${reason}) → 손가락 터치 가능`);
+  }
+  toolbar.classList.remove("is-pen-near");
 }
 
 function penOverToolbar(event: PointerEvent): boolean {
@@ -225,6 +232,10 @@ document.addEventListener("pointermove", (event) => {
     logDebug("펜 호버 시작 → 손가락 터치가 막힐 수 있음");
   }
   markPenNear(penOverToolbar(event));
+});
+document.addEventListener("pointerout", (event) => {
+  if (event.pointerType !== "pen" || event.relatedTarget !== null) return;
+  endPenNear("pointerout");
 });
 document.addEventListener("pointerdown", (event) => {
   logDebug(`pointerdown ${event.pointerType} id=${event.pointerId}`);
