@@ -103,9 +103,11 @@ const editor = createInkEditor(canvas, {
 // 전환을 여러 방식으로 시도했지만 이 기기에서는 어느 것도 성립하지 않았다 — 경위는
 // docs/prd/eraser-interaction.md 참고.
 //
-// 전환을 일으키는 입력은 설정에서 고른다. 두 방식을 동시에 켜면 안 된다 — 호버 상태에서
-// 버튼을 탭하면 `pointerenter`와 `pointerdown`이 잇따라 들어와 두 번 뒤집히고 제자리로
-// 돌아온다.
+// 전환을 일으키는 입력은 설정에서 고른다. 같은 입력이 두 경로에 다 걸리면 두 번 뒤집혀
+// 제자리로 돌아오므로 — 호버 중에 버튼을 탭하면 호버와 `pointerdown`이 잇따라 들어온다 —
+// 호버 모드에서도 경로를 입력 종류로 갈라 둔다: 호버는 펜·마우스가, 탭은 손가락·키보드가
+// 맡는다. 손가락에는 호버가 없어서 호버 경로로는 영영 전환되지 않기 때문에, 호버 모드라도
+// 손가락 탭은 받아야 한다.
 let toolSwitchMode: "click" | "hover" = stored.toolSwitch === "click" ? "click" : "hover";
 
 function toggleTool(): void {
@@ -116,8 +118,8 @@ function toggleTool(): void {
 // 도구를 지정하는 대신 뒤집는 동작이라 멱등이 아니다. 같은 손가락 입력이 `pointerdown`과
 // `touchstart` 양쪽으로 들어오면 두 번 뒤집혀 제자리로 돌아오므로, 중복 호출을 걸러주는
 // `activateOnPress`로 배선해야 한다.
-activateOnPress("tool-toggle", () => {
-  if (toolSwitchMode === "click") toggleTool();
+activateOnPress("tool-toggle", (source) => {
+  if (toolSwitchMode === "click" || source === "touch" || source === "keyboard") toggleTool();
 });
 // 포인터가 버튼 영역에 들어오는 순간 전환한다. `pointerenter`가 있지만 스타일러스 호버에서는
 // 기기에 따라 오지 않아, 호버 중에도 꾸준히 들어오는 `pointermove`의 좌표로 직접 판정한다.
@@ -125,7 +127,8 @@ activateOnPress("tool-toggle", () => {
 let pointerInsideToggle = false;
 document.addEventListener("pointermove", (event) => {
   // 기본(탭) 모드에서는 매 이벤트마다 영역을 재는 비용을 치르지 않는다.
-  if (toolSwitchMode !== "hover") return;
+  // 손가락은 위 탭 경로가 맡는다 — 여기서도 받으면 버튼 위를 스쳐 지나가는 것만으로 전환된다.
+  if (toolSwitchMode !== "hover" || event.pointerType === "touch") return;
   const inside = containsPoint(toolToggle, event.clientX, event.clientY);
   if (inside && !pointerInsideToggle) toggleTool();
   pointerInsideToggle = inside;
@@ -352,33 +355,40 @@ function describePointer(event: PointerEvent): string {
   return `${event.pointerType} id=${event.pointerId} p=${event.pressure.toFixed(2)}`;
 }
 
-function activateOnPress(buttonId: string, action: () => void): void {
+/** 버튼을 누른 입력. `keyboard`는 Enter/Space로 눌렀을 때다. */
+type PressSource = "pen" | "mouse" | "touch" | "keyboard";
+
+function activateOnPress(buttonId: string, action: (source: PressSource) => void): void {
   const button = element<HTMLButtonElement>(buttonId);
   // 스타일러스는 `pointerdown`과 `touchstart`를 모두 발생시킨다. 손가락만 걸러내면
   // 스타일러스가 어느 쪽에서도 안 걸리는 기기가 생기므로, 둘 다 받아들이는 대신
   // 같은 입력이 두 번 들어와도 한 번만 반응하도록 짧게 잠근다.
   let lastActivated = 0;
-  const activate = () => {
+  const activate = (source: PressSource) => {
     if (button.disabled) return;
     const now = performance.now();
     if (now - lastActivated < 500) return;
     lastActivated = now;
-    action();
+    action(source);
   };
+  // 터치 입력에서는 `pointerdown`이 `touchstart`보다 먼저 온다. 스타일러스는 여기서
+  // `pen`으로 먼저 걸리고 뒤따르는 `touchstart`는 위의 잠금에 막히므로, 둘 다 내는
+  // 기기에서도 입력 종류가 `touch`로 뭉개지지 않는다.
   button.addEventListener("pointerdown", (event) => {
-    if (event.button === 0 && event.pointerType !== "touch") activate();
+    if (event.button !== 0 || event.pointerType === "touch") return;
+    activate(event.pointerType === "pen" ? "pen" : "mouse");
   });
   button.addEventListener(
     "touchstart",
     (event) => {
       if (button.disabled) return;
       event.preventDefault();
-      activate();
+      activate("touch");
     },
     { passive: false },
   );
   button.addEventListener("click", (event) => {
-    if (event.detail === 0) activate();
+    if (event.detail === 0) activate("keyboard");
   });
 }
 
