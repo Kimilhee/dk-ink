@@ -109,11 +109,11 @@ button:disabled {
 }
 .floating-toolbar {
   position: absolute;
-  top: 50%;
-  left: 18px;
+  bottom: 18px;
+  left: 50%;
   z-index: 2;
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   align-items: center;
   gap: 4px;
   padding: 7px;
@@ -123,7 +123,7 @@ button:disabled {
   box-shadow: 0 10px 30px rgb(24 34 49 / 18%);
   backdrop-filter: blur(12px);
   touch-action: none;
-  transform: translateY(-50%);
+  transform: translateX(-50%);
   user-select: none;
 }
 /* 스타일러스가 화면 근처에 있으면 일부 기기는 손가락 터치를 아예 안 받는다(기기/OS 동작,
@@ -167,6 +167,9 @@ button:disabled {
 .tool-toggle .icon {
   color: var(--idle-icon-color);
 }
+.tool-toggle [data-tool="pen"] {
+  transform: scaleX(-1);
+}
 .tool-toggle .icon.is-active {
   color: var(--active-color);
 }
@@ -179,15 +182,15 @@ button:disabled {
   outline-offset: 1px;
 }
 .toolbar-divider {
-  width: 24px;
-  height: 1px;
-  margin: 2px 0;
+  width: 1px;
+  height: 24px;
+  margin: 0 2px;
   background: #dde3ea;
 }
 .drag-handle {
   display: grid;
-  width: 44px;
-  height: 24px;
+  width: 24px;
+  height: 44px;
   place-items: center;
   padding: 0;
   border: 0;
@@ -204,7 +207,6 @@ button:disabled {
   font-family: Arial, sans-serif;
   font-size: 20px;
   line-height: 1;
-  transform: rotate(90deg);
 }
 .icon {
   position: relative;
@@ -217,10 +219,6 @@ button:disabled {
   font-family: Arial, sans-serif;
   font-size: 28px;
   line-height: 20px;
-}
-.icon-gear {
-  font-variant-emoji: text;
-  font-size: 24px;
 }
 .icon-eraser {
   width: 18px;
@@ -383,7 +381,7 @@ button:disabled {
     padding: 12px;
   }
   .floating-toolbar {
-    left: 12px;
+    bottom: 12px;
   }
   .tool-button {
     width: 42px;
