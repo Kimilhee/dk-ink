@@ -274,33 +274,8 @@ button:disabled {
   content: "";
 }
 .icon-trash {
-  width: 14px;
-  height: 15px;
-  margin-top: 4px;
-  border: 2px solid currentColor;
-  border-top: 0;
-  border-radius: 0 0 2px 2px;
-}
-.icon-trash::before {
-  position: absolute;
-  top: -4px;
-  left: -3px;
-  width: 20px;
-  height: 2px;
-  border-radius: 2px;
-  background: currentColor;
-  content: "";
-}
-.icon-trash::after {
-  position: absolute;
-  top: -7px;
-  left: 4px;
-  width: 6px;
-  height: 3px;
-  border: 2px solid currentColor;
-  border-bottom: 0;
-  border-radius: 3px 3px 0 0;
-  content: "";
+  font-size: 20px;
+  font-variant-emoji: text;
 }
 .settings-panel {
   position: absolute;
