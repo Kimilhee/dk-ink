@@ -11,3 +11,8 @@ dist
 .env.*
 !.env.example
 playground/dist
+.archify/**/*.browser-check.json
+.archify/**/*.delivery.json
+.archify/**/*.finalize-summary.json
+.archify/**/*.finalize.json
+.archify/**/*.visual-check.*

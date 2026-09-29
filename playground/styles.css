@@ -74,7 +74,8 @@ output#status {
   flex-wrap: wrap;
   gap: 8px;
 }
-button {
+button,
+.actions a {
   font: inherit;
   padding: 5px 11px;
   border: 1px solid #dde3ea;
@@ -82,6 +83,9 @@ button {
   background: #fff;
   color: inherit;
   cursor: pointer;
+}
+.actions a {
+  text-decoration: none;
 }
 button:disabled {
   opacity: 0.45;

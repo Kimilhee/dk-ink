@@ -1,0 +1,32 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "dk-ink 코드 구조",
+    "output": ".archify/architecture-dk-ink-20260929-173305/dk-ink-architecture.html",
+    "quality_profile": "showcase",
+    "repository": {
+      "url": "https://github.com/Kimilhee/dk-ink.git",
+      "provider": "github",
+      "revision": "90715e13cddad8ad2adb97647f621959bb2cf3cb"
+    }
+  },
+  "components": [
+    { "id": "playground", "type": "frontend", "label": "시험용 앱", "sublabel": "playground/main.ts", "pos": [40, 300], "size": [150, 65], "sources": [{ "path": "playground/main.ts", "line": 1, "end_line": 3 }, { "path": "playground/main.ts", "line": 64, "end_line": 80 }] },
+    { "id": "editor", "type": "backend", "label": "에디터", "sublabel": "입력과 상태 관리", "pos": [310, 300], "size": [155, 65], "sources": [{ "path": "src/editor.ts", "line": 65, "end_line": 86 }, { "path": "src/editor.ts", "line": 168, "end_line": 235 }] },
+    { "id": "history", "type": "database", "label": "되돌리기 이력", "sublabel": "획 묶음 스냅샷", "pos": [310, 90], "size": [155, 65], "sources": [{ "path": "src/history.ts", "line": 9, "end_line": 48 }, { "path": "src/editor.ts", "line": 304, "end_line": 314 }] },
+    { "id": "eraser", "type": "backend", "label": "벡터 지우개", "sublabel": "획 교차와 분할", "pos": [310, 520], "size": [155, 65], "sources": [{ "path": "src/erase.ts", "line": 9, "end_line": 30 }, { "path": "src/erase.ts", "line": 46, "end_line": 74 }] },
+    { "id": "strokes", "type": "database", "label": "획 데이터", "sublabel": "points + style", "pos": [595, 300], "size": [155, 65], "sources": [{ "path": "src/types.ts", "line": 9, "end_line": 38 }, { "path": "src/editor.ts", "line": 78, "end_line": 78 }] },
+    { "id": "renderer", "type": "backend", "label": "캔버스 렌더러", "sublabel": "전체 획 다시 그리기", "pos": [875, 300], "size": [170, 65], "sources": [{ "path": "src/render.ts", "line": 18, "end_line": 49 }, { "path": "src/editor.ts", "line": 132, "end_line": 137 }] },
+    { "id": "outline", "type": "backend", "label": "필압 윤곽선", "sublabel": "점별 굵기 도형", "pos": [1155, 300], "size": [160, 65], "sources": [{ "path": "src/outline.ts", "line": 15, "end_line": 63 }, { "path": "src/render.ts", "line": 33, "end_line": 37 }] }
+  ],
+  "connections": [
+    { "id": "app-editor", "from": "playground", "to": "editor", "label": "생성·조작" },
+    { "id": "editor-history", "from": "editor", "to": "history", "label": "변경 전 저장" },
+    { "id": "editor-eraser", "from": "editor", "to": "eraser", "label": "지우개 제스처" },
+    { "id": "editor-strokes", "from": "editor", "to": "strokes", "label": "현재 획 관리", "variant": "emphasis" },
+    { "id": "eraser-strokes", "from": "eraser", "to": "strokes", "label": "분할 결과" },
+    { "id": "strokes-renderer", "from": "strokes", "to": "renderer", "label": "획별 스타일" },
+    { "id": "renderer-outline", "from": "renderer", "to": "outline", "label": "필압 모드" }
+  ]
+}

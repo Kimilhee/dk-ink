@@ -1,0 +1,40 @@
+{
+  "schema_version": 1,
+  "diagram_type": "sequence",
+  "meta": {
+    "title": "펜 입력 한 번의 흐름",
+    "output": ".archify/sequence-pen-gesture-20260929-173305/pen-gesture.html",
+    "quality_profile": "showcase",
+    "viewBox": [1080, 680],
+    "column_fit": "spread",
+    "repository": {
+      "url": "https://github.com/Kimilhee/dk-ink.git",
+      "provider": "github",
+      "revision": "90715e13cddad8ad2adb97647f621959bb2cf3cb"
+    }
+  },
+  "participants": [
+    { "id": "input", "type": "external", "label": "포인터", "sublabel": "브라우저 이벤트", "sources": [{ "path": "src/editor.ts", "line": 262, "end_line": 265 }] },
+    { "id": "editor", "type": "backend", "label": "에디터", "sublabel": "src/editor.ts", "sources": [{ "path": "src/editor.ts", "line": 168, "end_line": 235 }] },
+    { "id": "history", "type": "database", "label": "이력", "sublabel": "src/history.ts", "sources": [{ "path": "src/history.ts", "line": 23, "end_line": 29 }] },
+    { "id": "strokes", "type": "database", "label": "획 데이터", "sublabel": "points + style", "sources": [{ "path": "src/editor.ts", "line": 78, "end_line": 78 }, { "path": "src/types.ts", "line": 29, "end_line": 38 }] },
+    { "id": "render", "type": "backend", "label": "렌더러", "sublabel": "src/render.ts", "sources": [{ "path": "src/editor.ts", "line": 132, "end_line": 145 }, { "path": "src/render.ts", "line": 18, "end_line": 49 }] }
+  ],
+  "segments": [
+    { "from": 150, "to": 270, "label": "시작" },
+    { "from": 275, "to": 405, "label": "이동" },
+    { "from": 410, "to": 555, "label": "종료" }
+  ],
+  "messages": [
+    { "id": "down", "from": "input", "to": "editor", "y": 170, "label": "pointerdown" },
+    { "id": "commit", "from": "editor", "to": "history", "y": 202, "label": "변경 전 획 저장" },
+    { "id": "start-stroke", "from": "editor", "to": "strokes", "y": 237, "label": "새 획 + 첫 점" },
+    { "id": "move", "from": "input", "to": "editor", "y": 290, "label": "pointermove" },
+    { "id": "append", "from": "editor", "to": "strokes", "y": 325, "label": "뭉친 점까지 추가" },
+    { "id": "schedule", "from": "editor", "to": "render", "y": 365, "label": "다음 프레임에 다시 그리기" },
+    { "id": "up", "from": "input", "to": "editor", "y": 425, "label": "pointerup" },
+    { "id": "last-point", "from": "editor", "to": "strokes", "y": 460, "label": "마지막 점 추가" },
+    { "id": "final-render", "from": "editor", "to": "render", "y": 500, "label": "즉시 다시 그리기" },
+    { "id": "change", "from": "editor", "to": "input", "y": 540, "label": "onChange 알림", "variant": "return" }
+  ]
+}

@@ -20,5 +20,7 @@ export default defineConfig({
       "no-use-before-define": ["error", { functions: false, variables: true, classes: true }],
     },
   },
-  fmt: {},
+  fmt: {
+    ignorePatterns: [".archify/**", "playground/public/analysis/**"],
+  },
 });

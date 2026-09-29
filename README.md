@@ -109,6 +109,8 @@ type StrokeStyle = { color: string; strokeWidth: number; widthMode: WidthMode; o
 
 ## 개발
 
+코드 읽기는 [다이어그램을 따라가는 분석 커리큘럼](docs/code-reading-guide.md)에서 시작한다.
+
 ```bash
 vp install
 vp run playground   # 시험용 앱 (펜/지우개/두께/되돌리기/JSON 확인)
