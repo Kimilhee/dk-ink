@@ -7,6 +7,7 @@ const canvas = element<HTMLCanvasElement>("ink");
 const dumpOutput = element<HTMLPreElement>("dump-output");
 const toolbar = element<HTMLElement>("tool-picker");
 const dragHandle = element<HTMLButtonElement>("toolbar-drag-handle");
+const debugPanel = element<HTMLDetailsElement>("debug-panel");
 const toolToggle = element<HTMLButtonElement>("tool-toggle");
 const settingsPanel = element<HTMLElement>("settings-panel");
 const settingsToggle = element<HTMLButtonElement>("settings-toggle");
@@ -383,10 +384,12 @@ function setSettingsOpen(open: boolean): void {
 function positionToolbar(left: number, top: number): void {
   const stage = element<HTMLElement>("canvas-stage");
   const margin = 8;
+  const minTop =
+    debugPanel.getBoundingClientRect().top - stage.getBoundingClientRect().top + margin;
   const maxLeft = stage.clientWidth - toolbar.offsetWidth - margin;
   const maxTop = stage.clientHeight - toolbar.offsetHeight - margin;
   toolbar.style.left = `${Math.max(margin, Math.min(maxLeft, left))}px`;
-  toolbar.style.top = `${Math.max(margin, Math.min(maxTop, top))}px`;
+  toolbar.style.top = `${Math.max(minTop, Math.min(maxTop, top))}px`;
   toolbar.style.bottom = "auto";
   toolbar.style.transform = "none";
 }
