@@ -109,7 +109,13 @@ type StrokeStyle = { color: string; strokeWidth: number; widthMode: WidthMode; o
 
 ## 개발
 
-코드 읽기는 [다이어그램을 따라가는 분석 커리큘럼](docs/code-reading-guide.md)에서 시작한다.
+코드 읽기는 [분석 커리큘럼](docs/code-reading-guide.md)에서 시작한다. 다이어그램은 브라우저에서 바로 열 수 있다:
+
+- [코드 구조도](https://kimilhee.github.io/dk-ink/analysis/dk-ink-architecture.html)
+- [펜 입력 순서도](https://kimilhee.github.io/dk-ink/analysis/pen-gesture.html)
+- [렌더링 데이터 흐름도](https://kimilhee.github.io/dk-ink/analysis/render-dataflow.html)
+- [지우개 동작 흐름도](https://kimilhee.github.io/dk-ink/analysis/eraser-workflow.html)
+- [되돌리기 상태도](https://kimilhee.github.io/dk-ink/analysis/history-lifecycle.html)
 
 ```bash
 vp install

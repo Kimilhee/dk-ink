@@ -1,0 +1,42 @@
+{
+  "schema_version": 2,
+  "diagram_type": "workflow",
+  "meta": {
+    "title": "지우개가 획을 나누는 흐름",
+    "output": ".archify/workflow-eraser-20260930-111229/eraser-workflow.html",
+    "quality_profile": "showcase",
+    "repository": {
+      "url": "https://github.com/Kimilhee/dk-ink.git",
+      "provider": "github",
+      "revision": "ab5eb059f77e2e5164c1247dc6058ae069d74ece"
+    }
+  },
+  "lanes": [
+    { "id": "gesture", "label": "입력과 에디터" },
+    { "id": "geometry", "label": "벡터 계산" },
+    { "id": "unchanged", "label": "변경 없음", "variant": "exception" }
+  ],
+  "mainPath": ["down", "snapshot", "sweep", "intersection", "fragments", "replace"],
+  "nodes": [
+    { "id": "down", "lane": "gesture", "col": 0, "type": "external", "label": "지우개 누르기", "sublabel": "pointerdown", "sources": [{ "path": "src/editor.ts", "line": 168, "end_line": 180 }] },
+    { "id": "snapshot", "lane": "gesture", "col": 1, "type": "database", "label": "이전 획 저장", "sublabel": "history.commit", "sources": [{ "path": "src/editor.ts", "line": 175, "end_line": 180 }, { "path": "src/history.ts", "line": 23, "end_line": 29 }] },
+    { "id": "sweep", "lane": "gesture", "col": 2, "type": "backend", "label": "이동 선분", "sublabel": "이전 점 → 현재 점", "sources": [{ "path": "src/editor.ts", "line": 191, "end_line": 207 }] },
+    { "id": "intersection", "lane": "geometry", "col": 3, "type": "backend", "label": "교차 검사", "sublabel": "각 Stroke와 비교", "sources": [{ "path": "src/erase.ts", "line": 19, "end_line": 24 }, { "path": "src/erase.ts", "line": 33, "end_line": 44 }] },
+    { "id": "fragments", "lane": "geometry", "col": 4, "type": "backend", "label": "획 조각 추출", "sublabel": "지우개 밖의 점만", "sources": [{ "path": "src/erase.ts", "line": 25, "end_line": 30 }, { "path": "src/erase.ts", "line": 46, "end_line": 74 }] },
+    { "id": "replace", "lane": "gesture", "col": 5, "type": "backend", "label": "획 교체", "sublabel": "다시 그리기·알림", "sources": [{ "path": "src/editor.ts", "line": 126, "end_line": 145 }, { "path": "src/editor.ts", "line": 227, "end_line": 234 }] },
+    { "id": "keep", "lane": "unchanged", "col": 4, "type": "database", "label": "원본 획 유지", "sublabel": "교차하지 않은 획", "sources": [{ "path": "src/erase.ts", "line": 19, "end_line": 22 }] },
+    { "id": "nochange", "lane": "unchanged", "col": 5, "type": "backend", "label": "변경 없이 종료", "sublabel": "이력 항목 제거", "sources": [{ "path": "src/editor.ts", "line": 227, "end_line": 234 }] }
+  ],
+  "edges": [
+    { "from": "down", "to": "snapshot" },
+    { "from": "snapshot", "to": "sweep" },
+    { "from": "sweep", "to": "intersection", "label": "eraseStrokes" },
+    { "from": "intersection", "to": "fragments", "label": "교차함", "variant": "emphasis" },
+    { "from": "fragments", "to": "replace", "label": "changed=true", "variant": "emphasis" },
+    { "from": "intersection", "to": "keep", "label": "교차 안 함", "role": "branch" },
+    { "from": "keep", "to": "nochange", "label": "끝까지 변화 없음", "role": "branch" }
+  ],
+  "cards": [
+    { "dot": "cyan", "title": "제스처 전체 기준", "items": ["이동 중에는 여러 선분을 검사한다.", "변경이 한 번이라도 있으면 이력 항목과 onChange를 유지한다."] }
+  ]
+}

@@ -5,7 +5,7 @@
 ## 준비
 
 1. [시험용 앱](https://kimilhee.github.io/dk-ink/)에서 펜으로 선을 하나 그리고, `획 JSON 보기`를 눌러 본다.
-2. [코드 구조도](https://kimilhee.github.io/dk-ink/analysis/dk-ink-architecture.html)와 [펜 입력 순서도](https://kimilhee.github.io/dk-ink/analysis/pen-gesture.html)를 새 탭으로 연다. 로컬에서도 `playground/public/analysis/`의 HTML 파일을 바로 열 수 있다.
+2. 먼저 [코드 구조도](https://kimilhee.github.io/dk-ink/analysis/dk-ink-architecture.html)를 연다. 각 단계의 그림은 해당 단계에서 연다. 로컬에서도 `playground/public/analysis/`의 HTML 파일을 바로 열 수 있다.
 3. 저장소에서 `vp install` 후 `vp run playground`로 직접 실행한다. 작업을 확인할 때는 `vp test`와 `vp check`를 쓴다.
 
 다이어그램은 코드를 읽는 지도다. 노드를 눌러 설명과 소스 위치를 확인하고, 구체적인 동작은 해당 코드에서 검증한다. 구조도에서 `획 데이터`는 별도 데이터베이스가 아니라 에디터의 메모리 안에 있는 배열이다.
@@ -30,7 +30,7 @@
 
 ## 3. 획이 화면에 보이는 이유
 
-**그림:** [코드 구조도](https://kimilhee.github.io/dk-ink/analysis/dk-ink-architecture.html)의 `획 데이터 → 캔버스 렌더러 → 필압 윤곽선`.
+**그림:** [렌더링 데이터 흐름도](https://kimilhee.github.io/dk-ink/analysis/render-dataflow.html). `pressure`와 `constant` 두 경로를 비교한다.
 
 **읽기:** [`src/render.ts`](../src/render.ts)의 `renderStrokes`, `pressureWidth`, [`src/outline.ts`](../src/outline.ts)의 `drawOutlineStroke`, [`tests/render.test.ts`](../tests/render.test.ts).
 
@@ -40,7 +40,7 @@
 
 ## 4. 지우개로 획을 나누기
 
-**그림:** [코드 구조도](https://kimilhee.github.io/dk-ink/analysis/dk-ink-architecture.html)의 `에디터 → 벡터 지우개 → 획 데이터`.
+**그림:** [지우개 동작 흐름도](https://kimilhee.github.io/dk-ink/analysis/eraser-workflow.html). `교차함`과 `교차 안 함` 두 갈래를 따라간다.
 
 **읽기:** [`src/editor.ts`](../src/editor.ts)의 `eraseBetween`과 지우개 분기, [`src/erase.ts`](../src/erase.ts)의 `eraseStrokes`, `intersectsEraser`, `splitOutsideEraser`, [`tests/erase.test.ts`](../tests/erase.test.ts).
 
@@ -49,6 +49,8 @@
 **완료 조건:** 지우개가 이미지 픽셀을 지우는 방식이 아니라 기존 `Stroke`를 조각으로 바꾼다는 점을 설명한다. 분할된 조각이 원래 `style`을 이어받는 위치를 찾는다.
 
 ## 5. 되돌리기와 외부에서 상태 바꾸기
+
+**그림:** [되돌리기 상태도](https://kimilhee.github.io/dk-ink/analysis/history-lifecycle.html). `past`와 `future`의 변화를 본다.
 
 **읽기:** [`src/history.ts`](../src/history.ts)의 `commit`, `undo`, `redo`, `cloneStrokes`; [`src/editor.ts`](../src/editor.ts)의 `setStrokes`, `undo`, `redo`, `clear`; [`tests/history.test.ts`](../tests/history.test.ts).
 

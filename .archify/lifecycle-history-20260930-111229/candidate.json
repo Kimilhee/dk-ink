@@ -1,0 +1,31 @@
+{
+  "schema_version": 2,
+  "diagram_type": "lifecycle",
+  "meta": {
+    "title": "되돌리기·다시 실행 상태",
+    "output": ".archify/lifecycle-history-20260930-111229/history-lifecycle.html",
+    "quality_profile": "showcase",
+    "repository": {
+      "url": "https://github.com/Kimilhee/dk-ink.git",
+      "provider": "github",
+      "revision": "ab5eb059f77e2e5164c1247dc6058ae069d74ece"
+    }
+  },
+  "lanes": [
+    { "id": "main", "label": "이력" }
+  ],
+  "states": [
+    { "id": "empty", "type": "start", "label": "처음", "sublabel": "past=0, future=0", "lane": "main", "col": 0, "sources": [{ "path": "src/history.ts", "line": 9, "end_line": 11 }] },
+    { "id": "committed", "type": "active", "label": "되돌릴 수 있음", "sublabel": "past>0, future=0", "lane": "main", "col": 1, "sources": [{ "path": "src/history.ts", "line": 23, "end_line": 29 }] },
+    { "id": "undone", "type": "waiting", "label": "다시 실행 가능", "sublabel": "future>0", "lane": "main", "col": 2, "sources": [{ "path": "src/history.ts", "line": 31, "end_line": 35 }] }
+  ],
+  "transitions": [
+    { "from": "empty", "to": "committed", "label": "commit: 이전 획 복사" },
+    { "from": "committed", "to": "undone", "label": "undo: 현재 획을 future로" },
+    { "from": "undone", "to": "committed", "label": "마지막 redo 또는 새 commit", "variant": "emphasis" }
+  ],
+  "cards": [
+    { "dot": "violet", "title": "두 개의 스택", "items": ["undo는 past에서 꺼내고 현재 상태를 future에 쌓는다.", "redo는 future에서 꺼내고 현재 상태를 past에 쌓는다."] },
+    { "dot": "amber", "title": "다시 실행 가지", "items": ["새 commit은 future를 비운다. historyLimit=0이면 이력은 쌓이지 않는다.", "redo 후 future가 남아 있으면 다시 실행 가능 상태가 유지된다."] }
+  ]
+}

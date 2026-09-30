@@ -1,0 +1,44 @@
+{
+  "schema_version": 1,
+  "diagram_type": "dataflow",
+  "meta": {
+    "title": "획이 캔버스 픽셀이 되는 과정",
+    "output": ".archify/dataflow-render-20260930-111229/render-dataflow.html",
+    "quality_profile": "showcase",
+    "viewBox": [1080, 600],
+    "repository": {
+      "url": "https://github.com/Kimilhee/dk-ink.git",
+      "provider": "github",
+      "revision": "ab5eb059f77e2e5164c1247dc6058ae069d74ece"
+    }
+  },
+  "stages": [
+    { "label": "원본" },
+    { "label": "스타일 선택" },
+    { "label": "굵기 계산" },
+    { "label": "경로 생성" },
+    { "label": "그리기" }
+  ],
+  "nodes": [
+    { "id": "stroke", "type": "database", "label": "Stroke", "sublabel": "points + style", "stage": 0, "row": 1, "sources": [{ "path": "src/types.ts", "line": 16, "end_line": 38 }] },
+    { "id": "mode", "type": "backend", "label": "renderStrokes", "sublabel": "widthMode 분기", "stage": 1, "row": 1, "sources": [{ "path": "src/render.ts", "line": 18, "end_line": 35 }] },
+    { "id": "pressure", "type": "backend", "label": "필압별 굵기", "sublabel": "pressureWidth", "stage": 2, "row": 0, "sources": [{ "path": "src/render.ts", "line": 4, "end_line": 9 }, { "path": "src/render.ts", "line": 33, "end_line": 36 }] },
+    { "id": "constant", "type": "backend", "label": "고정 굵기", "sublabel": "style.strokeWidth", "stage": 2, "row": 2, "sources": [{ "path": "src/render.ts", "line": 39, "end_line": 39 }] },
+    { "id": "outline", "type": "backend", "label": "채운 윤곽선", "sublabel": "좌우 외곽 + 끝 반원", "stage": 3, "row": 0, "sources": [{ "path": "src/outline.ts", "line": 15, "end_line": 63 }] },
+    { "id": "line", "type": "backend", "label": "선 경로", "sublabel": "moveTo + lineTo", "stage": 3, "row": 2, "sources": [{ "path": "src/render.ts", "line": 39, "end_line": 45 }] },
+    { "id": "canvas", "type": "frontend", "label": "Canvas 2D", "sublabel": "fill 또는 stroke", "stage": 4, "row": 1, "sources": [{ "path": "src/render.ts", "line": 18, "end_line": 49 }, { "path": "src/outline.ts", "line": 61, "end_line": 63 }] }
+  ],
+  "flows": [
+    { "from": "stroke", "to": "mode", "label": "점·색·투명도·모드" },
+    { "from": "mode", "to": "pressure", "label": "pressure 모드", "variant": "emphasis" },
+    { "from": "mode", "to": "constant", "label": "constant 모드" },
+    { "from": "pressure", "to": "outline", "label": "점별 반지름", "variant": "emphasis" },
+    { "from": "constant", "to": "line", "label": "하나의 lineWidth" },
+    { "from": "outline", "to": "canvas", "label": "fill", "variant": "emphasis" },
+    { "from": "line", "to": "canvas", "label": "stroke" }
+  ],
+  "cards": [
+    { "dot": "cyan", "title": "그리기 전 준비", "items": ["renderStrokes는 먼저 clearRect로 전체 화면을 비운다.", "각 획은 생성 당시 저장한 style로 다시 그린다."] },
+    { "dot": "emerald", "title": "좌표와 해상도", "items": ["점 좌표는 CSS 픽셀을 유지한다.", "resize가 DPR에 맞춰 백버퍼와 변환 행렬을 설정한다."] }
+  ]
+}
