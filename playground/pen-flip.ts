@@ -13,6 +13,8 @@ import { watchPenHover } from "./pen-hover.ts";
 const FLIPPED_ERASER_WIDTH = 20;
 /** 펜이 움직이면 이만큼 뒤에 그때의 펜 옆으로 순간 이동한다. 그 사이에 펜으로 아이콘을 누를 수 있다. */
 const FOLLOW_DELAY_MS = 500;
+/** 나타날 때 서서히 보이는 시간. */
+const FADE_IN_MS = 250;
 /**
  * 아이콘을 놓은 뒤 펜이 이만큼 넘게 움직여야 이동을 예약한다. 호버 중 손떨림 이벤트가 미리
  * 예약을 걸어 두면, 실제로 움직이기 시작했을 때 0.5초를 다 기다리지 않고 옮겨지기 때문이다.
@@ -93,6 +95,11 @@ export function attachPenFlip(
     icon.style.top = `${y}px`;
   }
 
+  /** 나타나거나 순간 이동할 때 갑자기 튀지 않게 투명에서 CSS 불투명도까지 서서히 보인다. */
+  function fadeIn(): void {
+    icon.animate([{ opacity: 0 }], { duration: FADE_IN_MS, easing: "ease-out" });
+  }
+
   document.addEventListener("pointermove", (event) => {
     if (event.pointerType !== "pen") return;
     // 아이콘을 누르고 있는 동안에는 그대로 둬야 뒤집히는 모습이 보인다.
@@ -123,6 +130,7 @@ export function attachPenFlip(
     if (icon.hidden) {
       moveTo(targetX, targetY);
       icon.hidden = false;
+      fadeIn();
       return;
     }
     const iconX = parseFloat(icon.style.left);
@@ -137,7 +145,9 @@ export function attachPenFlip(
     if (holding || !moved || followTimer !== undefined) return;
     followTimer = setTimeout(() => {
       followTimer = undefined;
-      if (!holding) moveTo(followX, followY);
+      if (holding) return;
+      moveTo(followX, followY);
+      fadeIn();
     }, FOLLOW_DELAY_MS);
   });
 
