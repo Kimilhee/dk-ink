@@ -19,7 +19,7 @@ const HOLD_RADIUS = 24;
  * 포인터에서 아이콘 중심까지의 거리(왼쪽 위). 오른손 필기는 오른쪽으로 나아가므로 왼쪽에
  * 두어야 쓰다가 아이콘을 잘못 누르지 않는다.
  */
-const OFFSET = 40;
+const OFFSET = 56;
 
 export interface PenFlip {
   readonly flipped: boolean;
@@ -44,6 +44,8 @@ export function attachPenFlip(
   let flipped = false;
   let savedEraserWidth = 0;
   let holding = false;
+  /** 필기 중 숨긴 아이콘은 펜을 뗀 뒤 이 시각까지 다시 띄우지 않는다. 획 사이마다 깜빡이지 않게. */
+  let hiddenUntil = 0;
   /** 아이콘이 보이는 동안 쌓인 이동 예약. 숨길 때 한꺼번에 취소한다. */
   const followTimers = new Set<ReturnType<typeof setTimeout>>();
 
@@ -83,6 +85,7 @@ export function attachPenFlip(
       hide();
       return;
     }
+    if (icon.hidden && performance.now() < hiddenUntil) return;
 
     const bounds = stage.getBoundingClientRect();
     const x = event.clientX - bounds.left;
@@ -114,6 +117,12 @@ export function attachPenFlip(
       if (!near) hide();
     },
   );
+
+  // 획을 마칠 때마다 다시 나타나는 시점을 미룬다. 아이콘을 탭한 경우는 아이콘이 보이는
+  // 중이라 영향이 없다.
+  document.addEventListener("pointerup", (event) => {
+    if (event.pointerType === "pen") hiddenUntil = performance.now() + FOLLOW_DELAY_MS;
+  });
 
   icon.addEventListener("pointerdown", (event) => {
     event.preventDefault();
