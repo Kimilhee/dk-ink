@@ -82,7 +82,7 @@ const editor = createInkEditor(canvas, {
   },
 });
 
-// S펜 호버 중 포인터 옆 연필 아이콘으로 켜는 임시 지우개. 자세한 동작은 pen-flip.ts 참고.
+// S펜 호버 중 포인터 옆 연필 아이콘으로 켜는 작은 지우개. 자세한 동작은 pen-flip.ts 참고.
 const penFlip = attachPenFlip(editor, element<HTMLElement>("canvas-stage"), syncButtons);
 
 // 펜과 지우개는 버튼 하나를 번갈아 써서 바꾼다. "누르고 있는 동안만 지우개" 같은 순간
@@ -97,7 +97,7 @@ const penFlip = attachPenFlip(editor, element<HTMLElement>("canvas-stage"), sync
 let toolSwitchMode: "click" | "hover" = stored.toolSwitch === "click" ? "click" : "hover";
 
 function toggleTool(): void {
-  // 임시 지우개 중에 도구 버튼을 누르면 영구 지우개로 넘어가지 않고 펜으로 돌아온다.
+  // 연필을 뒤집은 중에 도구 버튼을 누르면 영구 지우개로 넘어가지 않고 펜으로 돌아온다.
   if (penFlip.flipped) {
     penFlip.unflip();
     return;

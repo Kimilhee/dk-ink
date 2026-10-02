@@ -1,7 +1,7 @@
 /**
- * S펜이 캔버스 위에 떠 있는 동안 포인터 우상단에 연필 아이콘을 띄운다. 아이콘을 펜으로
+ * S펜이 캔버스 위에 떠 있는 동안 포인터 좌상단에 연필 아이콘을 띄운다. 아이콘을 펜으로
  * 탭하면 연필이 뒤집히고(180°), 그 상태에서 화면을 문지르면 연필 뒷부분처럼 작은 지우개가
- * 된다. 지운 뒤 펜을 떼면 바로 펜으로 돌아오는 **임시** 지우개다.
+ * 된다. 다시 탭하면 펜으로 돌아온다.
  *
  * 에디터 공개 API(`tool`, `setStyle`)만 쓴다. 나중에 라이브러리로 옮길 때 이 파일을 그대로
  * 가져가면 된다.
@@ -15,8 +15,11 @@ const FLIPPED_ERASER_WIDTH = 20;
 const FOLLOW_DELAY_MS = 500;
 /** 펜이 아이콘 위(이 반경 안)에 있으면 누르려는 것으로 보고 아이콘을 멈춘다. */
 const HOLD_RADIUS = 24;
-/** 포인터에서 아이콘 중심까지의 거리(오른쪽 위). */
-const OFFSET = 28;
+/**
+ * 포인터에서 아이콘 중심까지의 거리(왼쪽 위). 오른손 필기는 오른쪽으로 나아가므로 왼쪽에
+ * 두어야 쓰다가 아이콘을 잘못 누르지 않는다.
+ */
+const OFFSET = 40;
 
 export interface PenFlip {
   readonly flipped: boolean;
@@ -40,7 +43,6 @@ export function attachPenFlip(
 
   let flipped = false;
   let savedEraserWidth = 0;
-  let erasingPointerId: number | undefined;
   let holding = false;
   /** 아이콘이 보이는 동안 쌓인 이동 예약. 숨길 때 한꺼번에 취소한다. */
   const followTimers = new Set<ReturnType<typeof setTimeout>>();
@@ -56,7 +58,6 @@ export function attachPenFlip(
     } else {
       editor.setStyle({ eraserWidth: savedEraserWidth });
       editor.tool = "pen";
-      erasingPointerId = undefined;
     }
     onToolChange();
   }
@@ -86,7 +87,7 @@ export function attachPenFlip(
     const bounds = stage.getBoundingClientRect();
     const x = event.clientX - bounds.left;
     const y = event.clientY - bounds.top;
-    const targetX = x + OFFSET;
+    const targetX = x - OFFSET;
     const targetY = y - OFFSET;
 
     if (icon.hidden) {
@@ -106,7 +107,7 @@ export function attachPenFlip(
     followTimers.add(timer);
   });
 
-  // 호버가 끝나면(펜을 멀리 들면) 아이콘만 감춘다. 뒤집힌 상태는 다음 획까지 유지한다.
+  // 호버가 끝나면(펜을 멀리 들면) 아이콘만 감춘다. 뒤집힌 상태는 다시 탭할 때까지 유지한다.
   watchPenHover(
     () => false,
     (near) => {
@@ -119,16 +120,6 @@ export function attachPenFlip(
     event.stopPropagation();
     setFlipped(!flipped);
   });
-
-  // 에디터보다 나중에 등록되므로, 에디터가 지우기를 마무리한 뒤에 펜으로 되돌린다.
-  canvas.addEventListener("pointerdown", (event) => {
-    if (flipped) erasingPointerId = event.pointerId;
-  });
-  for (const type of ["pointerup", "pointercancel"] as const) {
-    canvas.addEventListener(type, (event) => {
-      if (flipped && event.pointerId === erasingPointerId) setFlipped(false);
-    });
-  }
 
   return {
     get flipped() {
