@@ -11,7 +11,7 @@ import { watchPenHover } from "./pen-hover.ts";
 
 /** 연필 뒷부분 지우개의 지름. 영구 지우개 설정과는 따로 간다. */
 const FLIPPED_ERASER_WIDTH = 20;
-/** 아이콘은 펜이 이만큼 전에 있던 자리를 따라온다. 그 사이에 펜으로 아이콘을 누를 수 있다. */
+/** 펜이 움직이면 이만큼 뒤에 그때의 펜 옆으로 순간 이동한다. 그 사이에 펜으로 아이콘을 누를 수 있다. */
 const FOLLOW_DELAY_MS = 500;
 /** 펜이 아이콘 위(이 반경 안)에 있으면 누르려는 것으로 보고 아이콘을 멈춘다. */
 const HOLD_RADIUS = 24;
@@ -52,8 +52,15 @@ export function attachPenFlip(
   let holding = false;
   /** 필기 중 숨긴 아이콘은 펜을 뗀 뒤 이 시각까지 다시 띄우지 않는다. 획 사이마다 깜빡이지 않게. */
   let hiddenUntil = 0;
-  /** 아이콘이 보이는 동안 쌓인 이동 예약. 숨길 때 한꺼번에 취소한다. */
-  const followTimers = new Set<ReturnType<typeof setTimeout>>();
+  /** 예약된 순간 이동. 하나만 걸고, 실행될 때 가장 최근 펜 위치로 간다. */
+  let followTimer: ReturnType<typeof setTimeout> | undefined;
+  let followX = 0;
+  let followY = 0;
+
+  function cancelFollow(): void {
+    if (followTimer !== undefined) clearTimeout(followTimer);
+    followTimer = undefined;
+  }
 
   function setFlipped(next: boolean): void {
     if (next === flipped) return;
@@ -72,8 +79,7 @@ export function attachPenFlip(
 
   function hide(): void {
     icon.classList.remove("is-erasing");
-    for (const timer of followTimers) clearTimeout(timer);
-    followTimers.clear();
+    cancelFollow();
     icon.hidden = true;
   }
 
@@ -90,8 +96,7 @@ export function attachPenFlip(
     // 뒤집힌 연필로 지우는 동안에는 지연 없이 지우개 끝을 펜 끝(지우개 원)에 붙인다.
     if (flipped && event.buttons !== 0 && event.target === canvas) {
       const bounds = stage.getBoundingClientRect();
-      for (const timer of followTimers) clearTimeout(timer);
-      followTimers.clear();
+      cancelFollow();
       icon.classList.add("is-erasing");
       moveTo(event.clientX - bounds.left + ERASER_END, event.clientY - bounds.top - ERASER_END);
       icon.hidden = false;
@@ -118,13 +123,15 @@ export function attachPenFlip(
     const iconX = parseFloat(icon.style.left);
     const iconY = parseFloat(icon.style.top);
     holding = Math.hypot(x - iconX, y - iconY) <= HOLD_RADIUS;
-    // 이동마다 따로 예약해 0.5초 늦게 같은 궤적을 따라오게 한다. 매번 취소하고 다시 걸면
-    // 호버 중 손떨림으로 이벤트가 끊이지 않아 아이콘이 영영 움직이지 않는다.
-    const timer = setTimeout(() => {
-      followTimers.delete(timer);
-      if (!holding) moveTo(targetX, targetY);
+    followX = targetX;
+    followY = targetY;
+    // 이미 걸린 예약은 다시 걸지 않는다. 매번 취소하고 다시 걸면 호버 중 손떨림으로 이벤트가
+    // 끊이지 않아 아이콘이 영영 움직이지 않는다.
+    if (holding || followTimer !== undefined) return;
+    followTimer = setTimeout(() => {
+      followTimer = undefined;
+      if (!holding) moveTo(followX, followY);
     }, FOLLOW_DELAY_MS);
-    followTimers.add(timer);
   });
 
   // 호버가 끝나면(펜을 멀리 들면) 아이콘만 감춘다. 뒤집힌 상태는 다시 탭할 때까지 유지한다.

@@ -398,10 +398,7 @@ button:disabled {
   touch-action: none;
   user-select: none;
   transform: translate(-50%, -50%) scaleX(-1);
-  transition:
-    left 0.15s ease-out,
-    top 0.15s ease-out,
-    transform 0.15s ease-out;
+  transition: transform 0.15s ease-out;
 }
 .pen-flip.is-flipped {
   transform: translate(-50%, -50%) scaleX(-1) rotate(180deg);
