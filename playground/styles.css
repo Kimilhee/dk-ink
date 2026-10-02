@@ -137,9 +137,6 @@ button:disabled {
 .floating-toolbar.is-pen-near .tool-button {
   color: var(--idle-icon-color);
 }
-/* 선택된 도구의 파란 강조도 회색으로 낮춘다. 안 그러면 "지금 못 누른다"는 신호 위에
-   평소와 같은 강조색이 남아 상태가 섞여 보인다. 활성은 진한 회색으로 남겨 비활성과의
-   구분은 유지한다. */
 .floating-toolbar.is-pen-near .tool-button[aria-expanded="true"] {
   background: #dde3ea;
 }
@@ -156,17 +153,16 @@ button:disabled {
 .tool-button:hover:not(:disabled):not([aria-expanded="true"]) {
   background: #edf1f5;
 }
+/* 연필 촉이 왼쪽 아래를 향하게 뒤집는다. */
+.icon-pen {
+  transform: scaleX(-1);
+}
 /* 펜·지우개는 연필 하나로 나타낸다. 지우개일 때는 거꾸로 세워 뒷부분(지우개)이 아래로 온다. */
-.pencil {
+.tool-toggle .icon-pen {
   transition: transform 0.15s ease-out;
 }
-.tool-toggle .pencil {
-  width: 24px;
-  height: 24px;
-}
-.tool-toggle[data-tool="eraser"] .pencil,
-.pen-flip.is-flipped .pencil {
-  transform: rotate(180deg);
+.tool-toggle[data-tool="eraser"] .icon-pen {
+  transform: scaleX(-1) rotate(180deg);
 }
 .tool-button[aria-expanded="true"] {
   background: var(--active-color);
@@ -382,24 +378,33 @@ button:disabled {
   }
 }
 /* S펜 호버 중 포인터 좌상단의 연필 아이콘. 뒤집히면 작은 지우개다(pen-flip.ts).
-   반투명이라 아래 필기가 비쳐 보인다. 크기는 pen-flip.ts가 정한다. */
+   반투명이라 아래 필기가 비쳐 보인다. 촉 방향은 도구 모음의 펜 아이콘과 같다. */
 .pen-flip {
   position: absolute;
   z-index: 1;
   display: grid;
+  width: 40px;
+  height: 40px;
   place-items: center;
   padding: 0;
   border: 0;
   border-radius: 9px;
   background: #fff;
   color: #182231;
+  font-family: Arial, sans-serif;
+  font-size: 28px;
+  line-height: 1;
   opacity: 0.3;
   touch-action: none;
   user-select: none;
-  transform: translate(-50%, -50%);
+  transform: translate(-50%, -50%) scaleX(-1);
   transition:
     left 0.15s ease-out,
-    top 0.15s ease-out;
+    top 0.15s ease-out,
+    transform 0.15s ease-out;
+}
+.pen-flip.is-flipped {
+  transform: translate(-50%, -50%) scaleX(-1) rotate(180deg);
 }
 /* 지우는 동안에는 펜 끝에 딱 붙어 다니고, 다음 획을 가로채지 않는다. */
 .pen-flip.is-erasing {

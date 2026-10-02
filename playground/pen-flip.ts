@@ -20,15 +20,12 @@ const HOLD_RADIUS = 24;
  * 두어야 쓰다가 아이콘을 잘못 누르지 않는다.
  */
 const OFFSET = 56;
-/** 아이콘 상자와 그 안의 연필 그림 크기(px). 연필 그림은 24 단위 viewBox다. */
-const ICON_SIZE = 40;
-const PENCIL_SIZE = 32;
 /**
- * 뒤집힌 연필의 지우개 끝이 아이콘 중심에서 떨어진 거리(px, 오른쪽·위가 +). 지우는 동안
- * 이만큼 아이콘을 옮겨 지우개 끝을 지우개 원에 맞춘다. viewBox 기준 지우개 끝은 약 (18.5, 5.5)이고
- * 180° 돌리면 (5.5, 18.5) — 중심 (12, 12)에서 왼쪽 아래로 6.5씩이다.
+ * 뒤집힌 연필(✎)의 지우개 끝이 아이콘 중심에서 떨어진 거리(px, 오른쪽·위가 +). 지우는 동안
+ * 이만큼 아이콘을 옮겨 지우개 끝을 지우개 원에 맞춘다. 글리프 모양은 기기 폰트마다 달라
+ * 정확한 값이 아니라 기기에서 눈으로 맞출 값이다.
  */
-const ERASER_END = (6.5 * PENCIL_SIZE) / 24;
+const ERASER_END = 8;
 
 export interface PenFlip {
   readonly flipped: boolean;
@@ -45,9 +42,7 @@ export function attachPenFlip(
   const icon = document.createElement("button");
   icon.type = "button";
   icon.className = "pen-flip";
-  icon.style.width = icon.style.height = `${ICON_SIZE}px`;
-  // 도구 모음(index.html)의 연필과 같은 그림이다.
-  icon.innerHTML = `<svg class="pencil" width="${PENCIL_SIZE}" height="${PENCIL_SIZE}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z" /><path d="m15 5 4 4" /></svg>`;
+  icon.textContent = "✎";
   icon.setAttribute("aria-label", "연필 뒤집기(임시 지우개)");
   icon.hidden = true;
   stage.append(icon);
