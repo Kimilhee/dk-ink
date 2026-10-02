@@ -11,12 +11,8 @@ import { watchPenHover } from "./pen-hover.ts";
 
 /** 연필 뒷부분 지우개의 지름. 영구 지우개 설정과는 따로 간다. */
 const FLIPPED_ERASER_WIDTH = 20;
-/** 펜이 움직이면 이만큼 뒤에 그때의 펜 옆으로 곡선을 그리며 옮겨 간다. 그 사이에 펜으로 아이콘을 누를 수 있다. */
+/** 펜이 움직이면 이만큼 뒤에 그때의 펜 옆으로 옮겨 간다. 그 사이에 펜으로 아이콘을 누를 수 있다. */
 const FOLLOW_DELAY_MS = 500;
-/** 새 자리로 미끄러져 가는 시간. */
-const GLIDE_MS = 400;
-/** 곡선이 직선에서 옆으로 휘는 정도(이동 거리 대비). */
-const GLIDE_BEND = 0.2;
 /** 나타날 때 서서히 보이는 시간. */
 const FADE_IN_MS = 1000;
 /**
@@ -67,7 +63,6 @@ export function attachPenFlip(
   let followTimer: ReturnType<typeof setTimeout> | undefined;
   let followX = 0;
   let followY = 0;
-  let glide: Animation | undefined;
 
   function cancelFollow(): void {
     if (followTimer !== undefined) clearTimeout(followTimer);
@@ -90,7 +85,6 @@ export function attachPenFlip(
   }
 
   function hide(): void {
-    glide?.cancel();
     icon.classList.remove("is-erasing");
     cancelFollow();
     icon.hidden = true;
@@ -99,32 +93,6 @@ export function attachPenFlip(
   function moveTo(x: number, y: number): void {
     icon.style.left = `${x}px`;
     icon.style.top = `${y}px`;
-  }
-
-  /**
-   * 지금 보이는 자리에서 (x, y)까지 2차 베지어 곡선을 따라 미끄러져 간다. 제어점은 두 점의
-   * 중간에서 진행 방향의 옆으로 비켜 두어 살짝 휜 궤적이 된다.
-   */
-  function glideTo(x: number, y: number): void {
-    // 이동 중이면 애니메이션이 그리고 있는 현재 자리에서 이어서 출발한다.
-    const fromX = parseFloat(getComputedStyle(icon).left);
-    const fromY = parseFloat(getComputedStyle(icon).top);
-    const controlX = (fromX + x) / 2 - (y - fromY) * GLIDE_BEND;
-    const controlY = (fromY + y) / 2 + (x - fromX) * GLIDE_BEND;
-    const frames: Keyframe[] = [];
-    for (let step = 0; step <= 20; step += 1) {
-      const t = step / 20;
-      const a = (1 - t) * (1 - t);
-      const b = 2 * (1 - t) * t;
-      const c = t * t;
-      frames.push({
-        left: `${a * fromX + b * controlX + c * x}px`,
-        top: `${a * fromY + b * controlY + c * y}px`,
-      });
-    }
-    glide?.cancel();
-    moveTo(x, y);
-    glide = icon.animate(frames, { duration: GLIDE_MS, easing: "ease-in-out" });
   }
 
   /** 숨어 있다 나타날 때 갑자기 튀지 않게 투명에서 CSS 불투명도까지 서서히 보인다. */
@@ -142,7 +110,6 @@ export function attachPenFlip(
     if (flipped && event.buttons !== 0 && event.target === canvas) {
       const bounds = stage.getBoundingClientRect();
       cancelFollow();
-      glide?.cancel();
       icon.classList.add("is-erasing");
       moveTo(event.clientX - bounds.left + ERASER_END, event.clientY - bounds.top - ERASER_END);
       icon.hidden = false;
@@ -179,7 +146,8 @@ export function attachPenFlip(
     if (holding || !moved || followTimer !== undefined) return;
     followTimer = setTimeout(() => {
       followTimer = undefined;
-      if (!holding) glideTo(followX, followY);
+      // 미끄러지듯 멈추는 움직임은 CSS 전환(styles.css의 .pen-flip)이 맡는다.
+      if (!holding) moveTo(followX, followY);
     }, FOLLOW_DELAY_MS);
   });
 
