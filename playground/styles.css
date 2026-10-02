@@ -434,25 +434,32 @@ button:disabled {
     width: calc(100% - 24px);
   }
 }
-/* S펜 호버 중 포인터 우상단의 연필 아이콘. 뒤집히면 임시 지우개다(pen-flip.ts). */
+/* S펜 호버 중 포인터 우상단의 연필 아이콘. 뒤집히면 임시 지우개다(pen-flip.ts).
+   반투명이라 아래 필기가 비쳐 보인다. 촉 방향은 도구 모음의 펜 아이콘과 같다. */
 .pen-flip {
   position: absolute;
   z-index: 1;
+  display: grid;
   width: 40px;
   height: 40px;
+  place-items: center;
   padding: 0;
   border: 0;
-  background: transparent;
+  border-radius: 9px;
+  background: #fff;
+  color: #182231;
+  font-family: Arial, sans-serif;
   font-size: 28px;
-  line-height: 40px;
+  line-height: 1;
+  opacity: 0.5;
   touch-action: none;
   user-select: none;
-  transform: translate(-50%, -50%);
+  transform: translate(-50%, -50%) scaleX(-1);
   transition:
     left 0.15s ease-out,
     top 0.15s ease-out,
     transform 0.15s ease-out;
 }
 .pen-flip.is-flipped {
-  transform: translate(-50%, -50%) rotate(180deg);
+  transform: translate(-50%, -50%) scaleX(-1) rotate(180deg);
 }
