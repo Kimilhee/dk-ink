@@ -278,9 +278,7 @@ setStatus("획 0개");
 function syncButtons(): void {
   const style = editor.getStyle();
   const erasing = editor.tool === "eraser";
-  for (const slot of toolToggle.querySelectorAll<HTMLElement>("[data-tool]")) {
-    slot.classList.toggle("is-active", slot.dataset.tool === editor.tool);
-  }
+  toolToggle.dataset.tool = editor.tool;
   toolToggle.setAttribute(
     "aria-label",
     `${erasing ? "지우개" : "펜"} 사용 중. 누르면 ${erasing ? "펜" : "지우개"}으로 바뀝니다`,
