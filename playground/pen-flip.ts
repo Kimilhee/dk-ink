@@ -13,6 +13,11 @@ import { watchPenHover } from "./pen-hover.ts";
 const FLIPPED_ERASER_WIDTH = 20;
 /** 펜이 움직이면 이만큼 뒤에 그때의 펜 옆으로 순간 이동한다. 그 사이에 펜으로 아이콘을 누를 수 있다. */
 const FOLLOW_DELAY_MS = 500;
+/**
+ * 아이콘을 놓은 뒤 펜이 이만큼 넘게 움직여야 이동을 예약한다. 호버 중 손떨림 이벤트가 미리
+ * 예약을 걸어 두면, 실제로 움직이기 시작했을 때 0.5초를 다 기다리지 않고 옮겨지기 때문이다.
+ */
+const MOVE_THRESHOLD = 8;
 /** 펜이 아이콘 위(이 반경 안)에 있으면 누르려는 것으로 보고 아이콘을 멈춘다. */
 const HOLD_RADIUS = 24;
 /**
@@ -127,7 +132,9 @@ export function attachPenFlip(
     followY = targetY;
     // 이미 걸린 예약은 다시 걸지 않는다. 매번 취소하고 다시 걸면 호버 중 손떨림으로 이벤트가
     // 끊이지 않아 아이콘이 영영 움직이지 않는다.
-    if (holding || followTimer !== undefined) return;
+    // 아이콘을 놓았을 때의 펜 위치(아이콘 + OFFSET)에서 거의 안 움직였으면 손떨림이다.
+    const moved = Math.hypot(x - (iconX + OFFSET), y - (iconY + OFFSET)) > MOVE_THRESHOLD;
+    if (holding || !moved || followTimer !== undefined) return;
     followTimer = setTimeout(() => {
       followTimer = undefined;
       if (!holding) moveTo(followX, followY);
