@@ -2,6 +2,7 @@ import "./styles.css";
 import { createInkEditor, type WidthMode } from "../src/index.ts";
 import packageJson from "../package.json" with { type: "json" };
 import { watchPenHover } from "./pen-hover.ts";
+import { attachPenFlip } from "./pen-flip.ts";
 
 const canvas = element<HTMLCanvasElement>("ink");
 const dumpOutput = element<HTMLPreElement>("dump-output");
@@ -81,6 +82,9 @@ const editor = createInkEditor(canvas, {
   },
 });
 
+// S펜 호버 중 포인터 옆 연필 아이콘으로 켜는 임시 지우개. 자세한 동작은 pen-flip.ts 참고.
+const penFlip = attachPenFlip(editor, element<HTMLElement>("canvas-stage"), syncButtons);
+
 // 펜과 지우개는 버튼 하나를 번갈아 써서 바꾼다. "누르고 있는 동안만 지우개" 같은 순간
 // 전환을 여러 방식으로 시도했지만 이 기기에서는 어느 것도 성립하지 않았다 — 경위는
 // docs/prd/eraser-interaction.md 참고.
@@ -93,6 +97,11 @@ const editor = createInkEditor(canvas, {
 let toolSwitchMode: "click" | "hover" = stored.toolSwitch === "click" ? "click" : "hover";
 
 function toggleTool(): void {
+  // 임시 지우개 중에 도구 버튼을 누르면 영구 지우개로 넘어가지 않고 펜으로 돌아온다.
+  if (penFlip.flipped) {
+    penFlip.unflip();
+    return;
+  }
   editor.tool = editor.tool === "eraser" ? "pen" : "eraser";
   syncButtons();
 }

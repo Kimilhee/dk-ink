@@ -434,3 +434,25 @@ button:disabled {
     width: calc(100% - 24px);
   }
 }
+/* S펜 호버 중 포인터 우상단의 연필 아이콘. 뒤집히면 임시 지우개다(pen-flip.ts). */
+.pen-flip {
+  position: absolute;
+  z-index: 1;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  font-size: 28px;
+  line-height: 40px;
+  touch-action: none;
+  user-select: none;
+  transform: translate(-50%, -50%);
+  transition:
+    left 0.15s ease-out,
+    top 0.15s ease-out,
+    transform 0.15s ease-out;
+}
+.pen-flip.is-flipped {
+  transform: translate(-50%, -50%) rotate(180deg);
+}
