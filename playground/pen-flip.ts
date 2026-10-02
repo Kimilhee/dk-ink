@@ -97,7 +97,8 @@ export function attachPenFlip(
 
   /** 나타나거나 순간 이동할 때 갑자기 튀지 않게 투명에서 CSS 불투명도까지 서서히 보인다. */
   function fadeIn(): void {
-    icon.animate([{ opacity: 0 }], { duration: FADE_IN_MS, easing: "ease-out" });
+    // 키프레임 하나에 `offset: 0`이 없으면 끝 값으로 해석돼 거꾸로 페이드 아웃된다.
+    icon.animate([{ opacity: 0, offset: 0 }], { duration: FADE_IN_MS, easing: "ease-out" });
   }
 
   document.addEventListener("pointermove", (event) => {
