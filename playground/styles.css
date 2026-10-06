@@ -400,8 +400,8 @@ button:disabled {
   transform: translate(-50%, -50%) scaleX(-1);
   /* 새 자리로 옮길 때 처음엔 빠르게, 끝으로 갈수록 느려져 자연스럽게 멈춘다(ease-out-quart). */
   transition:
-    left 0.5s cubic-bezier(0.25, 1, 0.5, 1),
-    top 0.5s cubic-bezier(0.25, 1, 0.5, 1),
+    left 0.18s cubic-bezier(0.25, 1, 0.5, 1),
+    top 0.18s cubic-bezier(0.25, 1, 0.5, 1),
     transform 0.15s ease-out;
 }
 .pen-flip.is-flipped {
