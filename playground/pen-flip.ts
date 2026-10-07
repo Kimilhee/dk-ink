@@ -1,7 +1,7 @@
 /**
  * S펜이 캔버스 위에 떠 있는 동안 아이콘의 좌측 하단을 포인터에 맞춘다. 아이콘을 펜으로
- * 처음 탭하면 필기를 그대로 시작하며 아이콘만 왼쪽으로 피한다. 0.5초 안에 옮겨진 아이콘을
- * 다시 탭하면 연필이 뒤집히고(180°) 작은 지우개가 된다. 같은 두 번 탭으로 펜으로 돌아온다.
+ * 처음 탭하면 필기를 그대로 시작하며 아이콘은 제자리에 머문다. 0.5초 안에 다시 탭하면
+ * 연필이 뒤집히고(180°) 작은 지우개가 된다. 지우개 아이콘은 한 번 누르고 떼면 펜으로 돌아온다.
  *
  * 에디터 공개 API(`tool`, `setStyle`)만 쓴다. 나중에 라이브러리로 옮길 때 이 파일을 그대로
  * 가져가면 된다.
@@ -51,7 +51,7 @@ export function attachPenFlip(
   image.textContent = "✎";
   image.setAttribute("aria-hidden", "true");
   icon.append(image);
-  icon.setAttribute("aria-label", "0.5초 안에 두 번 탭하여 펜·지우개 전환");
+  icon.setAttribute("aria-label", "0.5초 안에 두 번 탭하여 지우개로 전환");
   icon.hidden = true;
   stage.append(icon);
   // 숨겨진 아이콘도 CSS 크기로 중심을 계산해 좌측 하단을 펜 끝에 맞춘다.
@@ -71,14 +71,12 @@ export function attachPenFlip(
   let followY = 0;
   let tapTimer: ReturnType<typeof setTimeout> | undefined;
   let tapDeadline = 0;
-  let restingX = 0;
-  let restingY = 0;
+  let returnToPenPointer: number | undefined;
 
   function resetTap(): void {
     if (tapTimer === undefined) return;
     clearTimeout(tapTimer);
     tapTimer = undefined;
-    moveTo(restingX, restingY);
   }
 
   function cancelFollow(): void {
@@ -89,7 +87,12 @@ export function attachPenFlip(
   function setFlipped(next: boolean): void {
     if (next === flipped) return;
     flipped = next;
+    returnToPenPointer = undefined;
     icon.classList.toggle("is-flipped", flipped);
+    icon.setAttribute(
+      "aria-label",
+      flipped ? "한 번 누르고 떼어 펜으로 전환" : "0.5초 안에 두 번 탭하여 지우개로 전환",
+    );
     if (flipped) {
       savedEraserWidth = editor.getStyle().eraserWidth;
       editor.setStyle({ eraserWidth: FLIPPED_ERASER_WIDTH });
@@ -126,7 +129,7 @@ export function attachPenFlip(
     if (overIcon && event.buttons !== 0) return;
     const overCanvas = event.target === canvas || overIcon;
     // 펜을 떼거나 캔버스를 벗어나도 두 번째 탭을 기다리는 동안에는 자리를 유지한다.
-    if (tapTimer !== undefined) return;
+    if (tapTimer !== undefined || returnToPenPointer !== undefined) return;
     // 뒤집힌 연필로 지우는 동안에는 지연 없이 지우개 끝을 펜 끝(지우개 원)에 붙인다.
     if (flipped && event.buttons !== 0 && event.target === canvas) {
       const bounds = stage.getBoundingClientRect();
@@ -177,7 +180,7 @@ export function attachPenFlip(
     () => false,
     (near) => {
       penNear = near;
-      if (!near && tapTimer === undefined) hide();
+      if (!near && tapTimer === undefined && returnToPenPointer === undefined) hide();
     },
   );
 
@@ -193,16 +196,19 @@ export function attachPenFlip(
   icon.addEventListener("pointerdown", (event) => {
     event.preventDefault();
     event.stopPropagation();
+    if (flipped) {
+      cancelFollow();
+      returnToPenPointer = event.pointerId;
+      icon.setPointerCapture(event.pointerId);
+      return;
+    }
     if (tapTimer !== undefined && performance.now() < tapDeadline) {
       resetTap();
-      setFlipped(!flipped);
+      setFlipped(true);
       return;
     }
     resetTap();
     cancelFollow();
-    restingX = parseFloat(icon.style.left);
-    restingY = parseFloat(icon.style.top);
-    moveTo(restingX - icon.offsetWidth, restingY);
     tapDeadline = performance.now() + TAP_WINDOW_MS;
     tapTimer = setTimeout(() => {
       resetTap();
@@ -212,6 +218,14 @@ export function attachPenFlip(
     // 첫 탭은 도구를 바꾸지 않고 일반 캔버스 입력으로 전달한다. 에디터가 실제 포인터를
     // 캡처하므로 이어지는 move/up도 캔버스로 와서 필기가 끊기지 않는다.
     canvas.dispatchEvent(new PointerEvent("pointerdown", event));
+  });
+
+  icon.addEventListener("pointerup", (event) => {
+    if (event.pointerId !== returnToPenPointer) return;
+    setFlipped(false);
+  });
+  icon.addEventListener("pointercancel", (event) => {
+    if (event.pointerId === returnToPenPointer) returnToPenPointer = undefined;
   });
 
   return {

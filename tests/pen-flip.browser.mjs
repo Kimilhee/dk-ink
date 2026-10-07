@@ -69,7 +69,7 @@ assert.equal(first.status, "획 1개");
 assert.equal(first.tool, "pen");
 assert.equal(first.flipped, false);
 assert.equal(first.top, initial.top);
-assert.equal(first.left, initial.left - 40);
+assert.equal(first.left, initial.left);
 await evaluate(
   'document.querySelector("#ink").dispatchEvent(new PointerEvent("pointerout", {pointerType:"pen", bubbles:true, relatedTarget:null}))',
 );
@@ -101,11 +101,14 @@ await sleep(750);
 await hover();
 await sleep(220);
 initial = await state();
-await click(initial.x, initial.y);
-await sleep(210);
-raised = await state();
-await mouse("mouseMoved", raised.x, raised.y);
-await click(raised.x, raised.y);
+await mouse("mousePressed", initial.x, initial.y, { button: "left", buttons: 1, clickCount: 1 });
+assert.equal((await state()).tool, "eraser", "Press alone must keep eraser mode");
+assert.equal(
+  (await state()).status,
+  initial.status,
+  "Returning to pen must not erase on the canvas",
+);
+await mouse("mouseReleased", initial.x, initial.y, { button: "left", buttons: 0, clickCount: 1 });
 assert.equal((await state()).tool, "pen");
 await sleep(750);
 await hover();
@@ -138,7 +141,7 @@ await mouse("mouseReleased", canvas.x + 80, canvas.y + 30, {
   clickCount: 1,
 });
 console.log(
-  "PASS: pen lift preserves the second-tap window, all four margins pass through to writing, image hit switches tools, 500ms expiry and continuous-writing hide",
+  "PASS: first tap stays in place, pen lift preserves the second-tap window, margins write, double tap selects eraser, single release returns to pen, 500ms expiry hides during writing",
 );
 console.log(expired.status);
 ws.close();
