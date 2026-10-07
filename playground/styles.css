@@ -377,7 +377,7 @@ button:disabled {
     width: calc(100% - 24px);
   }
 }
-/* S펜 호버 중 포인터 좌상단의 연필 아이콘. 뒤집히면 작은 지우개다(pen-flip.ts).
+/* S펜 호버 중 좌측 하단을 포인터에 맞춘 연필 아이콘. 뒤집히면 작은 지우개다(pen-flip.ts).
    반투명이라 아래 필기가 비쳐 보인다. 촉 방향은 도구 모음의 펜 아이콘과 같다. */
 .pen-flip {
   position: absolute;
