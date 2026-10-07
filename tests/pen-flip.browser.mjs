@@ -140,8 +140,25 @@ await mouse("mouseReleased", canvas.x + 80, canvas.y + 30, {
   buttons: 0,
   clickCount: 1,
 });
+await sleep(750);
+const toolbar = await evaluate(
+  '(() => {const r=document.querySelector("#tool-toggle").getBoundingClientRect(); return {x:r.left+r.width/2,y:r.top+r.height/2};})()',
+);
+// The toolbar defaults to pen hover activation.
+await mouse("mouseMoved", toolbar.x, toolbar.y);
+assert.equal((await state()).tool, "eraser");
+await hover();
+await sleep(220);
+initial = await state();
+assert.equal(initial.hidden, false, "Toolbar eraser must show the floating icon");
+assert.equal(initial.flipped, true);
+await mouse("mousePressed", initial.x, initial.y, { button: "left", buttons: 1, clickCount: 1 });
+assert.equal((await state()).tool, "eraser");
+await mouse("mouseReleased", initial.x, initial.y, { button: "left", buttons: 0, clickCount: 1 });
+assert.equal((await state()).tool, "pen", "Toolbar eraser must also return to pen on release");
+assert.equal((await state()).flipped, false);
 console.log(
-  "PASS: first tap stays in place, pen lift preserves the second-tap window, margins write, double tap selects eraser, single release returns to pen, 500ms expiry hides during writing",
+  "PASS: pen taps, hover exit, transparent margins, timeout, toolbar eraser shows the flipped icon and returns to pen on release",
 );
 console.log(expired.status);
 ws.close();
