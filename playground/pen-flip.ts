@@ -46,7 +46,11 @@ export function attachPenFlip(
   const icon = document.createElement("button");
   icon.type = "button";
   icon.className = "pen-flip";
-  icon.textContent = "✎";
+  const image = document.createElement("span");
+  image.className = "pen-flip-image";
+  image.textContent = "✎";
+  image.setAttribute("aria-hidden", "true");
+  icon.append(image);
   icon.setAttribute("aria-label", "0.5초 안에 두 번 탭하여 펜·지우개 전환");
   icon.hidden = true;
   stage.append(icon);
@@ -58,6 +62,7 @@ export function attachPenFlip(
   let flipped = false;
   let savedEraserWidth = 0;
   let holding = false;
+  let penNear = false;
   /** 필기 중 숨긴 아이콘은 펜을 뗀 뒤 이 시각까지 다시 띄우지 않는다. 획 사이마다 깜빡이지 않게. */
   let hiddenUntil = 0;
   /** 예약된 순간 이동. 하나만 걸고, 실행될 때 가장 최근 펜 위치로 간다. */
@@ -117,10 +122,11 @@ export function attachPenFlip(
   document.addEventListener("pointermove", (event) => {
     if (event.pointerType !== "pen") return;
     // 아이콘을 누르고 있는 동안에는 그대로 둬야 뒤집히는 모습이 보인다.
-    if (event.target === icon && event.buttons !== 0) return;
-    const overCanvas = event.target === canvas || event.target === icon;
-    // 두 번째 탭을 기다리는 동안에는 필기와 호버가 아이콘을 움직이거나 숨기지 않는다.
-    if (tapTimer !== undefined && overCanvas) return;
+    const overIcon = event.target === icon || event.target === image;
+    if (overIcon && event.buttons !== 0) return;
+    const overCanvas = event.target === canvas || overIcon;
+    // 펜을 떼거나 캔버스를 벗어나도 두 번째 탭을 기다리는 동안에는 자리를 유지한다.
+    if (tapTimer !== undefined) return;
     // 뒤집힌 연필로 지우는 동안에는 지연 없이 지우개 끝을 펜 끝(지우개 원)에 붙인다.
     if (flipped && event.buttons !== 0 && event.target === canvas) {
       const bounds = stage.getBoundingClientRect();
@@ -170,7 +176,8 @@ export function attachPenFlip(
   watchPenHover(
     () => false,
     (near) => {
-      if (!near) hide();
+      penNear = near;
+      if (!near && tapTimer === undefined) hide();
     },
   );
 
@@ -179,7 +186,7 @@ export function attachPenFlip(
   document.addEventListener("pointerup", (event) => {
     if (event.pointerType !== "pen") return;
     // 지우던 자리에 남은 아이콘은 다음 획을 가로막으므로 걷는다.
-    if (icon.classList.contains("is-erasing")) hide();
+    if (tapTimer === undefined && icon.classList.contains("is-erasing")) hide();
     hiddenUntil = performance.now() + FOLLOW_DELAY_MS;
   });
 
@@ -200,7 +207,7 @@ export function attachPenFlip(
     tapTimer = setTimeout(() => {
       resetTap();
       // 움직임 이벤트가 끊겨도 0.5초 뒤 계속 필기 중이면 즉시 숨긴다.
-      if (editor.drawing) hide();
+      if (editor.drawing || !penNear) hide();
     }, TAP_WINDOW_MS);
     // 첫 탭은 도구를 바꾸지 않고 일반 캔버스 입력으로 전달한다. 에디터가 실제 포인터를
     // 캡처하므로 이어지는 move/up도 캔버스로 와서 필기가 끊기지 않는다.
