@@ -88,11 +88,6 @@ export function attachPenFlip(
     if (next === flipped) return;
     flipped = next;
     returnToPenPointer = undefined;
-    icon.classList.toggle("is-flipped", flipped);
-    icon.setAttribute(
-      "aria-label",
-      flipped ? "한 번 누르고 떼어 펜으로 전환" : "0.5초 안에 두 번 탭하여 지우개로 전환",
-    );
     if (flipped) {
       savedEraserWidth = editor.getStyle().eraserWidth;
       editor.setStyle({ eraserWidth: FLIPPED_ERASER_WIDTH });
@@ -101,7 +96,17 @@ export function attachPenFlip(
       editor.setStyle({ eraserWidth: savedEraserWidth });
       editor.tool = "pen";
     }
+    syncIcon();
     onToolChange();
+  }
+
+  function syncIcon(): void {
+    const erasing = editor.tool === "eraser";
+    icon.classList.toggle("is-flipped", erasing);
+    icon.setAttribute(
+      "aria-label",
+      erasing ? "한 번 누르고 떼어 펜으로 전환" : "0.5초 안에 두 번 탭하여 지우개로 전환",
+    );
   }
 
   function hide(): void {
@@ -124,6 +129,7 @@ export function attachPenFlip(
 
   document.addEventListener("pointermove", (event) => {
     if (event.pointerType !== "pen") return;
+    syncIcon();
     // 아이콘을 누르고 있는 동안에는 그대로 둬야 뒤집히는 모습이 보인다.
     const overIcon = event.target === icon || event.target === image;
     if (overIcon && event.buttons !== 0) return;
@@ -131,7 +137,7 @@ export function attachPenFlip(
     // 펜을 떼거나 캔버스를 벗어나도 두 번째 탭을 기다리는 동안에는 자리를 유지한다.
     if (tapTimer !== undefined || returnToPenPointer !== undefined) return;
     // 뒤집힌 연필로 지우는 동안에는 지연 없이 지우개 끝을 펜 끝(지우개 원)에 붙인다.
-    if (flipped && event.buttons !== 0 && event.target === canvas) {
+    if (editor.tool === "eraser" && event.buttons !== 0 && event.target === canvas) {
       const bounds = stage.getBoundingClientRect();
       cancelFollow();
       icon.classList.add("is-erasing");
@@ -139,8 +145,8 @@ export function attachPenFlip(
       icon.hidden = false;
       return;
     }
-    // 그리는(누르는) 중이거나 영구 지우개일 때는 아이콘이 필요 없다.
-    if (!overCanvas || event.buttons !== 0 || (editor.tool !== "pen" && !flipped)) {
+    // 필기 중이거나 캔버스 밖에서는 아이콘을 숨긴다.
+    if (!overCanvas || event.buttons !== 0) {
       hide();
       return;
     }
@@ -196,7 +202,7 @@ export function attachPenFlip(
   icon.addEventListener("pointerdown", (event) => {
     event.preventDefault();
     event.stopPropagation();
-    if (flipped) {
+    if (editor.tool === "eraser") {
       cancelFollow();
       returnToPenPointer = event.pointerId;
       icon.setPointerCapture(event.pointerId);
@@ -222,7 +228,14 @@ export function attachPenFlip(
 
   icon.addEventListener("pointerup", (event) => {
     if (event.pointerId !== returnToPenPointer) return;
-    setFlipped(false);
+    returnToPenPointer = undefined;
+    if (flipped) setFlipped(false);
+    else {
+      // 툴바에서 선택한 지우개의 크기는 유지하고 도구만 펜으로 되돌린다.
+      editor.tool = "pen";
+      syncIcon();
+      onToolChange();
+    }
   });
   icon.addEventListener("pointercancel", (event) => {
     if (event.pointerId === returnToPenPointer) returnToPenPointer = undefined;
