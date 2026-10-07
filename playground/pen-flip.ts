@@ -1,6 +1,6 @@
 /**
- * S펜이 캔버스 위에 떠 있는 동안 포인터 좌상단에 연필 아이콘을 띄운다. 아이콘을 펜으로
- * 처음 탭하면 필기를 그대로 시작하며 아이콘만 위로 피한다. 0.5초 안에 옮겨진 아이콘을
+ * S펜이 캔버스 위에 떠 있는 동안 아이콘의 좌측 하단을 포인터에 맞춘다. 아이콘을 펜으로
+ * 처음 탭하면 필기를 그대로 시작하며 아이콘만 왼쪽으로 피한다. 0.5초 안에 옮겨진 아이콘을
  * 다시 탭하면 연필이 뒤집히고(180°) 작은 지우개가 된다. 같은 두 번 탭으로 펜으로 돌아온다.
  *
  * 에디터 공개 API(`tool`, `setStyle`)만 쓴다. 나중에 라이브러리로 옮길 때 이 파일을 그대로
@@ -22,11 +22,6 @@ const FADE_IN_MS = 1000;
 const MOVE_THRESHOLD = 8;
 /** 펜이 아이콘 위(이 반경 안)에 있으면 누르려는 것으로 보고 아이콘을 멈춘다. */
 const HOLD_RADIUS = 24;
-/**
- * 포인터에서 아이콘 중심까지의 거리(왼쪽 위). 오른손 필기는 오른쪽으로 나아가므로 왼쪽에
- * 두어야 쓰다가 아이콘을 잘못 누르지 않는다.
- */
-const OFFSET = 24;
 /** 첫 탭 이후 다시 탭할 수 있는 시간. */
 const TAP_WINDOW_MS = 500;
 /**
@@ -55,6 +50,10 @@ export function attachPenFlip(
   icon.setAttribute("aria-label", "0.5초 안에 두 번 탭하여 펜·지우개 전환");
   icon.hidden = true;
   stage.append(icon);
+  // 숨겨진 아이콘도 CSS 크기로 중심을 계산해 좌측 하단을 펜 끝에 맞춘다.
+  const iconStyle = getComputedStyle(icon);
+  const halfWidth = parseFloat(iconStyle.width) / 2;
+  const halfHeight = parseFloat(iconStyle.height) / 2;
 
   let flipped = false;
   let savedEraserWidth = 0;
@@ -141,8 +140,8 @@ export function attachPenFlip(
     const bounds = stage.getBoundingClientRect();
     const x = event.clientX - bounds.left;
     const y = event.clientY - bounds.top;
-    const targetX = x - OFFSET;
-    const targetY = y - OFFSET;
+    const targetX = x + halfWidth;
+    const targetY = y - halfHeight;
 
     if (icon.hidden) {
       moveTo(targetX, targetY);
@@ -157,8 +156,8 @@ export function attachPenFlip(
     followY = targetY;
     // 이미 걸린 예약은 다시 걸지 않는다. 매번 취소하고 다시 걸면 호버 중 손떨림으로 이벤트가
     // 끊이지 않아 아이콘이 영영 움직이지 않는다.
-    // 아이콘을 놓았을 때의 펜 위치(아이콘 + OFFSET)에서 거의 안 움직였으면 손떨림이다.
-    const moved = Math.hypot(x - (iconX + OFFSET), y - (iconY + OFFSET)) > MOVE_THRESHOLD;
+    // 아이콘을 놓았을 때의 펜 위치에서 거의 안 움직였으면 손떨림이다.
+    const moved = Math.hypot(targetX - iconX, targetY - iconY) > MOVE_THRESHOLD;
     if (holding || !moved || followTimer !== undefined) return;
     followTimer = setTimeout(() => {
       followTimer = undefined;
@@ -196,9 +195,13 @@ export function attachPenFlip(
     cancelFollow();
     restingX = parseFloat(icon.style.left);
     restingY = parseFloat(icon.style.top);
-    moveTo(restingX, restingY - icon.offsetHeight);
+    moveTo(restingX - icon.offsetWidth, restingY);
     tapDeadline = performance.now() + TAP_WINDOW_MS;
-    tapTimer = setTimeout(resetTap, TAP_WINDOW_MS);
+    tapTimer = setTimeout(() => {
+      resetTap();
+      // 움직임 이벤트가 끊겨도 0.5초 뒤 계속 필기 중이면 즉시 숨긴다.
+      if (editor.drawing) hide();
+    }, TAP_WINDOW_MS);
     // 첫 탭은 도구를 바꾸지 않고 일반 캔버스 입력으로 전달한다. 에디터가 실제 포인터를
     // 캡처하므로 이어지는 move/up도 캔버스로 와서 필기가 끊기지 않는다.
     canvas.dispatchEvent(new PointerEvent("pointerdown", event));
