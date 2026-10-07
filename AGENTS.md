@@ -28,5 +28,6 @@ release. Add a tool name to select part of the graph. For example, run
 
 ## 이 레포의 규칙
 
+- TypeScript 타입 선언은 `type`만 사용하고 `interface`는 사용하지 않는다. 타입 조합은 `&` 교차 타입으로 표현한다.
 - 사용자가 명시적으로 배포하지 말라고 지시하지 않은 한, 작업 완료 후 GitHub Pages 배포까지 수행하고 배포 성공 여부를 확인한다.
 - 모둔 수정 사항에 대해서 package.json의 sem version의 마지막 patch 버전을 올리고 화면 상단에 해당 버전이 표시되게 할것.

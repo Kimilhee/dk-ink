@@ -1,8 +1,8 @@
 import type { InkPoint, Point } from "./types.ts";
 
-interface OutlineSample extends Point {
+type OutlineSample = Point & {
   radius: number;
-}
+};
 
 const MIN_POINT_DISTANCE = 0.35;
 

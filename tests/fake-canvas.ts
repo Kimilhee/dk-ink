@@ -4,15 +4,15 @@
  * 렌더 결과는 검증 대상이 아니라 호출만 기록한다. 이 테스트가 확인하는 건
  * PointerEvent → Stroke 캡처 경로다.
  */
-export interface FakeCanvas {
+export type FakeCanvas = {
   canvas: HTMLCanvasElement;
   emit(type: string, init: FakePointerInit): void;
   readonly renderCount: number;
   /** 점선 원(지우개 커서)이 그려진 횟수. setLineDash는 커서만 쓴다. */
   readonly cursorDrawCount: number;
-}
+};
 
-export interface FakePointerInit {
+export type FakePointerInit = {
   x: number;
   y: number;
   pressure?: number;
@@ -23,7 +23,7 @@ export interface FakePointerInit {
   coalesced?: Array<{ x: number; y: number; pressure?: number; timeStamp?: number }>;
   /** `getCoalescedEvents()`가 빈 배열을 돌려주는 상황을 재현한다. */
   emptyCoalesced?: boolean;
-}
+};
 
 export function createFakeCanvas(
   width = 400,
@@ -140,11 +140,11 @@ function createFakeStyle(): CSSStyleDeclaration {
   } as unknown as CSSStyleDeclaration;
 }
 
-export interface BrowserGlobals {
+export type BrowserGlobals = {
   /** 예약된 프레임 콜백을 실행한다. */
   flushFrames(): void;
   restore(): void;
-}
+};
 
 /**
  * ResizeObserver / requestAnimationFrame 등 브라우저 전역을 채운다.
