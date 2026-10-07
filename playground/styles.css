@@ -395,6 +395,8 @@ button:disabled {
   font-size: 28px;
   line-height: 1;
   opacity: 0.3;
+  /* 그림 바깥 여백은 캔버스로 입력을 통과시킨다. */
+  pointer-events: none;
   touch-action: none;
   user-select: none;
   transform: translate(-50%, -50%) scaleX(-1);
@@ -407,8 +409,19 @@ button:disabled {
 .pen-flip.is-flipped {
   transform: translate(-50%, -50%) scaleX(-1) rotate(180deg);
 }
+.pen-flip-image {
+  display: grid;
+  width: 1em;
+  height: 1em;
+  overflow: hidden;
+  place-items: center;
+  pointer-events: auto;
+}
 /* 지우는 동안에는 펜 끝에 딱 붙어 다니고, 다음 획을 가로채지 않는다. */
 .pen-flip.is-erasing {
   pointer-events: none;
   transition: none;
+}
+.pen-flip.is-erasing .pen-flip-image {
+  pointer-events: none;
 }
