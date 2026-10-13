@@ -194,6 +194,14 @@ export function attachPenFlip(
   // 중이라 영향이 없다.
   document.addEventListener("pointerup", (event) => {
     if (event.pointerType !== "pen") return;
+    // 지우개 모드에서는 떼자마자 아이콘을 눌러 펜으로 돌아가는 일이 잦아 숨기지 않는다.
+    // 지우던 자리(펜 끝)에 그대로 두면 다음 획을 가로채므로 호버 자리로만 옮긴다.
+    if (editor.tool === "eraser" && icon.classList.contains("is-erasing")) {
+      icon.classList.remove("is-erasing");
+      const bounds = stage.getBoundingClientRect();
+      moveTo(event.clientX - bounds.left + halfWidth, event.clientY - bounds.top - halfHeight);
+      return;
+    }
     // 지우던 자리에 남은 아이콘은 다음 획을 가로막으므로 걷는다.
     if (tapTimer === undefined && icon.classList.contains("is-erasing")) hide();
     hiddenUntil = performance.now() + FOLLOW_DELAY_MS;
