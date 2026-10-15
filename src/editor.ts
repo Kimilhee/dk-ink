@@ -96,16 +96,17 @@ export function createInkEditor(
     eraserCursor = undefined;
   }
 
-  function pointFromEvent(event: PointerEvent): Point {
-    const bounds = canvas.getBoundingClientRect();
-    return { x: event.clientX - bounds.left, y: event.clientY - bounds.top };
-  }
-
   function timedPoint(event: PointerEvent): InkPoint {
+    const bounds = canvas.getBoundingClientRect();
     // `performance.now()`가 아니라 이벤트가 들고 온 시각을 쓴다. 뭉친 이벤트는 한 프레임에
     // 몰려 들어오므로 핸들러 실행 시각을 찍으면 그 안의 점들이 전부 같은 시각이 되고,
     // 뭉친 것을 푼 의미가 사라진다. `timeStamp`는 점마다 실제로 샘플된 시각이다.
-    return { ...pointFromEvent(event), t: event.timeStamp, pressure: event.pressure };
+    return {
+      x: event.clientX - bounds.left,
+      y: event.clientY - bounds.top,
+      t: event.timeStamp,
+      pressure: event.pressure,
+    };
   }
 
   function appendPoint(event: PointerEvent): void {
