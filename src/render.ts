@@ -9,6 +9,21 @@ export function pressureWidth(maxWidth: number, pressure = 0.5): number {
   return 0.2 + (maxWidth - 0.2) * response;
 }
 
+/** 고정 굵기로 연속된 점들을 선으로 잇는다. */
+export function drawStaticLineStroke(
+  context: CanvasRenderingContext2D,
+  points: readonly Point[],
+  strokeWidth: number,
+): void {
+  context.lineWidth = strokeWidth;
+  context.beginPath();
+  context.moveTo(points[0].x, points[0].y);
+  for (let index = 1; index < points.length; index += 1) {
+    context.lineTo(points[index].x, points[index].y);
+  }
+  context.stroke();
+}
+
 /**
  * 캔버스를 비우고 획 전체를 다시 그린다.
  *
@@ -34,15 +49,9 @@ export function renderStrokes(
       drawOutlineStroke(context, stroke.points, (pressure) =>
         pressureWidth(style.strokeWidth, pressure),
       );
-      continue;
+    } else {
+      drawStaticLineStroke(context, stroke.points, style.strokeWidth);
     }
-    context.lineWidth = style.strokeWidth;
-    context.beginPath();
-    context.moveTo(stroke.points[0].x, stroke.points[0].y);
-    for (let index = 1; index < stroke.points.length; index += 1) {
-      context.lineTo(stroke.points[index].x, stroke.points[index].y);
-    }
-    context.stroke();
   }
   // 지우개 커서처럼 뒤이어 그리는 것이 마지막 획의 투명도를 물려받으면 안 된다.
   context.globalAlpha = previousAlpha;
