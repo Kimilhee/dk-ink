@@ -1,13 +1,7 @@
 import { drawOutlineStroke } from "./outline.ts";
 import type { InkStyle, Point, Stroke } from "./types.ts";
 
-/** `pressure` 모드에서 필압을 굵기로 바꾼다. */
-export function pressureWidth(maxWidth: number, pressure = 0.5): number {
-  const normalized = Math.max(0, Math.min(1, pressure));
-  // 필압 0.8에서 최대 굵기에 닿는다. 그 위는 사람이 거의 내지 않는 구간이다.
-  const response = Math.min(1, normalized / 0.8);
-  return 0.2 + (maxWidth - 0.2) * response;
-}
+export { pressureWidth } from "./outline.ts";
 
 /** 고정 굵기로 연속된 점들을 선으로 잇는다. */
 export function drawStaticLineStroke(
@@ -46,9 +40,7 @@ export function renderStrokes(
     context.strokeStyle = style.color;
     context.fillStyle = style.color;
     if (style.widthMode === "pressure") {
-      drawOutlineStroke(context, stroke.points, (pressure) =>
-        pressureWidth(style.strokeWidth, pressure),
-      );
+      drawOutlineStroke(context, stroke.points, style.strokeWidth);
     } else {
       drawStaticLineStroke(context, stroke.points, style.strokeWidth);
     }

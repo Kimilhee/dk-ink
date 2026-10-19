@@ -15,9 +15,9 @@ const MIN_POINT_DISTANCE = 0.35;
 export function drawOutlineStroke(
   context: CanvasRenderingContext2D,
   points: readonly InkPoint[],
-  widthForPressure: (pressure?: number) => number,
+  strokeWidth: number,
 ): void {
-  const samples = smoothSamples(points, widthForPressure);
+  const samples = smoothSamples(points, strokeWidth);
   if (samples.length === 0) return;
   if (samples.length === 1) {
     context.beginPath();
@@ -62,17 +62,22 @@ export function drawOutlineStroke(
   context.fill();
 }
 
-function smoothSamples(
-  points: readonly InkPoint[],
-  widthForPressure: (pressure?: number) => number,
-): OutlineSample[] {
+/** `pressure` 모드에서 필압을 굵기로 바꾼다. */
+export function pressureWidth(maxWidth: number, pressure = 0.5): number {
+  const normalized = Math.max(0, Math.min(1, pressure));
+  // 필압 0.8에서 최대 굵기에 닿는다. 그 위는 사람이 거의 내지 않는 구간이다.
+  const response = Math.min(1, normalized / 0.8);
+  return 0.2 + (maxWidth - 0.2) * response;
+}
+
+function smoothSamples(points: readonly InkPoint[], strokeWidth: number): OutlineSample[] {
   const samples: OutlineSample[] = [];
   for (const point of points) {
     const previous = samples[samples.length - 1];
     if (previous && Math.hypot(point.x - previous.x, point.y - previous.y) < MIN_POINT_DISTANCE) {
       continue;
     }
-    const targetRadius = widthForPressure(point.pressure) / 2;
+    const targetRadius = pressureWidth(strokeWidth, point.pressure) / 2;
     samples.push({
       x: point.x,
       y: point.y,

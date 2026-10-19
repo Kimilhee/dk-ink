@@ -32,7 +32,7 @@
 
 **그림:** [렌더링 데이터 흐름도](https://kimilhee.github.io/dk-ink/analysis/render-dataflow.html). `pressure`와 `constant` 두 경로를 비교한다.
 
-**읽기:** [`src/render.ts`](../src/render.ts)의 `renderStrokes`, `pressureWidth`, [`src/outline.ts`](../src/outline.ts)의 `drawOutlineStroke`, [`tests/render.test.ts`](../tests/render.test.ts).
+**읽기:** [`src/render.ts`](../src/render.ts)의 `renderStrokes`, [`src/outline.ts`](../src/outline.ts)의 `drawOutlineStroke`, `pressureWidth`, [`tests/render.test.ts`](../tests/render.test.ts).
 
 **해보기:** 시험용 앱에서 `필압적용`과 `고정두께`를 번갈아 고른 뒤 선을 그린다. 코드에서 두 모드가 갈라지는 조건을 찾는다.
 
