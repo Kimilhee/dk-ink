@@ -251,9 +251,12 @@ export function attachPenFlip(
   icon.addEventListener("pointerup", (event) => {
     if (event.pointerId !== returnToPenPointer) return;
     returnToPenPointer = undefined;
-    if (flipped) setFlipped(false);
-    // 툴바에서 선택한 지우개의 크기는 유지하고 도구만 펜으로 되돌린다.
-    else applyTool("pen");
+    if (flipped) {
+      setFlipped(false);
+    } else {
+      // 툴바에서 선택한 지우개의 크기는 유지하고 도구만 펜으로 되돌린다.
+      applyTool("pen");
+    }
   });
   icon.addEventListener("pointercancel", (event) => {
     if (event.pointerId === returnToPenPointer) returnToPenPointer = undefined;

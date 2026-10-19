@@ -1,5 +1,8 @@
 import type { InkPoint, Point, Stroke } from "./types.ts";
 
+/** 빠르게 그은 획은 점 사이가 멀어 지우개 판정이 거칠어지므로, 이 간격(px) 이하로 촘촘히 쪼갠다. */
+const RESAMPLE_STEP = 1.5;
+
 /**
  * 지우개가 지나간 선분(`from`→`to`)에 닿은 획을 잘라낸다.
  *
@@ -43,9 +46,6 @@ function intersectsEraser(
   return false;
 }
 
-/** 빠르게 그은 획은 점 사이가 멀어 지우개 판정이 거칠어지므로, 이 간격(px) 이하로 촘촘히 쪼갠다. */
-const RESAMPLE_STEP = 1.5;
-
 function splitOutsideEraser(
   points: readonly InkPoint[],
   from: Point,
@@ -56,7 +56,7 @@ function splitOutsideEraser(
 
   const fragments: InkPoint[][] = [];
   let fragment: InkPoint[] = [];
-  for (const point of resample(points, RESAMPLE_STEP)) {
+  for (const point of resample(points)) {
     if (distanceToSegment(point, from, to) > radius) {
       fragment.push(point);
       continue;
@@ -68,12 +68,13 @@ function splitOutsideEraser(
   return fragments;
 }
 
-function resample(points: readonly InkPoint[], stepSize: number): InkPoint[] {
+function resample(points: readonly InkPoint[]): InkPoint[] {
   const sampled: InkPoint[] = [points[0]];
   for (let index = 1; index < points.length; index += 1) {
     const start = points[index - 1];
     const end = points[index];
-    const steps = Math.max(1, Math.ceil(Math.hypot(end.x - start.x, end.y - start.y) / stepSize));
+    const distance = Math.hypot(end.x - start.x, end.y - start.y);
+    const steps = Math.max(1, Math.ceil(distance / RESAMPLE_STEP));
     for (let step = 1; step <= steps; step += 1) {
       sampled.push(interpolate(start, end, step / steps));
     }

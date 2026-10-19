@@ -127,6 +127,7 @@ export function createInkEditor(
   function eraseTo(point: Point): void {
     const result = eraseStrokes(strokes, previousEraserPoint ?? point, point, style.eraserWidth);
     if (result.changed) {
+      // 실제로 지워지기 직전에 한 번만 쌓는다. 아무것도 못 지운 탭이 이력(특히 redo)을 건드리면 안 된다.
       if (!changedWhileErasing) history.commit(strokes);
       strokes = result.strokes;
       changedWhileErasing = true;
