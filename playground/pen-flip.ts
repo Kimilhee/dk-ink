@@ -70,6 +70,8 @@ export function attachPenFlip(
   let followX = 0;
   let followY = 0;
   let tapTimer: ReturnType<typeof setTimeout> | undefined;
+  /** 첫 탭 직전의 획 개수. 두 번째 탭에서 첫 탭이 찍은 점을 걷어낼지 판단한다. */
+  let strokeCountBeforeTap = 0;
   let returnToPenPointer: number | undefined;
 
   function resetTap(): void {
@@ -234,10 +236,13 @@ export function attachPenFlip(
     }
     if (tapTimer !== undefined) {
       resetTap();
+      // 첫 탭은 캔버스로 넘겨져 점을 하나 남긴다. 두 번 탭은 전환 동작이지 필기가 아니므로 걷는다.
+      if (editor.getStrokes().length === strokeCountBeforeTap + 1) editor.undo();
       setFlipped(true);
       return;
     }
     cancelFollow();
+    strokeCountBeforeTap = editor.getStrokes().length;
     tapTimer = setTimeout(() => {
       resetTap();
       // 움직임 이벤트가 끊겨도 0.5초 뒤 계속 필기 중이면 즉시 숨긴다.
