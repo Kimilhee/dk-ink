@@ -43,6 +43,9 @@ function intersectsEraser(
   return false;
 }
 
+/** 빠르게 그은 획은 점 사이가 멀어 지우개 판정이 거칠어지므로, 이 간격(px) 이하로 촘촘히 쪼갠다. */
+const RESAMPLE_STEP = 1.5;
+
 function splitOutsideEraser(
   points: readonly InkPoint[],
   from: Point,
@@ -50,18 +53,10 @@ function splitOutsideEraser(
   radius: number,
 ): InkPoint[][] {
   if (points.length === 1) return [];
-  const sampled: InkPoint[] = [points[0]];
-  for (let index = 1; index < points.length; index += 1) {
-    const start = points[index - 1];
-    const end = points[index];
-    const steps = Math.max(1, Math.ceil(Math.hypot(end.x - start.x, end.y - start.y) / 1.5));
-    for (let step = 1; step <= steps; step += 1)
-      sampled.push(interpolate(start, end, step / steps));
-  }
 
   const fragments: InkPoint[][] = [];
   let fragment: InkPoint[] = [];
-  for (const point of sampled) {
+  for (const point of resample(points, RESAMPLE_STEP)) {
     if (distanceToSegment(point, from, to) > radius) {
       fragment.push(point);
       continue;
@@ -71,6 +66,19 @@ function splitOutsideEraser(
   }
   if (fragment.length > 1) fragments.push(fragment);
   return fragments;
+}
+
+function resample(points: readonly InkPoint[], stepSize: number): InkPoint[] {
+  const sampled: InkPoint[] = [points[0]];
+  for (let index = 1; index < points.length; index += 1) {
+    const start = points[index - 1];
+    const end = points[index];
+    const steps = Math.max(1, Math.ceil(Math.hypot(end.x - start.x, end.y - start.y) / stepSize));
+    for (let step = 1; step <= steps; step += 1) {
+      sampled.push(interpolate(start, end, step / steps));
+    }
+  }
+  return sampled;
 }
 
 function interpolate(start: InkPoint, end: InkPoint, ratio: number): InkPoint {

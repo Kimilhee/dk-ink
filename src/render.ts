@@ -1,8 +1,6 @@
 import { drawOutlineStroke } from "./outline.ts";
 import type { InkStyle, Point, Stroke } from "./types.ts";
 
-export { pressureWidth } from "./outline.ts";
-
 /** 고정 굵기로 연속된 점들을 선으로 잇는다. */
 export function drawStaticLineStroke(
   context: CanvasRenderingContext2D,

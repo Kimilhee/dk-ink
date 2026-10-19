@@ -193,16 +193,20 @@ test("지우개 커서는 지우는 동안만 그려진다", () => {
   expect(fake.cursorDrawCount).toBe(afterRelease);
 });
 
-test("아무것도 지우지 않은 지우개 동작은 이력을 남기지 않는다", () => {
+test("아무것도 지우지 않은 지우개 동작은 되돌리기·다시 실행 이력을 건드리지 않는다", () => {
   drawStroke(10);
   editor.undo();
   expect(editor.canUndo).toBe(false);
+  expect(editor.canRedo).toBe(true);
 
   editor.tool = "eraser";
   fake.emit("pointerdown", { x: 300, y: 150 });
   fake.emit("pointerup", { x: 300, y: 150 });
   expect(editor.canUndo).toBe(false);
-  expect(changes).toEqual([1, 0]);
+  expect(editor.canRedo).toBe(true);
+  expect(editor.redo()).toBe(true);
+  expect(editor.getStrokes()).toHaveLength(1);
+  expect(changes).toEqual([1, 0, 1]);
 });
 
 test("포인터 캡처가 실패해도 획은 계속 기록된다", () => {

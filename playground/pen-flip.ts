@@ -70,7 +70,6 @@ export function attachPenFlip(
   let followX = 0;
   let followY = 0;
   let tapTimer: ReturnType<typeof setTimeout> | undefined;
-  let tapDeadline = 0;
   let returnToPenPointer: number | undefined;
 
   function resetTap(): void {
@@ -84,6 +83,12 @@ export function attachPenFlip(
     followTimer = undefined;
   }
 
+  function applyTool(nextTool: "pen" | "eraser"): void {
+    editor.tool = nextTool;
+    syncIcon();
+    onToolChange();
+  }
+
   function setFlipped(next: boolean): void {
     if (next === flipped) return;
     flipped = next;
@@ -91,13 +96,11 @@ export function attachPenFlip(
     if (flipped) {
       savedEraserWidth = editor.getStyle().eraserWidth;
       editor.setStyle({ eraserWidth: FLIPPED_ERASER_WIDTH });
-      editor.tool = "eraser";
+      applyTool("eraser");
     } else {
       editor.setStyle({ eraserWidth: savedEraserWidth });
-      editor.tool = "pen";
+      applyTool("pen");
     }
-    syncIcon();
-    onToolChange();
   }
 
   function syncIcon(): void {
@@ -127,34 +130,25 @@ export function attachPenFlip(
     icon.animate([{ opacity: 0, offset: 0 }], { duration: FADE_IN_MS, easing: "ease-out" });
   }
 
-  document.addEventListener("pointermove", (event) => {
-    if (event.pointerType !== "pen") return;
-    syncIcon();
-    // 아이콘을 누르고 있는 동안에는 그대로 둬야 뒤집히는 모습이 보인다.
-    const overIcon = event.target === icon || event.target === image;
-    if (overIcon && event.buttons !== 0) return;
-    const overCanvas = event.target === canvas || overIcon;
-    // 펜을 떼거나 캔버스를 벗어나도 두 번째 탭을 기다리는 동안에는 자리를 유지한다.
-    if (tapTimer !== undefined || returnToPenPointer !== undefined) return;
-    // 뒤집힌 연필로 지우는 동안에는 지연 없이 지우개 끝을 펜 끝(지우개 원)에 붙인다.
-    if (editor.tool === "eraser" && event.buttons !== 0 && event.target === canvas) {
-      const bounds = stage.getBoundingClientRect();
-      cancelFollow();
-      icon.classList.add("is-erasing");
-      moveTo(event.clientX - bounds.left + ERASER_END, event.clientY - bounds.top - ERASER_END);
-      icon.hidden = false;
-      return;
-    }
-    // 필기 중이거나 캔버스 밖에서는 아이콘을 숨긴다.
-    if (!overCanvas || event.buttons !== 0) {
-      hide();
-      return;
-    }
+  function stagePoint(event: PointerEvent): { x: number; y: number } {
+    const bounds = stage.getBoundingClientRect();
+    return { x: event.clientX - bounds.left, y: event.clientY - bounds.top };
+  }
+
+  /** 뒤집힌 연필로 지우는 동안에는 지연 없이 지우개 끝을 펜 끝(지우개 원)에 붙인다. */
+  function stickToEraserTip(event: PointerEvent): void {
+    const { x, y } = stagePoint(event);
+    cancelFollow();
+    icon.classList.add("is-erasing");
+    moveTo(x + ERASER_END, y - ERASER_END);
+    icon.hidden = false;
+  }
+
+  /** 호버 중인 펜을 따라 아이콘을 띄우거나 지연 이동을 예약한다. */
+  function followHoveringPen(event: PointerEvent): void {
     if (icon.hidden && performance.now() < hiddenUntil) return;
 
-    const bounds = stage.getBoundingClientRect();
-    const x = event.clientX - bounds.left;
-    const y = event.clientY - bounds.top;
+    const { x, y } = stagePoint(event);
     const targetX = x + halfWidth;
     const targetY = y - halfHeight;
 
@@ -164,6 +158,7 @@ export function attachPenFlip(
       fadeIn();
       return;
     }
+
     const iconX = parseFloat(icon.style.left);
     const iconY = parseFloat(icon.style.top);
     holding = Math.hypot(x - iconX, y - iconY) <= HOLD_RADIUS;
@@ -179,6 +174,27 @@ export function attachPenFlip(
       // 미끄러지듯 멈추는 움직임은 CSS 전환(styles.css의 .pen-flip)이 맡는다.
       if (!holding) moveTo(followX, followY);
     }, FOLLOW_DELAY_MS);
+  }
+
+  document.addEventListener("pointermove", (event) => {
+    if (event.pointerType !== "pen") return;
+    syncIcon();
+    // 아이콘을 누르고 있는 동안에는 그대로 둬야 뒤집히는 모습이 보인다.
+    const overIcon = event.target === icon || event.target === image;
+    if (overIcon && event.buttons !== 0) return;
+    // 펜을 떼거나 캔버스를 벗어나도 두 번째 탭을 기다리는 동안에는 자리를 유지한다.
+    if (tapTimer !== undefined || returnToPenPointer !== undefined) return;
+    if (editor.tool === "eraser" && event.buttons !== 0 && event.target === canvas) {
+      stickToEraserTip(event);
+      return;
+    }
+    const overCanvas = event.target === canvas || overIcon;
+    // 필기 중이거나 캔버스 밖에서는 아이콘을 숨긴다.
+    if (!overCanvas || event.buttons !== 0) {
+      hide();
+      return;
+    }
+    followHoveringPen(event);
   });
 
   // 호버가 끝나면(펜을 멀리 들면) 아이콘만 감춘다. 뒤집힌 상태는 다시 탭할 때까지 유지한다.
@@ -198,8 +214,8 @@ export function attachPenFlip(
     // 지우던 자리(펜 끝)에 그대로 두면 다음 획을 가로채므로 호버 자리로만 옮긴다.
     if (editor.tool === "eraser" && icon.classList.contains("is-erasing")) {
       icon.classList.remove("is-erasing");
-      const bounds = stage.getBoundingClientRect();
-      moveTo(event.clientX - bounds.left + halfWidth, event.clientY - bounds.top - halfHeight);
+      const { x, y } = stagePoint(event);
+      moveTo(x + halfWidth, y - halfHeight);
       return;
     }
     // 지우던 자리에 남은 아이콘은 다음 획을 가로막으므로 걷는다.
@@ -216,14 +232,12 @@ export function attachPenFlip(
       icon.setPointerCapture(event.pointerId);
       return;
     }
-    if (tapTimer !== undefined && performance.now() < tapDeadline) {
+    if (tapTimer !== undefined) {
       resetTap();
       setFlipped(true);
       return;
     }
-    resetTap();
     cancelFollow();
-    tapDeadline = performance.now() + TAP_WINDOW_MS;
     tapTimer = setTimeout(() => {
       resetTap();
       // 움직임 이벤트가 끊겨도 0.5초 뒤 계속 필기 중이면 즉시 숨긴다.
@@ -238,12 +252,8 @@ export function attachPenFlip(
     if (event.pointerId !== returnToPenPointer) return;
     returnToPenPointer = undefined;
     if (flipped) setFlipped(false);
-    else {
-      // 툴바에서 선택한 지우개의 크기는 유지하고 도구만 펜으로 되돌린다.
-      editor.tool = "pen";
-      syncIcon();
-      onToolChange();
-    }
+    // 툴바에서 선택한 지우개의 크기는 유지하고 도구만 펜으로 되돌린다.
+    else applyTool("pen");
   });
   icon.addEventListener("pointercancel", (event) => {
     if (event.pointerId === returnToPenPointer) returnToPenPointer = undefined;

@@ -5,6 +5,7 @@ import { watchPenHover } from "./pen-hover.ts";
 import { attachPenFlip } from "./pen-flip.ts";
 
 const canvas = element<HTMLCanvasElement>("ink");
+const stage = element<HTMLElement>("canvas-stage");
 const dumpOutput = element<HTMLPreElement>("dump-output");
 const toolbar = element<HTMLElement>("tool-picker");
 const dragHandle = element<HTMLButtonElement>("toolbar-drag-handle");
@@ -83,7 +84,7 @@ const editor = createInkEditor(canvas, {
 });
 
 // S펜 호버 중 포인터 옆 연필 아이콘으로 켜는 작은 지우개. 자세한 동작은 pen-flip.ts 참고.
-const penFlip = attachPenFlip(editor, element<HTMLElement>("canvas-stage"), syncButtons);
+const penFlip = attachPenFlip(editor, stage, syncButtons);
 
 // 펜과 지우개는 버튼 하나를 번갈아 써서 바꾼다. "누르고 있는 동안만 지우개" 같은 순간
 // 전환을 여러 방식으로 시도했지만 이 기기에서는 어느 것도 성립하지 않았다 — 경위는
@@ -239,7 +240,7 @@ dragHandle.addEventListener("pointerdown", (event) => {
 
 dragHandle.addEventListener("pointermove", (event) => {
   if (!toolbarDrag || event.pointerId !== toolbarDrag.pointerId) return;
-  const stageBounds = element<HTMLElement>("canvas-stage").getBoundingClientRect();
+  const stageBounds = stage.getBoundingClientRect();
   positionToolbar(
     event.clientX - stageBounds.left - toolbarDrag.offsetX,
     event.clientY - stageBounds.top - toolbarDrag.offsetY,
@@ -250,7 +251,7 @@ dragHandle.addEventListener("pointerup", finishToolbarDrag);
 dragHandle.addEventListener("pointercancel", finishToolbarDrag);
 
 window.addEventListener("resize", () => {
-  const stageBounds = element<HTMLElement>("canvas-stage").getBoundingClientRect();
+  const stageBounds = stage.getBoundingClientRect();
   const toolbarBounds = toolbar.getBoundingClientRect();
   positionToolbar(toolbarBounds.left - stageBounds.left, toolbarBounds.top - stageBounds.top);
 });
@@ -389,7 +390,6 @@ function setSettingsOpen(open: boolean): void {
 }
 
 function positionToolbar(left: number, top: number): void {
-  const stage = element<HTMLElement>("canvas-stage");
   const margin = 8;
   const minTop =
     debugPanel.getBoundingClientRect().top - stage.getBoundingClientRect().top + margin;

@@ -124,10 +124,15 @@ export function createInkEditor(
     };
   }
 
-  function eraseBetween(from: Point, to: Point): boolean {
-    const result = eraseStrokes(strokes, from, to, style.eraserWidth);
-    if (result.changed) strokes = result.strokes;
-    return result.changed;
+  function eraseTo(point: Point): void {
+    const result = eraseStrokes(strokes, previousEraserPoint ?? point, point, style.eraserWidth);
+    if (result.changed) {
+      if (!changedWhileErasing) history.commit(strokes);
+      strokes = result.strokes;
+      changedWhileErasing = true;
+    }
+    previousEraserPoint = point;
+    eraserCursor = point;
   }
 
   function redraw(): void {
@@ -174,11 +179,7 @@ export function createInkEditor(
     capturePointer(event.pointerId);
 
     if (activeTool === "eraser") {
-      const point = timedPoint(event);
-      eraserCursor = point;
-      previousEraserPoint = point;
-      history.commit(strokes);
-      changedWhileErasing = eraseBetween(point, point);
+      eraseTo(timedPoint(event));
       scheduleRedraw();
       return;
     }
@@ -199,15 +200,9 @@ export function createInkEditor(
     const events = coalesced?.length ? coalesced : [event];
 
     if (activeTool === "eraser") {
-      for (const coalesced of events) {
-        const point = timedPoint(coalesced);
-        changedWhileErasing =
-          eraseBetween(previousEraserPoint ?? point, point) || changedWhileErasing;
-        previousEraserPoint = point;
-        eraserCursor = point;
-      }
+      for (const sample of events) eraseTo(timedPoint(sample));
     } else {
-      for (const coalesced of events) appendPoint(coalesced);
+      for (const sample of events) appendPoint(sample);
     }
     scheduleRedraw();
   }
@@ -218,17 +213,12 @@ export function createInkEditor(
     const erasing = activeTool === "eraser";
 
     if (erasing) {
-      const point = timedPoint(event);
-      changedWhileErasing =
-        eraseBetween(previousEraserPoint ?? point, point) || changedWhileErasing;
+      eraseTo(timedPoint(event));
     } else {
       appendPoint(event);
     }
 
     const changed = erasing ? changedWhileErasing : true;
-    // 아무것도 지우지 않은 지우개 탭은 되돌릴 것이 없다.
-    if (!changed) history.undo(strokes);
-
     endGesture();
     cancelScheduledRedraw();
     redraw();
@@ -248,7 +238,7 @@ export function createInkEditor(
     const ratio = window.devicePixelRatio || 1;
     canvas.width = Math.max(1, Math.floor(bounds.width * ratio));
     canvas.height = Math.max(1, Math.floor(bounds.height * ratio));
-    // 백버퍼는 물리 픽셀, 좌표는 CSS 픽셀로 유지한다.
+    // 캔버스 내부 이미지는 물리 픽셀, 좌표는 CSS 픽셀로 유지한다.
     context.setTransform(ratio, 0, 0, ratio, 0, 0);
     redraw();
   }

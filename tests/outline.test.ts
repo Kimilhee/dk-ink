@@ -1,12 +1,20 @@
 import { expect, test, vi } from "vite-plus/test";
-import { pressureWidth as publicPressureWidth } from "../src/index.ts";
 import { drawOutlineStroke, pressureWidth } from "../src/outline.ts";
-import { pressureWidth as renderPressureWidth, renderStrokes } from "../src/render.ts";
+import { renderStrokes } from "../src/render.ts";
 import type { InkPoint } from "../src/types.ts";
 
-test("기존 pressureWidth 공개 경로를 유지한다", () => {
-  expect(publicPressureWidth).toBe(pressureWidth);
-  expect(renderPressureWidth).toBe(pressureWidth);
+test("필압이 0.8이면 최대 굵기에 닿는다", () => {
+  expect(pressureWidth(4, 0.8)).toBeCloseTo(4);
+  expect(pressureWidth(4, 1)).toBeCloseTo(4);
+});
+
+test("필압이 낮을수록 얇아지고 0에서도 굵기가 남는다", () => {
+  expect(pressureWidth(4, 0.4)).toBeCloseTo(2.1);
+  expect(pressureWidth(4, 0)).toBeCloseTo(0.2);
+});
+
+test("필압을 보고하지 않는 입력은 중간 굵기로 그린다", () => {
+  expect(pressureWidth(4)).toBeCloseTo(pressureWidth(4, 0.5));
 });
 
 test.each(["outline", "render"])("%s에서 필압에 따른 굵기와 둥근 양 끝을 유지한다", (entry) => {
