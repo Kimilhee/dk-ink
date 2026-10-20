@@ -395,6 +395,8 @@ button:disabled {
   font-size: 28px;
   line-height: 1;
   opacity: 0.3;
+  /* 브라우저가 탭할 때 버튼 영역에 덧씌우는 사각형을 없앤다. 대기 중 표시는 원 배경이 맡는다. */
+  -webkit-tap-highlight-color: transparent;
   /* 그림 바깥 여백은 캔버스로 입력을 통과시킨다. */
   pointer-events: none;
   touch-action: none;
