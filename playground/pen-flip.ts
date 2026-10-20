@@ -202,14 +202,15 @@ export function attachPenFlip(
     followHoveringPen(event);
   });
 
-  // 호버가 끝나면(펜을 멀리 들면) 아이콘만 감춘다. 뒤집힌 상태는 다시 탭할 때까지 유지한다.
+  // 호버가 끝나면(펜을 멀리 들면) 아이콘을 감춘다. 단 뒤집힌 연필은 남긴다 — 연필 뒤의
+  // 지우개로 지운다는 느낌이 나려면 지우러 다시 펜을 댈 때 거꾸로 선 연필이 보여야 한다.
   watchPenHover(
     () => false,
     (near) => {
       penNear = near;
-      if (!near && tapTimer === undefined && returnToPenPointer === undefined && !returningToPen) {
-        hide();
-      }
+      const keepVisible =
+        flipped || tapTimer !== undefined || returnToPenPointer !== undefined || returningToPen;
+      if (!near && !keepVisible) hide();
     },
   );
 
