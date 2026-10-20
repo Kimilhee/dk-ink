@@ -78,6 +78,7 @@ export function attachPenFlip(
     if (tapTimer === undefined) return;
     clearTimeout(tapTimer);
     tapTimer = undefined;
+    icon.classList.remove("is-awaiting-tap");
   }
 
   function cancelFollow(): void {
@@ -243,6 +244,8 @@ export function attachPenFlip(
     }
     cancelFollow();
     strokeCountBeforeTap = editor.getStrokes().length;
+    // 두 번째 탭을 받는 동안 색으로 알린다. 시간이 지나거나 전환되면 resetTap이 걷는다.
+    icon.classList.add("is-awaiting-tap");
     tapTimer = setTimeout(() => {
       resetTap();
       // 움직임 이벤트가 끊겨도 0.5초 뒤 계속 필기 중이면 즉시 숨긴다.
