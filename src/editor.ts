@@ -1,5 +1,5 @@
 import { eraseStrokes } from "./erase.ts";
-import { cloneStrokes, InkHistory } from "./history.ts";
+import { cloneStrokes, createInkHistory } from "./history.ts";
 import { drawEraserCursor, renderStrokes } from "./render.ts";
 import type {
   InkEditorOptions,
@@ -72,7 +72,7 @@ export function createInkEditor(
     ...DEFAULT_STYLE,
     ...pickStyle(options),
   };
-  const history = new InkHistory(options.historyLimit ?? 50);
+  const history = createInkHistory(options.historyLimit ?? 50);
   const onChange = options.onChange;
 
   let strokes: Stroke[] = options.strokes ? cloneStrokes(options.strokes) : [];

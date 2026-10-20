@@ -105,7 +105,7 @@ type StrokeStyle = { color: string; strokeWidth: number; widthMode: WidthMode; o
 
 에디터를 쓰지 않고 직접 조립할 때 쓸 순수 함수도 내보낸다:
 `eraseStrokes` · `renderStrokes` · `drawOutlineStroke` · `drawEraserCursor` ·
-`pressureWidth` · `cloneStrokes` · `InkHistory`.
+`pressureWidth` · `cloneStrokes` · `createInkHistory`.
 
 ## 개발
 
