@@ -30,4 +30,5 @@ release. Add a tool name to select part of the graph. For example, run
 
 - 커밋 메시지의 제목과 본문은 모두 한글로 작성한다. 코드 식별자, 고유명사, 이슈 참조는 원문을 유지할 수 있다.
 - 사용자가 명시적으로 배포하지 말라고 지시하지 않은 한, 작업 완료 후 GitHub Pages 배포까지 수행하고 배포 성공 여부를 확인한다.
+- 상태를 가진 객체는 `class` 대신 `createXxx()` 생성자 함수로 만든다 (클로저로 상태를 숨기고, 공개 모양은 `interface`로 정의). `class`는 상속·`instanceof`·대량 인스턴스 등 꼭 필요한 경우에만 쓴다.
 - 모둔 수정 사항에 대해서 package.json의 sem version의 마지막 patch 버전을 올리고 화면 상단에 해당 버전이 표시되게 할것.
