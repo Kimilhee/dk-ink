@@ -33,11 +33,11 @@ const TAP_WINDOW_MS = 500;
  */
 const ERASER_END = 8;
 
-export interface PenFlip {
+export type PenFlip = {
   readonly flipped: boolean;
   /** 뒤집힌 연필을 원래대로 돌린다. 도구 모음에서 도구를 바꿀 때 쓴다. */
   unflip(): void;
-}
+};
 
 export function attachPenFlip(
   editor: InkEditor,

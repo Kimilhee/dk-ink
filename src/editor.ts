@@ -22,7 +22,7 @@ const DEFAULT_STYLE: InkStyle = {
   eraserCursorStroke: "#0f766e",
 };
 
-export interface InkEditor {
+export type InkEditor = {
   readonly canvas: HTMLCanvasElement;
   /** 현재 도구. 그리는 중에 바꿔도 진행 중인 동작에는 영향을 주지 않는다. */
   tool: InkTool;
@@ -53,7 +53,7 @@ export interface InkEditor {
    * 그려진 내용은 지우지 않는다. 캔버스를 비우려면 `clear()`를 먼저 부르면 된다.
    */
   destroy(): void;
-}
+};
 
 /**
  * 캔버스 하나를 필기 에디터로 만든다.

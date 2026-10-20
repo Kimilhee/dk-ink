@@ -1,6 +1,6 @@
 import type { Stroke } from "./types.ts";
 
-export interface InkHistory {
+export type InkHistory = {
   readonly canUndo: boolean;
   readonly canRedo: boolean;
   /** 변경 직전 상태를 쌓는다. 새 변경이 생기면 redo 가지는 버린다. */
@@ -8,7 +8,7 @@ export interface InkHistory {
   undo(current: readonly Stroke[]): Stroke[] | undefined;
   redo(current: readonly Stroke[]): Stroke[] | undefined;
   reset(): void;
-}
+};
 
 /**
  * 획 묶음 전체를 스냅샷으로 쌓는 되돌리기 스택.

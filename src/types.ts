@@ -1,10 +1,10 @@
 /** 캔버스 좌표. CSS 픽셀 기준이며 devicePixelRatio는 렌더러가 처리한다. */
-export interface Point {
+export type Point = {
   x: number;
   y: number;
-}
+};
 
-export interface InkPoint extends Point {
+export type InkPoint = Point & {
   /**
    * `PointerEvent.timeStamp` 그대로. `performance.now()`와 같은 시간 원점을 쓰는
    * 밀리초 값이라 두 값을 섞어 빼도 된다.
@@ -15,7 +15,7 @@ export interface InkPoint extends Point {
   t: number;
   /** PointerEvent.pressure (0~1). 필압을 보고하지 않는 입력에서는 undefined. */
   pressure?: number;
-}
+};
 
 /**
  * 획 하나에 고정되는 그리기 속성.
@@ -23,20 +23,20 @@ export interface InkPoint extends Point {
  * 전역 스타일과 따로 두는 이유: 이미 그린 획은 나중에 색이나 굵기를 바꿔도 그대로여야
  * 한다. 사람이 그때 그 펜으로 쓴 것이기 때문이다.
  */
-export interface StrokeStyle {
+export type StrokeStyle = {
   color: string;
   /** 획 굵기(px). `pressure` 모드에서는 최대 굵기다. */
   strokeWidth: number;
   widthMode: WidthMode;
   /** 0~1. 1이면 불투명하다. */
   opacity: number;
-}
+};
 
 /** 펜을 대고 뗄 때까지의 점과, 그릴 때 쓴 속성. 전부 JSON 직렬화 가능하다. */
-export interface Stroke {
+export type Stroke = {
   points: InkPoint[];
   style: StrokeStyle;
-}
+};
 
 export type InkTool = "pen" | "eraser";
 
@@ -44,7 +44,7 @@ export type InkTool = "pen" | "eraser";
 export type WidthMode = "pressure" | "constant";
 
 /** 앞으로 그릴 획에 쓸 설정. 이미 그린 획에는 영향을 주지 않는다. */
-export interface InkStyle {
+export type InkStyle = {
   /** 잉크 색. Canvas에 그대로 넘긴다. */
   color: string;
   /** 획 굵기(px). `pressure` 모드에서는 최대 굵기다. */
@@ -58,9 +58,9 @@ export interface InkStyle {
   showEraserCursor: boolean;
   eraserCursorFill: string;
   eraserCursorStroke: string;
-}
+};
 
-export interface InkEditorOptions extends Partial<InkStyle> {
+export type InkEditorOptions = Partial<InkStyle> & {
   tool?: InkTool;
   /** 되돌리기 스택 깊이. 0이면 되돌리기를 쓰지 않는다. */
   historyLimit?: number;
@@ -68,4 +68,4 @@ export interface InkEditorOptions extends Partial<InkStyle> {
   strokes?: readonly Stroke[];
   /** 획이 바뀔 때마다 호출된다. 그리는 중간에는 호출되지 않는다. */
   onChange?: (strokes: readonly Stroke[]) => void;
-}
+};

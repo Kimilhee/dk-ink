@@ -20,10 +20,10 @@ import type { InkPoint, Point, Stroke } from "../src/types.ts";
 
 // 계산은 전부 src의 실제 함수가 한다. 이 파일은 그 중간 결과를 그리기만 한다.
 
-interface Step {
+type Step = {
   title: string;
   desc: string;
-}
+};
 
 const INK = "#1d4ed8";
 const FAINT_INK = "rgba(29, 78, 216, 0.12)";
