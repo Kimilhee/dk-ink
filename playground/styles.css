@@ -411,7 +411,10 @@ button:disabled {
 }
 /* 첫 탭 뒤 두 번째 탭을 기다리는 동안. 지금 다시 누르면 지우개로 바뀐다는 표시다. */
 .pen-flip.is-awaiting-tap {
+  border-radius: 50%;
+  background: #dbeafe;
   color: var(--active-color);
+  opacity: 1;
 }
 .pen-flip-image {
   display: grid;
