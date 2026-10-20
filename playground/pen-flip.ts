@@ -73,6 +73,8 @@ export function attachPenFlip(
   /** 첫 탭 직전의 획 개수. 두 번째 탭에서 첫 탭이 찍은 점을 걷어낼지 판단한다. */
   let strokeCountBeforeTap = 0;
   let returnToPenPointer: number | undefined;
+  /** 지우개에서 펜으로 되돌아가는 회전이 끝날 때까지는 펜을 멀리 들어도 감추지 않는다. */
+  let returningToPen = false;
 
   function resetTap(): void {
     if (tapTimer === undefined) return;
@@ -205,7 +207,9 @@ export function attachPenFlip(
     () => false,
     (near) => {
       penNear = near;
-      if (!near && tapTimer === undefined && returnToPenPointer === undefined) hide();
+      if (!near && tapTimer === undefined && returnToPenPointer === undefined && !returningToPen) {
+        hide();
+      }
     },
   );
 
@@ -265,6 +269,16 @@ export function attachPenFlip(
       // 툴바에서 선택한 지우개의 크기는 유지하고 도구만 펜으로 되돌린다.
       applyTool("pen");
     }
+    // 탭하고 바로 펜을 들면 회전이 보이기도 전에 호버 종료로 사라진다. 회전(CSS 전환)이
+    // 끝난 뒤에 펜이 이미 멀어졌으면 그때 감춘다. `getAnimations()`가 방금 바뀐 스타일을
+    // 반영하므로 막 시작한 전환도 여기 잡힌다.
+    returningToPen = true;
+    void Promise.allSettled(icon.getAnimations().map((animation) => animation.finished)).then(
+      () => {
+        returningToPen = false;
+        if (!penNear) hide();
+      },
+    );
   });
   icon.addEventListener("pointercancel", (event) => {
     if (event.pointerId === returnToPenPointer) returnToPenPointer = undefined;
