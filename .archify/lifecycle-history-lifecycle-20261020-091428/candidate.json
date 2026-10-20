@@ -1,0 +1,110 @@
+{
+  "schema_version": 2,
+  "diagram_type": "lifecycle",
+  "meta": {
+    "title": "되돌리기·다시 실행 상태",
+    "output": ".archify/lifecycle-history-lifecycle-20261020-091428/history-lifecycle.html",
+    "quality_profile": "showcase",
+    "repository": {
+      "url": "https://github.com/Kimilhee/dk-ink.git",
+      "provider": "github",
+      "revision": "9e436f50d95bca04b335f743c217b9b876b94916"
+    }
+  },
+  "lanes": [
+    {
+      "id": "main",
+      "label": "이력"
+    }
+  ],
+  "states": [
+    {
+      "id": "empty",
+      "type": "start",
+      "label": "처음",
+      "sublabel": "past=0, future=0",
+      "lane": "main",
+      "col": 0,
+      "sources": [
+        {
+          "path": "src/history.ts",
+          "line": 9,
+          "end_line": 20
+        },
+        {
+          "path": "src/history.ts",
+          "line": 45,
+          "end_line": 48
+        }
+      ]
+    },
+    {
+      "id": "committed",
+      "type": "active",
+      "label": "되돌릴 수 있음",
+      "sublabel": "past>0, future=0",
+      "lane": "main",
+      "col": 1,
+      "sources": [
+        {
+          "path": "src/history.ts",
+          "line": 23,
+          "end_line": 29
+        }
+      ]
+    },
+    {
+      "id": "undone",
+      "type": "waiting",
+      "label": "다시 실행 가능",
+      "sublabel": "future>0",
+      "lane": "main",
+      "col": 2,
+      "sources": [
+        {
+          "path": "src/history.ts",
+          "line": 31,
+          "end_line": 42
+        }
+      ]
+    }
+  ],
+  "transitions": [
+    {
+      "from": "empty",
+      "to": "committed",
+      "label": "commit (limit>0)"
+    },
+    {
+      "from": "committed",
+      "to": "undone",
+      "label": "undo (past>0)"
+    },
+    {
+      "from": "undone",
+      "to": "committed",
+      "label": "마지막 redo / 새 commit",
+      "variant": "emphasis"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "violet",
+      "title": "스택 상태와 반복",
+      "items": [
+        "처음은 past=0, future=0이며 reset으로도 돌아간다.",
+        "undo는 past에서 꺼내 현재 획의 복사본을 future로 보낸다.",
+        "redo는 반대이며 future가 남으면 다시 실행 가능 상태를 유지한다."
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "변경과 예외",
+      "items": [
+        "새 commit은 future를 비우며 limit 초과 시 가장 오래된 past를 버린다.",
+        "limit<=0이면 commit은 아무것도 바꾸지 않는다.",
+        "빈 지우개 제스처와 recordHistory:false는 commit하지 않는다."
+      ]
+    }
+  ]
+}

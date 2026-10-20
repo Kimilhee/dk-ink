@@ -8,7 +8,7 @@
 2. 먼저 [코드 구조도](https://kimilhee.github.io/dk-ink/analysis/dk-ink-architecture.html)를 연다. 각 단계의 그림은 해당 단계에서 연다. 로컬에서도 `playground/public/analysis/`의 HTML 파일을 바로 열 수 있다.
 3. 저장소에서 `vp install` 후 `vp run playground`로 직접 실행한다. 작업을 확인할 때는 `vp test`와 `vp check`를 쓴다.
 
-다이어그램은 코드를 읽는 지도다. 노드를 눌러 설명과 소스 위치를 확인하고, 구체적인 동작은 해당 코드에서 검증한다. 구조도에서 `획 데이터`는 별도 데이터베이스가 아니라 에디터의 메모리 안에 있는 배열이다.
+다이어그램은 코드를 읽는 지도다. 노드를 눌러 설명과 소스 위치를 확인하고, 구체적인 동작은 해당 코드에서 검증한다. 구조도에서 `획 데이터`는 별도 데이터베이스가 아니라 에디터의 메모리 안에 있는 배열이다. 설명은 한국어이며 Viewer 기본 UI는 영어 fallback을 사용한다. 소스 변경을 커밋한 뒤 `vp run archify:refresh`로 5개 문서를 다시 생성할 수 있다.
 
 ## 1. 바깥에서 안으로: 무엇을 제공하나
 
@@ -32,7 +32,7 @@
 
 **그림:** [렌더링 데이터 흐름도](https://kimilhee.github.io/dk-ink/analysis/render-dataflow.html). `pressure`와 `constant` 두 경로를 비교한다.
 
-**읽기:** [`src/render.ts`](../src/render.ts)의 `renderStrokes`, [`src/outline.ts`](../src/outline.ts)의 `drawOutlineStroke`, `pressureWidth`, [`tests/render.test.ts`](../tests/render.test.ts).
+**읽기:** [`src/render.ts`](../src/render.ts)의 `renderStrokes`, `drawStaticLineStroke`, [`src/outline.ts`](../src/outline.ts)의 `drawOutlineStroke`, `pressureWidth`, [`tests/render.test.ts`](../tests/render.test.ts).
 
 **해보기:** 시험용 앱에서 `필압적용`과 `고정두께`를 번갈아 고른 뒤 선을 그린다. 코드에서 두 모드가 갈라지는 조건을 찾는다.
 
@@ -42,9 +42,9 @@
 
 **그림:** [지우개 동작 흐름도](https://kimilhee.github.io/dk-ink/analysis/eraser-workflow.html). `교차함`과 `교차 안 함` 두 갈래를 따라간다.
 
-**읽기:** [`src/editor.ts`](../src/editor.ts)의 `eraseBetween`과 지우개 분기, [`src/erase.ts`](../src/erase.ts)의 `eraseStrokes`, `intersectsEraser`, `splitOutsideEraser`, [`tests/erase.test.ts`](../tests/erase.test.ts).
+**읽기:** [`src/editor.ts`](../src/editor.ts)의 `eraseTo`와 지우개 분기, [`src/erase.ts`](../src/erase.ts)의 `eraseStrokes`, `intersectsEraser`, `splitOutsideEraser`, [`tests/erase.test.ts`](../tests/erase.test.ts).
 
-**해보기:** 긴 선 하나를 그리고 가운데를 지운다. JSON에서 획이 둘로 나뉘는지 확인한다. 코드에서 `changed`가 `false`일 때 이력이 어떻게 처리되는지 찾는다.
+**해보기:** 긴 선 하나를 그리고 가운데를 지운다. JSON에서 획이 둘로 나뉘는지 확인한다. 코드에서 실제로 지워지는 첫 순간에만 이력을 저장하는 위치와, `changed`가 `false`이면 redo가 보존되는 경로를 찾는다.
 
 **완료 조건:** 지우개가 이미지 픽셀을 지우는 방식이 아니라 기존 `Stroke`를 조각으로 바꾼다는 점을 설명한다. 분할된 조각이 원래 `style`을 이어받는 위치를 찾는다.
 
@@ -64,7 +64,7 @@
 
 **해보기:** 캔버스 크기를 바꿔도 획 좌표가 유지되는 경로를 따라간다. `destroy()`가 해제하는 리스너와 `ResizeObserver`, 되돌리는 인라인 스타일을 목록으로 적는다.
 
-**완료 조건:** 앱이 담당하는 UI·설정과 라이브러리가 담당하는 입력·획·렌더링의 경계를 설명한다.
+**완료 조건:** 앱이 담당하는 UI·설정과 라이브러리가 담당하는 입력·획·렌더링의 경계를 설명한다. [`playground/pen-flip.ts`](../playground/pen-flip.ts)와 [`playground/pen-hover.ts`](../playground/pen-hover.ts)를 따라, 펜 아이콘을 0.5초 안에 두 번 탭하면 20px 지우개가 되고 한 번 누르고 떼면 펜으로 돌아오는 경로를 확인한다.
 
 ## 마지막 점검
 

@@ -123,7 +123,16 @@ vp run playground   # 시험용 앱 (펜/지우개/두께/되돌리기/JSON 확�
 vp test
 vp check
 vp pack             # dist/ 빌드
+vp run archify:refresh # 최신 코드를 읽고 분석 문서 5개 재생성
 ```
 
 `playground/`는 npm 배포물이 아니다. 라이브러리 소스를 직접 import하므로 수정이 바로 반영되고,
 `main`에 푸시하면 GitHub Pages로 배포된다.
+
+`archify:refresh`는 [Codex CLI의 비대화형 실행](https://learn.chatgpt.com/docs/non-interactive-mode)을 사용한다.
+로그인된 `codex` CLI, 설치된 `archify` 스킬, 브라우저 검사용 Chrome/Chromium이 필요하다.
+AI가 현재 코드를 다시 분석하므로 실행 시간과 모델 사용량이 발생한다. 소스 변경을 먼저 커밋하면
+문서의 근거 링크를 해당 커밋에 고정할 수 있다. 생성 원본과 검증 결과는 새 `.archify/` 폴더에
+보존하고, 검증된 HTML 5개를 `playground/public/analysis/`에 반영한다.
+이 명령은 로컬 파일과 patch 버전만 갱신한다. 변경을 검토하고 `main`에 푸시하면 Pages에 배포된다.
+다이어그램 설명은 한국어이며 Viewer 기본 UI는 영어 fallback을 사용한다.

@@ -1,6 +1,6 @@
 {
   "name": "dk-ink",
-  "version": "0.1.35",
+  "version": "0.1.36",
   "description": "Framework-agnostic handwriting (digital ink) editor for canvas: pressure strokes, vector eraser, undo.",
   "keywords": [
     "canvas",
@@ -37,7 +37,8 @@
     "playground:build": "vp build playground",
     "test": "vp test",
     "check": "vp check",
-    "prepublishOnly": "vp run build"
+    "prepublishOnly": "vp run build",
+    "archify:refresh": "codex exec --sandbox workspace-write - < scripts/archify-refresh.md"
   },
   "devDependencies": {
     "@types/node": "^26.1.1",
