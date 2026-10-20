@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>dk-ink 알고리즘 단계별 보기</title>
+  </head>
+  <body>
+    <main class="viz">
+      <header>
+        <h1>펜·지우개 알고리즘 <span id="app-version" class="app-version"></span></h1>
+        <a href="./index.html">← 플레이그라운드</a>
+      </header>
+      <p class="lead">
+        이 페이지는 <code>src/outline.ts</code>와 <code>src/erase.ts</code>의 실제 함수를 그대로
+        불러 계산합니다. 캔버스에 직접 긋거나 끌어서 입력을 바꿔 보세요.
+      </p>
+
+      <section class="panel" aria-labelledby="pen-title">
+        <h2 id="pen-title">펜: 점 → 채운 윤곽</h2>
+        <div class="controls">
+          <div id="pen-steps" class="steps" role="group" aria-label="펜 단계"></div>
+          <label class="range"
+            >펜 두께 <input id="pen-width" type="range" min="4" max="60" step="2" value="32" />
+            <output id="pen-width-value"></output
+          ></label>
+          <label class="range"
+            >진행 <input id="pen-progress" type="range" min="1" max="1" value="1" />
+            <button id="pen-play" type="button">▶ 다시 긋기</button></label
+          >
+        </div>
+        <p id="pen-desc" class="desc"></p>
+        <canvas id="pen-canvas" class="viz-canvas" aria-label="펜 알고리즘 캔버스"></canvas>
+        <output id="pen-readout" class="readout"></output>
+      </section>
+
+      <section class="panel" aria-labelledby="eraser-title">
+        <h2 id="eraser-title">지우개: 선분 하나로 획 자르기</h2>
+        <div class="controls">
+          <div id="eraser-steps" class="steps" role="group" aria-label="지우개 단계"></div>
+          <label class="range"
+            >지우개 지름
+            <input id="eraser-size" type="range" min="8" max="100" step="2" value="40" />
+            <output id="eraser-size-value"></output
+          ></label>
+          <span class="buttons">
+            <button id="eraser-apply" type="button">이 선분으로 지우기 적용</button>
+            <button id="eraser-reset" type="button">처음 획으로</button>
+          </span>
+        </div>
+        <p id="eraser-desc" class="desc"></p>
+        <canvas id="eraser-canvas" class="viz-canvas" aria-label="지우개 알고리즘 캔버스"></canvas>
+        <output id="eraser-readout" class="readout"></output>
+      </section>
+    </main>
+    <script type="module" src="./algorithm.ts"></script>
+  </body>
+</html>

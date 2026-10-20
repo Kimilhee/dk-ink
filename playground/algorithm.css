@@ -1,0 +1,89 @@
+.viz {
+  height: auto;
+  max-width: 1080px;
+  margin: 0 auto;
+}
+.viz header a {
+  color: var(--active-color);
+  font-size: 14px;
+}
+.lead {
+  margin: 0;
+  color: #55637a;
+  font-size: 14px;
+}
+.panel {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px;
+  border: 1px solid #dde3ea;
+  border-radius: 10px;
+  background: #fff;
+}
+.panel h2 {
+  margin: 0;
+  font-size: 16px;
+}
+.controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 18px;
+}
+.steps {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.steps button[aria-pressed="true"] {
+  background: var(--active-color);
+  border-color: var(--active-color);
+  color: #fff;
+}
+.range {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #55637a;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+.buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.desc {
+  min-height: 3em;
+  margin: 0;
+  padding: 8px 10px;
+  border-left: 3px solid var(--active-color);
+  background: #f8fafc;
+  font-size: 14px;
+  line-height: 1.55;
+}
+.viz-canvas {
+  display: block;
+  width: 100%;
+  height: 380px;
+  border: 1px solid #edf1f5;
+  border-radius: 8px;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  background-image:
+    linear-gradient(#f1f4f8 1px, transparent 1px),
+    linear-gradient(90deg, #f1f4f8 1px, transparent 1px);
+  background-size: 24px 24px;
+}
+.readout {
+  color: #55637a;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+@media (max-width: 600px) {
+  .viz-canvas {
+    height: 300px;
+  }
+}

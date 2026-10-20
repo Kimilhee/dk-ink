@@ -1,10 +1,10 @@
 import type { InkPoint, Point } from "./types.ts";
 
-interface OutlineSample extends Point {
+export interface OutlineSample extends Point {
   radius: number;
 }
 
-const MIN_POINT_DISTANCE = 0.35;
+export const MIN_POINT_DISTANCE = 0.35;
 
 /**
  * 획을 선이 아니라 윤곽을 채운 도형으로 그린다.
@@ -70,7 +70,7 @@ export function pressureWidth(maxWidth: number, pressure = 0.5): number {
   return 0.2 + (maxWidth - 0.2) * response;
 }
 
-function smoothSamples(points: readonly InkPoint[], strokeWidth: number): OutlineSample[] {
+export function smoothSamples(points: readonly InkPoint[], strokeWidth: number): OutlineSample[] {
   const samples: OutlineSample[] = [];
   for (const point of points) {
     const previous = samples[samples.length - 1];
