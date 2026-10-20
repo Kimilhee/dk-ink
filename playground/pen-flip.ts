@@ -20,6 +20,8 @@ const FADE_IN_MS = 1000;
  * 예약을 걸어 두면, 실제로 움직이기 시작했을 때 0.5초를 다 기다리지 않고 옮겨지기 때문이다.
  */
 const MOVE_THRESHOLD = 8;
+/** 지우개 아이콘을 누른 채 이만큼 넘게 끌면 탭(펜으로 돌아가기)이 아니라 지우기로 본다. */
+const ERASE_DRAG_THRESHOLD = 8;
 /** 펜이 아이콘 위(이 반경 안)에 있으면 누르려는 것으로 보고 아이콘을 멈춘다. */
 const HOLD_RADIUS = 24;
 /** 첫 탭 이후 다시 탭할 수 있는 시간. */
@@ -72,7 +74,8 @@ export function attachPenFlip(
   let tapTimer: ReturnType<typeof setTimeout> | undefined;
   /** 첫 탭 직전의 획 개수. 두 번째 탭에서 첫 탭이 찍은 점을 걷어낼지 판단한다. */
   let strokeCountBeforeTap = 0;
-  let returnToPenPointer: number | undefined;
+  /** 지우개 아이콘을 누른 입력. 짧게 떼면 펜으로 돌아가고, 끌면 이 자리부터 지운다. */
+  let eraserPress: PointerEvent | undefined;
   /** 지우개에서 펜으로 되돌아가는 회전이 끝날 때까지는 펜을 멀리 들어도 감추지 않는다. */
   let returningToPen = false;
 
@@ -97,7 +100,7 @@ export function attachPenFlip(
   function setFlipped(next: boolean): void {
     if (next === flipped) return;
     flipped = next;
-    returnToPenPointer = undefined;
+    eraserPress = undefined;
     if (flipped) {
       savedEraserWidth = editor.getStyle().eraserWidth;
       editor.setStyle({ eraserWidth: FLIPPED_ERASER_WIDTH });
@@ -188,7 +191,7 @@ export function attachPenFlip(
     const overIcon = event.target === icon || event.target === image;
     if (overIcon && event.buttons !== 0) return;
     // 펜을 떼거나 캔버스를 벗어나도 두 번째 탭을 기다리는 동안에는 자리를 유지한다.
-    if (tapTimer !== undefined || returnToPenPointer !== undefined) return;
+    if (tapTimer !== undefined || eraserPress !== undefined) return;
     if (editor.tool === "eraser" && event.buttons !== 0 && event.target === canvas) {
       stickToEraserTip(event);
       return;
@@ -209,7 +212,7 @@ export function attachPenFlip(
     (near) => {
       penNear = near;
       const keepVisible =
-        flipped || tapTimer !== undefined || returnToPenPointer !== undefined || returningToPen;
+        flipped || tapTimer !== undefined || eraserPress !== undefined || returningToPen;
       if (!near && !keepVisible) hide();
     },
   );
@@ -236,7 +239,7 @@ export function attachPenFlip(
     event.stopPropagation();
     if (editor.tool === "eraser") {
       cancelFollow();
-      returnToPenPointer = event.pointerId;
+      eraserPress = event;
       icon.setPointerCapture(event.pointerId);
       return;
     }
@@ -261,9 +264,24 @@ export function attachPenFlip(
     canvas.dispatchEvent(new PointerEvent("pointerdown", event));
   });
 
+  // 누른 자리에서 충분히 끌었으면 지우기로 넘긴다. 첫 펜 탭과 같은 방식으로 누른 시점의
+  // 입력을 캔버스에 다시 보내고, 에디터가 포인터를 캡처하므로 이후 입력은 캔버스로 간다.
+  icon.addEventListener("pointermove", (event) => {
+    if (event.pointerId !== eraserPress?.pointerId) return;
+    const distance = Math.hypot(
+      event.clientX - eraserPress.clientX,
+      event.clientY - eraserPress.clientY,
+    );
+    if (distance <= ERASE_DRAG_THRESHOLD) return;
+    const press = eraserPress;
+    eraserPress = undefined;
+    canvas.dispatchEvent(new PointerEvent("pointerdown", press));
+    canvas.dispatchEvent(new PointerEvent("pointermove", event));
+  });
+
   icon.addEventListener("pointerup", (event) => {
-    if (event.pointerId !== returnToPenPointer) return;
-    returnToPenPointer = undefined;
+    if (event.pointerId !== eraserPress?.pointerId) return;
+    eraserPress = undefined;
     if (flipped) {
       setFlipped(false);
     } else {
@@ -282,7 +300,7 @@ export function attachPenFlip(
     );
   });
   icon.addEventListener("pointercancel", (event) => {
-    if (event.pointerId === returnToPenPointer) returnToPenPointer = undefined;
+    if (event.pointerId === eraserPress?.pointerId) eraserPress = undefined;
   });
 
   return {
