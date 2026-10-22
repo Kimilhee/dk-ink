@@ -1,6 +1,6 @@
 /**
  * S펜이 캔버스 위에 떠 있는 동안 아이콘의 좌측 하단을 포인터에 맞춘다. 아이콘을 펜으로
- * 누르면 필기를 그대로 시작하며 아이콘은 제자리에 머문다. 거의 움직이지 않고 떼면(탭) 그 점을
+ * 누르면 필기를 그대로 시작하며 아이콘은 제자리에 머문다. 거의 움직이지 않고 곧바로 떼면(탭) 그 점을
  * 걷어내고 연필이 뒤집혀(180°) 작은 지우개가 된다. 지우개 아이콘은 한 번 누르고 떼면 펜으로 돌아온다.
  *
  * 에디터 공개 API(`tool`, `setStyle`)만 쓴다. 나중에 라이브러리로 옮길 때 이 파일을 그대로
@@ -24,6 +24,8 @@ const MOVE_THRESHOLD = 8;
 const ERASE_DRAG_THRESHOLD = 8;
 /** 펜 아이콘을 누른 채 이만큼 넘게 끌면 탭(지우개로 전환)이 아니라 필기로 본다. */
 const PEN_TAP_THRESHOLD = 8;
+/** 펜 아이콘을 이보다 오래 누르고 있으면 탭이 아니라 필기(점 찍기)로 본다. */
+const PEN_TAP_MS = 300;
 /** 펜이 아이콘 위(이 반경 안)에 있으면 누르려는 것으로 보고 아이콘을 멈춘다. */
 const HOLD_RADIUS = 24;
 /**
@@ -79,6 +81,13 @@ export function attachPenFlip(
   let eraserPress: PointerEvent | undefined;
   /** 지우개에서 펜으로 되돌아가는 회전이 끝날 때까지는 펜을 멀리 들어도 감추지 않는다. */
   let returningToPen = false;
+
+  /** 누른 자리에서 거의 움직이지 않고 곧바로 끝나는 중인가. 아니면 필기다. */
+  function isPenTap(event: PointerEvent): boolean {
+    if (event.pointerId !== penPress?.pointerId) return false;
+    const distance = Math.hypot(event.clientX - penPress.clientX, event.clientY - penPress.clientY);
+    return distance <= PEN_TAP_THRESHOLD && event.timeStamp - penPress.timeStamp <= PEN_TAP_MS;
+  }
 
   function cancelFollow(): void {
     if (followTimer !== undefined) clearTimeout(followTimer);
@@ -184,14 +193,9 @@ export function attachPenFlip(
     // 아이콘을 누르고 있는 동안에는 그대로 둬야 뒤집히는 모습이 보인다.
     const overIcon = event.target === icon || event.target === image;
     if (overIcon && event.buttons !== 0) return;
-    // 누른 자리에서 충분히 끌었으면 탭이 아니라 필기다. 이후로는 필기 중처럼 아이콘을 숨긴다.
-    if (
-      event.pointerId === penPress?.pointerId &&
-      Math.hypot(event.clientX - penPress.clientX, event.clientY - penPress.clientY) >
-        PEN_TAP_THRESHOLD
-    ) {
-      penPress = undefined;
-    }
+    // 누른 자리에서 충분히 끌었거나 오래 눌렀으면 탭이 아니라 필기다. 이후로는 필기 중처럼
+    // 아이콘을 숨긴다.
+    if (event.pointerId === penPress?.pointerId && !isPenTap(event)) penPress = undefined;
     // 탭인지 판단하는 동안에는 자리를 유지한다.
     if (penPress !== undefined || eraserPress !== undefined) return;
     if (editor.tool === "eraser" && event.buttons !== 0 && event.target === canvas) {
@@ -223,10 +227,12 @@ export function attachPenFlip(
   // 중이라 영향이 없다.
   document.addEventListener("pointerup", (event) => {
     if (event.pointerType !== "pen") return;
-    // 펜 아이콘을 거의 움직이지 않고 뗐으면 탭이다. 누르며 캔버스에 찍힌 점은 필기가 아니므로
-    // 걷는다. 에디터가 먼저 같은 pointerup으로 획을 마치므로 여기서 되돌릴 수 있다.
-    if (event.pointerId === penPress?.pointerId) {
-      penPress = undefined;
+    // 펜 아이콘을 거의 움직이지 않고 곧바로 뗐으면 탭이다. 누르며 캔버스에 찍힌 점은 필기가
+    // 아니므로 걷는다. 에디터가 먼저 같은 pointerup으로 획을 마치므로 여기서 되돌릴 수 있다.
+    // 오래 눌렀다 뗀 것은 점 찍기이므로 아래의 보통 필기 마무리로 넘긴다.
+    const tapped = isPenTap(event);
+    if (event.pointerId === penPress?.pointerId) penPress = undefined;
+    if (tapped) {
       if (editor.getStrokes().length === strokeCountBeforePress + 1) editor.undo();
       setFlipped(true);
       return;

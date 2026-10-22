@@ -122,6 +122,16 @@ let dragged = await state();
 assert.equal(dragged.tool, "pen", "Dragging from the icon must keep writing");
 assert.equal(dragged.status, "획 2개");
 await sleep(750);
+await hover();
+await sleep(220);
+initial = await state();
+await mouse("mousePressed", initial.x, initial.y, { button: "left", buttons: 1, clickCount: 1 });
+await sleep(350);
+await mouse("mouseReleased", initial.x, initial.y, { button: "left", buttons: 0, clickCount: 1 });
+let held = await state();
+assert.equal(held.tool, "pen", "A long press must not switch to eraser");
+assert.equal(held.status, "획 3개", "A long press must leave a dot");
+await sleep(750);
 const toolbar = await evaluate(
   '(() => {const r=document.querySelector("#tool-toggle").getBoundingClientRect(); return {x:r.left+r.width/2,y:r.top+r.height/2};})()',
 );
@@ -139,6 +149,6 @@ await mouse("mouseReleased", initial.x, initial.y, { button: "left", buttons: 0,
 assert.equal((await state()).tool, "pen", "Toolbar eraser must also return to pen on release");
 assert.equal((await state()).flipped, false);
 console.log(
-  "PASS: single tap flips, drag writes, hover exit, transparent margins, toolbar eraser shows the flipped icon and returns to pen on release",
+  "PASS: single tap flips, drag and long press write, hover exit, transparent margins, toolbar eraser shows the flipped icon and returns to pen on release",
 );
 ws.close();
