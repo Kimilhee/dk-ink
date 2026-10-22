@@ -1,7 +1,7 @@
 /**
  * S펜이 캔버스 위에 떠 있는 동안 아이콘의 좌측 하단을 포인터에 맞춘다. 아이콘을 펜으로
- * 처음 탭하면 필기를 그대로 시작하며 아이콘은 제자리에 머문다. 0.5초 안에 다시 탭하면
- * 연필이 뒤집히고(180°) 작은 지우개가 된다. 지우개 아이콘은 한 번 누르고 떼면 펜으로 돌아온다.
+ * 누르면 필기를 그대로 시작하며 아이콘은 제자리에 머문다. 거의 움직이지 않고 떼면(탭) 그 점을
+ * 걷어내고 연필이 뒤집혀(180°) 작은 지우개가 된다. 지우개 아이콘은 한 번 누르고 떼면 펜으로 돌아온다.
  *
  * 에디터 공개 API(`tool`, `setStyle`)만 쓴다. 나중에 라이브러리로 옮길 때 이 파일을 그대로
  * 가져가면 된다.
@@ -22,10 +22,10 @@ const FADE_IN_MS = 1000;
 const MOVE_THRESHOLD = 8;
 /** 지우개 아이콘을 누른 채 이만큼 넘게 끌면 탭(펜으로 돌아가기)이 아니라 지우기로 본다. */
 const ERASE_DRAG_THRESHOLD = 8;
+/** 펜 아이콘을 누른 채 이만큼 넘게 끌면 탭(지우개로 전환)이 아니라 필기로 본다. */
+const PEN_TAP_THRESHOLD = 8;
 /** 펜이 아이콘 위(이 반경 안)에 있으면 누르려는 것으로 보고 아이콘을 멈춘다. */
 const HOLD_RADIUS = 24;
-/** 첫 탭 이후 다시 탭할 수 있는 시간. */
-const TAP_WINDOW_MS = 500;
 /**
  * 뒤집힌 연필(✎)의 지우개 끝이 아이콘 중심에서 떨어진 거리(px, 오른쪽·위가 +). 지우는 동안
  * 이만큼 아이콘을 옮겨 지우개 끝을 지우개 원에 맞춘다. 글리프 모양은 기기 폰트마다 달라
@@ -53,7 +53,7 @@ export function attachPenFlip(
   image.textContent = "✎";
   image.setAttribute("aria-hidden", "true");
   icon.append(image);
-  icon.setAttribute("aria-label", "0.5초 안에 두 번 탭하여 지우개로 전환");
+  icon.setAttribute("aria-label", "탭하여 지우개로 전환");
   icon.hidden = true;
   stage.append(icon);
   // 숨겨진 아이콘도 CSS 크기로 중심을 계산해 좌측 하단을 펜 끝에 맞춘다.
@@ -71,20 +71,14 @@ export function attachPenFlip(
   let followTimer: ReturnType<typeof setTimeout> | undefined;
   let followX = 0;
   let followY = 0;
-  let tapTimer: ReturnType<typeof setTimeout> | undefined;
-  /** 첫 탭 직전의 획 개수. 두 번째 탭에서 첫 탭이 찍은 점을 걷어낼지 판단한다. */
-  let strokeCountBeforeTap = 0;
+  /** 펜 아이콘을 누른 입력. 짧게 떼면 지우개로 바뀌고, 끌면 필기로 남는다. */
+  let penPress: PointerEvent | undefined;
+  /** 누르기 직전의 획 개수. 탭으로 끝났을 때 누르며 찍힌 점을 걷어낼지 판단한다. */
+  let strokeCountBeforePress = 0;
   /** 지우개 아이콘을 누른 입력. 짧게 떼면 펜으로 돌아가고, 끌면 이 자리부터 지운다. */
   let eraserPress: PointerEvent | undefined;
   /** 지우개에서 펜으로 되돌아가는 회전이 끝날 때까지는 펜을 멀리 들어도 감추지 않는다. */
   let returningToPen = false;
-
-  function resetTap(): void {
-    if (tapTimer === undefined) return;
-    clearTimeout(tapTimer);
-    tapTimer = undefined;
-    icon.classList.remove("is-awaiting-tap");
-  }
 
   function cancelFollow(): void {
     if (followTimer !== undefined) clearTimeout(followTimer);
@@ -116,14 +110,14 @@ export function attachPenFlip(
     icon.classList.toggle("is-flipped", erasing);
     icon.setAttribute(
       "aria-label",
-      erasing ? "한 번 누르고 떼어 펜으로 전환" : "0.5초 안에 두 번 탭하여 지우개로 전환",
+      erasing ? "한 번 누르고 떼어 펜으로 전환" : "탭하여 지우개로 전환",
     );
   }
 
   function hide(): void {
     icon.classList.remove("is-erasing");
     cancelFollow();
-    resetTap();
+    penPress = undefined;
     icon.hidden = true;
   }
 
@@ -190,8 +184,16 @@ export function attachPenFlip(
     // 아이콘을 누르고 있는 동안에는 그대로 둬야 뒤집히는 모습이 보인다.
     const overIcon = event.target === icon || event.target === image;
     if (overIcon && event.buttons !== 0) return;
-    // 펜을 떼거나 캔버스를 벗어나도 두 번째 탭을 기다리는 동안에는 자리를 유지한다.
-    if (tapTimer !== undefined || eraserPress !== undefined) return;
+    // 누른 자리에서 충분히 끌었으면 탭이 아니라 필기다. 이후로는 필기 중처럼 아이콘을 숨긴다.
+    if (
+      event.pointerId === penPress?.pointerId &&
+      Math.hypot(event.clientX - penPress.clientX, event.clientY - penPress.clientY) >
+        PEN_TAP_THRESHOLD
+    ) {
+      penPress = undefined;
+    }
+    // 탭인지 판단하는 동안에는 자리를 유지한다.
+    if (penPress !== undefined || eraserPress !== undefined) return;
     if (editor.tool === "eraser" && event.buttons !== 0 && event.target === canvas) {
       stickToEraserTip(event);
       return;
@@ -212,7 +214,7 @@ export function attachPenFlip(
     (near) => {
       penNear = near;
       const keepVisible =
-        flipped || tapTimer !== undefined || eraserPress !== undefined || returningToPen;
+        flipped || penPress !== undefined || eraserPress !== undefined || returningToPen;
       if (!near && !keepVisible) hide();
     },
   );
@@ -221,6 +223,14 @@ export function attachPenFlip(
   // 중이라 영향이 없다.
   document.addEventListener("pointerup", (event) => {
     if (event.pointerType !== "pen") return;
+    // 펜 아이콘을 거의 움직이지 않고 뗐으면 탭이다. 누르며 캔버스에 찍힌 점은 필기가 아니므로
+    // 걷는다. 에디터가 먼저 같은 pointerup으로 획을 마치므로 여기서 되돌릴 수 있다.
+    if (event.pointerId === penPress?.pointerId) {
+      penPress = undefined;
+      if (editor.getStrokes().length === strokeCountBeforePress + 1) editor.undo();
+      setFlipped(true);
+      return;
+    }
     // 지우개 모드에서는 떼자마자 아이콘을 눌러 펜으로 돌아가는 일이 잦아 숨기지 않는다.
     // 지우던 자리(펜 끝)에 그대로 두면 다음 획을 가로채므로 호버 자리로만 옮긴다.
     if (editor.tool === "eraser" && icon.classList.contains("is-erasing")) {
@@ -230,7 +240,7 @@ export function attachPenFlip(
       return;
     }
     // 지우던 자리에 남은 아이콘은 다음 획을 가로막으므로 걷는다.
-    if (tapTimer === undefined && icon.classList.contains("is-erasing")) hide();
+    if (icon.classList.contains("is-erasing")) hide();
     hiddenUntil = performance.now() + FOLLOW_DELAY_MS;
   });
 
@@ -243,24 +253,11 @@ export function attachPenFlip(
       icon.setPointerCapture(event.pointerId);
       return;
     }
-    if (tapTimer !== undefined) {
-      resetTap();
-      // 첫 탭은 캔버스로 넘겨져 점을 하나 남긴다. 두 번 탭은 전환 동작이지 필기가 아니므로 걷는다.
-      if (editor.getStrokes().length === strokeCountBeforeTap + 1) editor.undo();
-      setFlipped(true);
-      return;
-    }
     cancelFollow();
-    strokeCountBeforeTap = editor.getStrokes().length;
-    // 두 번째 탭을 받는 동안 색으로 알린다. 시간이 지나거나 전환되면 resetTap이 걷는다.
-    icon.classList.add("is-awaiting-tap");
-    tapTimer = setTimeout(() => {
-      resetTap();
-      // 움직임 이벤트가 끊겨도 0.5초 뒤 계속 필기 중이면 즉시 숨긴다.
-      if (editor.drawing || !penNear) hide();
-    }, TAP_WINDOW_MS);
-    // 첫 탭은 도구를 바꾸지 않고 일반 캔버스 입력으로 전달한다. 에디터가 실제 포인터를
-    // 캡처하므로 이어지는 move/up도 캔버스로 와서 필기가 끊기지 않는다.
+    strokeCountBeforePress = editor.getStrokes().length;
+    penPress = event;
+    // 탭인지 필기인지 알기 전이므로 일단 일반 캔버스 입력으로 전달해 필기를 지연 없이 시작한다.
+    // 에디터가 실제 포인터를 캡처하므로 이어지는 move/up도 캔버스로 와서 필기가 끊기지 않는다.
     canvas.dispatchEvent(new PointerEvent("pointerdown", event));
   });
 
@@ -299,6 +296,9 @@ export function attachPenFlip(
       },
     );
   });
+  document.addEventListener("pointercancel", (event) => {
+    if (event.pointerId === penPress?.pointerId) penPress = undefined;
+  });
   icon.addEventListener("pointercancel", (event) => {
     if (event.pointerId === eraserPress?.pointerId) eraserPress = undefined;
   });
@@ -308,7 +308,7 @@ export function attachPenFlip(
       return flipped;
     },
     unflip: () => {
-      resetTap();
+      penPress = undefined;
       setFlipped(false);
     },
   };

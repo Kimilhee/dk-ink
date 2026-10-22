@@ -64,7 +64,7 @@
 
 **해보기:** 캔버스 크기를 바꿔도 획 좌표가 유지되는 경로를 따라간다. `destroy()`가 해제하는 리스너와 `ResizeObserver`, 되돌리는 인라인 스타일을 목록으로 적는다.
 
-**완료 조건:** 앱이 담당하는 UI·설정과 라이브러리가 담당하는 입력·획·렌더링의 경계를 설명한다. [`playground/pen-flip.ts`](../playground/pen-flip.ts)와 [`playground/pen-hover.ts`](../playground/pen-hover.ts)를 따라, 펜 아이콘을 0.5초 안에 두 번 탭하면 20px 지우개가 되고 한 번 누르고 떼면 펜으로 돌아오는 경로를 확인한다.
+**완료 조건:** 앱이 담당하는 UI·설정과 라이브러리가 담당하는 입력·획·렌더링의 경계를 설명한다. [`playground/pen-flip.ts`](../playground/pen-flip.ts)와 [`playground/pen-hover.ts`](../playground/pen-hover.ts)를 따라, 펜 아이콘을 한 번 탭하면(8px 이하로 움직이고 떼면) 20px 지우개가 되고 한 번 누르고 떼면 펜으로 돌아오는 경로를 확인한다.
 
 ## 마지막 점검
 

@@ -63,19 +63,6 @@ let initial = await state();
 assert.equal(initial.hidden, false);
 assert.equal(initial.x, canvas.x + 20);
 assert.equal(initial.y, canvas.y - 20);
-await click(initial.x, initial.y);
-let first = await state();
-assert.equal(first.status, "획 1개");
-assert.equal(first.tool, "pen");
-assert.equal(first.flipped, false);
-assert.equal(first.top, initial.top);
-assert.equal(first.left, initial.left);
-await evaluate(
-  'document.querySelector("#ink").dispatchEvent(new PointerEvent("pointerout", {pointerType:"pen", bubbles:true, relatedTarget:null}))',
-);
-assert.equal((await state()).hidden, false, "Pen lift must preserve the second-tap window");
-await sleep(210);
-let raised = await state();
 const hits = await evaluate(`(() => {
   const image=document.querySelector('.pen-flip-image'), r=image.getBoundingClientRect();
   return [
@@ -87,16 +74,23 @@ const hits = await evaluate(`(() => {
   ];
 })()`);
 assert.deepEqual(hits, ["ink", "ink", "ink", "ink", "pen-flip-image"]);
-await click(raised.x - 17, raised.y);
+await mouse("mouseMoved", initial.x - 17, initial.y);
+await click(initial.x - 17, initial.y);
 assert.equal((await state()).tool, "pen", "Transparent margin must not switch tools");
-assert.equal((await state()).hidden, false);
-assert.equal((await state()).status, "획 2개", "Transparent margin must write on the canvas");
-await mouse("mouseMoved", raised.x, raised.y);
-await click(raised.x, raised.y);
-let second = await state();
-assert.equal(second.flipped, true);
-assert.equal(second.tool, "eraser");
-assert.equal(second.top, initial.top);
+assert.equal((await state()).status, "획 1개", "Transparent margin must write on the canvas");
+await mouse("mouseMoved", initial.x, initial.y);
+await click(initial.x, initial.y);
+let first = await state();
+assert.equal(first.status, "획 1개", "A tap must not leave a dot");
+assert.equal(first.tool, "eraser", "A single tap must switch to eraser");
+assert.equal(first.flipped, true);
+assert.equal(first.top, initial.top);
+assert.equal(first.left, initial.left);
+await evaluate(
+  'document.querySelector("#ink").dispatchEvent(new PointerEvent("pointerout", {pointerType:"pen", bubbles:true, relatedTarget:null}))',
+);
+assert.equal((await state()).hidden, false, "Pen lift must keep the flipped pencil");
+await sleep(210);
 await sleep(750);
 await hover();
 await sleep(220);
@@ -114,32 +108,19 @@ await sleep(750);
 await hover();
 await sleep(220);
 initial = await state();
-await click(initial.x, initial.y);
-await sleep(550);
-let expired = await state();
-assert.equal(expired.left, initial.left);
-assert.equal(expired.top, initial.top);
-assert.equal(expired.flipped, false);
-assert.equal(expired.tool, "pen");
-await sleep(100);
-expired = await state();
-assert.ok(Math.abs(expired.x - initial.x) < 1);
-await sleep(750);
-await hover();
-await sleep(220);
-initial = await state();
 await mouse("mousePressed", initial.x, initial.y, { button: "left", buttons: 1, clickCount: 1 });
+await mouse("mouseMoved", initial.x + 4, initial.y + 3, { button: "left", buttons: 1 });
+assert.equal((await state()).hidden, false, "A small wobble must still count as a tap");
 await mouse("mouseMoved", canvas.x + 80, canvas.y + 30, { button: "left", buttons: 1 });
-await sleep(250);
-assert.equal((await state()).hidden, false);
-assert.equal((await state()).tool, "pen");
-await sleep(300);
-assert.equal((await state()).hidden, true);
+assert.equal((await state()).hidden, true, "Dragging past the threshold must hide the icon");
 await mouse("mouseReleased", canvas.x + 80, canvas.y + 30, {
   button: "left",
   buttons: 0,
   clickCount: 1,
 });
+let dragged = await state();
+assert.equal(dragged.tool, "pen", "Dragging from the icon must keep writing");
+assert.equal(dragged.status, "획 2개");
 await sleep(750);
 const toolbar = await evaluate(
   '(() => {const r=document.querySelector("#tool-toggle").getBoundingClientRect(); return {x:r.left+r.width/2,y:r.top+r.height/2};})()',
@@ -158,7 +139,6 @@ await mouse("mouseReleased", initial.x, initial.y, { button: "left", buttons: 0,
 assert.equal((await state()).tool, "pen", "Toolbar eraser must also return to pen on release");
 assert.equal((await state()).flipped, false);
 console.log(
-  "PASS: pen taps, hover exit, transparent margins, timeout, toolbar eraser shows the flipped icon and returns to pen on release",
+  "PASS: single tap flips, drag writes, hover exit, transparent margins, toolbar eraser shows the flipped icon and returns to pen on release",
 );
-console.log(expired.status);
 ws.close();
