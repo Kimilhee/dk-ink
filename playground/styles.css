@@ -161,6 +161,9 @@ button:disabled {
 }
 /* 펜·지우개는 연필 하나로 나타낸다. 지우개일 때는 거꾸로 세워 뒷부분(지우개)이 아래로 온다. */
 .tool-toggle .icon-pen {
+  /* 떠다니는 연필(.pen-flip-image)과 같은 크기. */
+  width: 28px;
+  height: 28px;
   transition: transform 0.15s ease-out;
 }
 .tool-toggle[data-tool="eraser"] .icon-pen {
