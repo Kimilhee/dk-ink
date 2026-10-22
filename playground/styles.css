@@ -153,16 +153,18 @@ button:disabled {
 .tool-button:hover:not(:disabled):not([aria-expanded="true"]) {
   background: #edf1f5;
 }
-/* 연필 촉이 왼쪽 아래를 향하게 뒤집는다. */
-.icon-pen {
-  transform: scaleX(-1);
+/* 연필 그림(촉이 왼쪽 아래)을 마스크로 씌워 글자색(currentColor)을 그대로 따른다. */
+.icon-pen,
+.pen-flip-image {
+  background-color: currentColor;
+  mask: url("./image/icon-pencil-line.svg") center / contain no-repeat;
 }
 /* 펜·지우개는 연필 하나로 나타낸다. 지우개일 때는 거꾸로 세워 뒷부분(지우개)이 아래로 온다. */
 .tool-toggle .icon-pen {
   transition: transform 0.15s ease-out;
 }
 .tool-toggle[data-tool="eraser"] .icon-pen {
-  transform: scaleX(-1) rotate(180deg);
+  transform: rotate(180deg);
 }
 .tool-button[aria-expanded="true"] {
   background: var(--active-color);
@@ -391,9 +393,6 @@ button:disabled {
   border-radius: 9px;
   background: #fff;
   color: #182231;
-  font-family: Arial, sans-serif;
-  font-size: 28px;
-  line-height: 1;
   opacity: 0.3;
   /* 브라우저가 탭할 때 버튼 영역에 덧씌우는 사각형을 없앤다. 대기 중 표시는 원 배경이 맡는다. */
   -webkit-tap-highlight-color: transparent;
@@ -401,7 +400,7 @@ button:disabled {
   pointer-events: none;
   touch-action: none;
   user-select: none;
-  transform: translate(-50%, -50%) scaleX(-1);
+  transform: translate(-50%, -50%);
   /* 새 자리로 옮길 때 처음엔 빠르게, 끝으로 갈수록 느려져 자연스럽게 멈춘다(ease-out-quart). */
   transition:
     left 0.18s cubic-bezier(0.25, 1, 0.5, 1),
@@ -409,14 +408,12 @@ button:disabled {
     transform 0.15s ease-out;
 }
 .pen-flip.is-flipped {
-  transform: translate(-50%, -50%) scaleX(-1) rotate(180deg);
+  transform: translate(-50%, -50%) rotate(180deg);
 }
 .pen-flip-image {
-  display: grid;
-  width: 1em;
-  height: 1em;
-  overflow: hidden;
-  place-items: center;
+  display: block;
+  width: 28px;
+  height: 28px;
   pointer-events: auto;
 }
 /* 지우는 동안에는 펜 끝에 딱 붙어 다니고, 다음 획을 가로채지 않는다. */

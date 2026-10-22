@@ -29,9 +29,8 @@ const PEN_TAP_MS = 300;
 /** 펜이 아이콘 위(이 반경 안)에 있으면 누르려는 것으로 보고 아이콘을 멈춘다. */
 const HOLD_RADIUS = 24;
 /**
- * 뒤집힌 연필(✎)의 지우개 끝이 아이콘 중심에서 떨어진 거리(px, 오른쪽·위가 +). 지우는 동안
- * 이만큼 아이콘을 옮겨 지우개 끝을 지우개 원에 맞춘다. 글리프 모양은 기기 폰트마다 달라
- * 정확한 값이 아니라 기기에서 눈으로 맞출 값이다.
+ * 뒤집힌 연필의 지우개 끝이 아이콘 중심에서 떨어진 거리(px, 오른쪽·위가 +). 지우는 동안
+ * 이만큼 아이콘을 옮겨 지우개 끝을 지우개 원에 맞춘다. 기기에서 눈으로 맞출 값이다.
  */
 const ERASER_END = 8;
 
@@ -52,7 +51,6 @@ export function attachPenFlip(
   icon.className = "pen-flip";
   const image = document.createElement("span");
   image.className = "pen-flip-image";
-  image.textContent = "✎";
   image.setAttribute("aria-hidden", "true");
   icon.append(image);
   icon.setAttribute("aria-label", "탭하여 지우개로 전환");
