@@ -80,6 +80,13 @@ export function createInkEditor(
   let activeTool: InkTool | undefined;
   let activePointerId: number | undefined;
   let current: Stroke | undefined;
+  /**
+   * 화면에만 앞서 그려 넣는 예측 점(`getPredictedEvents()`).
+   *
+   * 실제 획(`current.points`)에 섞으면 저장되는 필기 데이터가 왜곡되고 다음 입력이 왔을 때
+   * 어긋난 예측이 선 안에 박히므로, 매 이동마다 갈아끼우고 `redraw`에서만 끝에 덧대어 그린다.
+   */
+  let predictedPoints: InkPoint[] = [];
   let eraserCursor: Point | undefined;
   let previousEraserPoint: Point | undefined;
   let changedWhileErasing = false;
@@ -90,14 +97,22 @@ export function createInkEditor(
     activeTool = undefined;
     activePointerId = undefined;
     current = undefined;
+    predictedPoints = [];
     previousEraserPoint = undefined;
     changedWhileErasing = false;
     // 펜을 뗀 뒤에는 커서를 남기지 않는다. 지우고 있는 동안만 보여야 한다.
     eraserCursor = undefined;
   }
 
-  function timedPoint(event: PointerEvent): InkPoint {
-    const bounds = canvas.getBoundingClientRect();
+  /**
+   * 이벤트 하나를 캔버스 안의 점으로 바꾼다.
+   *
+   * `bounds`를 안에서 구하지 않고 바깥에서 받는 이유: 뭉친 이벤트(`coalesced`)와 예측 이벤트를
+   * 풀면 한 번의 `pointermove` 안에서 이 함수가 여러 번 불리는데, 같은 이벤트 처리 중에는
+   * 캔버스 위치가 바뀌지 않으므로 이벤트당 한 번만 재서 나눠 쓰는 편이 낫다. 그렇다고 `resize`
+   * 때만 캐시해 두면 스크롤로 캔버스 위치가 옮겨졌을 때 좌표가 어긋난다.
+   */
+  function timedPoint(event: PointerEvent, bounds: { left: number; top: number }): InkPoint {
     // `performance.now()`가 아니라 이벤트가 들고 온 시각을 쓴다. 뭉친 이벤트는 한 프레임에
     // 몰려 들어오므로 핸들러 실행 시각을 찍으면 그 안의 점들이 전부 같은 시각이 되고,
     // 뭉친 것을 푼 의미가 사라진다. `timeStamp`는 점마다 실제로 샘플된 시각이다.
@@ -109,9 +124,9 @@ export function createInkEditor(
     };
   }
 
-  function appendPoint(event: PointerEvent): void {
+  function appendPoint(event: PointerEvent, bounds: { left: number; top: number }): void {
     if (!current) return;
-    current.points.push(timedPoint(event));
+    current.points.push(timedPoint(event, bounds));
   }
 
   /** 지금 설정을 획에 박아 넣는다. 나중에 설정이 바뀌어도 이 획은 이 모습 그대로다. */
@@ -138,7 +153,16 @@ export function createInkEditor(
 
   function redraw(): void {
     const bounds = canvas.getBoundingClientRect();
-    renderStrokes(context, strokes, bounds);
+    if (current && predictedPoints.length > 0) {
+      const previewStroke: Stroke = {
+        ...current,
+        points: [...current.points, ...predictedPoints],
+      };
+      const previewStrokes = [...strokes.slice(0, -1), previewStroke];
+      renderStrokes(context, previewStrokes, bounds);
+    } else {
+      renderStrokes(context, strokes, bounds);
+    }
     if (eraserCursor && style.showEraserCursor) {
       drawEraserCursor(context, eraserCursor, style);
     }
@@ -179,15 +203,16 @@ export function createInkEditor(
     event.preventDefault();
     capturePointer(event.pointerId);
 
+    const bounds = canvas.getBoundingClientRect();
     if (activeTool === "eraser") {
-      eraseTo(timedPoint(event));
+      eraseTo(timedPoint(event, bounds));
       scheduleRedraw();
       return;
     }
     history.commit(strokes);
     current = { points: [], style: snapshotStrokeStyle() };
     strokes = [...strokes, current];
-    appendPoint(event);
+    appendPoint(event, bounds);
     scheduleRedraw();
   }
 
@@ -199,11 +224,16 @@ export function createInkEditor(
     // 이벤트 자신이 유일한 점이다 — 빈 배열을 그대로 쓰면 획이 시작·끝점만 남는다.
     const coalesced = event.getCoalescedEvents?.();
     const events = coalesced?.length ? coalesced : [event];
+    const bounds = canvas.getBoundingClientRect();
 
     if (activeTool === "eraser") {
-      for (const sample of events) eraseTo(timedPoint(sample));
+      for (const sample of events) eraseTo(timedPoint(sample, bounds));
     } else {
-      for (const sample of events) appendPoint(sample);
+      for (const sample of events) appendPoint(sample, bounds);
+      // 펜 끝과 그려진 선 사이의 유격을 줄이려고 브라우저가 예측한 다음 점들을 최대 2개까지
+      // 미리 그린다. 너무 길게 잡으면 작은 글씨나 수식에서 방향을 꺾을 때 선이 삐져나간다.
+      const predicted = event.getPredictedEvents?.() ?? [];
+      predictedPoints = predicted.slice(0, 2).map((sample) => timedPoint(sample, bounds));
     }
     scheduleRedraw();
   }
@@ -212,11 +242,12 @@ export function createInkEditor(
     if (!activeTool || event.pointerId !== activePointerId) return;
     event.preventDefault();
     const erasing = activeTool === "eraser";
+    const bounds = canvas.getBoundingClientRect();
 
     if (erasing) {
-      eraseTo(timedPoint(event));
+      eraseTo(timedPoint(event, bounds));
     } else {
-      appendPoint(event);
+      appendPoint(event, bounds);
     }
 
     const changed = erasing ? changedWhileErasing : true;
@@ -349,8 +380,14 @@ function applyRequiredStyle(canvas: HTMLCanvasElement): () => void {
   };
 }
 
+/**
+ * 2D 컨텍스트를 얻는다.
+ *
+ * `desynchronized: true`로 브라우저 합성 경로를 가능한 한 건너뛰어 펜 입력 지연을 줄인다.
+ * 지원하지 않는 환경에서는 브라우저가 이 힌트를 무시하고 일반 컨텍스트로 동작한다.
+ */
 function requireContext(canvas: HTMLCanvasElement): CanvasRenderingContext2D {
-  const context = canvas.getContext("2d");
+  const context = canvas.getContext("2d", { desynchronized: true });
   if (!context) throw new Error("Canvas 2D context is unavailable");
   return context;
 }
