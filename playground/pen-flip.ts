@@ -36,6 +36,8 @@ const ERASER_END = 8;
 
 export type PenFlip = {
   readonly flipped: boolean;
+  /** 끄면 아이콘이 따라다니지 않는다. 뒤집힌 연필은 원래대로 돌린다. */
+  enabled: boolean;
   /** 뒤집힌 연필을 원래대로 돌린다. 도구 모음에서 도구를 바꿀 때 쓴다. */
   unflip(): void;
 };
@@ -61,6 +63,7 @@ export function attachPenFlip(
   const halfWidth = parseFloat(iconStyle.width) / 2;
   const halfHeight = parseFloat(iconStyle.height) / 2;
 
+  let enabled = true;
   let flipped = false;
   let savedEraserWidth = 0;
   let holding = false;
@@ -186,7 +189,7 @@ export function attachPenFlip(
   }
 
   document.addEventListener("pointermove", (event) => {
-    if (event.pointerType !== "pen") return;
+    if (event.pointerType !== "pen" || !enabled) return;
     syncIcon();
     // 아이콘을 누르고 있는 동안에는 그대로 둬야 뒤집히는 모습이 보인다.
     const overIcon = event.target === icon || event.target === image;
@@ -310,6 +313,16 @@ export function attachPenFlip(
   return {
     get flipped() {
       return flipped;
+    },
+    get enabled() {
+      return enabled;
+    },
+    set enabled(next) {
+      enabled = next;
+      if (enabled) return;
+      penPress = undefined;
+      setFlipped(false);
+      hide();
     },
     unflip: () => {
       penPress = undefined;

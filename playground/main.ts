@@ -31,6 +31,7 @@ const SETTINGS_KEY = "dk-ink-playground-settings";
 type StoredSettings = {
   fingerDrawing?: unknown;
   toolSwitch?: unknown;
+  penFollow?: unknown;
   color?: unknown;
   widthMode?: unknown;
   strokeWidth?: unknown;
@@ -85,6 +86,7 @@ const editor = createInkEditor(canvas, {
 
 // S펜 호버 중 포인터 옆 연필 아이콘으로 켜는 작은 지우개. 자세한 동작은 pen-flip.ts 참고.
 const penFlip = attachPenFlip(editor, stage, syncButtons);
+penFlip.enabled = stored.penFollow !== false;
 
 // 펜과 지우개는 버튼 하나를 번갈아 써서 바꾼다. "누르고 있는 동안만 지우개" 같은 순간
 // 전환을 여러 방식으로 시도했지만 이 기기에서는 어느 것도 성립하지 않았다 — 경위는
@@ -135,6 +137,12 @@ pickable("finger-input-picker", "finger-input", {
     fingerDrawingEnabled = value === "on";
   },
   current: () => (fingerDrawingEnabled ? "on" : "off"),
+});
+pickable("pen-follow-picker", "pen-follow", {
+  apply: (value) => {
+    penFlip.enabled = value === "on";
+  },
+  current: () => (penFlip.enabled ? "on" : "off"),
 });
 pickable("tool-switch-picker", "tool-switch", {
   apply: (value) => {
@@ -422,6 +430,7 @@ function saveSettings(): void {
       JSON.stringify({
         fingerDrawing: fingerDrawingEnabled,
         toolSwitch: toolSwitchMode,
+        penFollow: penFlip.enabled,
         color: style.color,
         widthMode: style.widthMode,
         strokeWidth: style.strokeWidth,
