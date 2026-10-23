@@ -1,7 +1,7 @@
 :root {
   color-scheme: light;
   font-family: system-ui, sans-serif;
-  --active-color: #2563eb;
+  --active-color: #38d579;
   --idle-icon-color: #9aa4b2;
 }
 body {
@@ -319,17 +319,17 @@ button:disabled {
     0 0 0 2px #fff,
     0 0 0 4px var(--swatch);
 }
-.swatch[data-color="#4a72b0"] {
-  --swatch: #4a72b0;
+.swatch[data-color="#3d7bd9"] {
+  --swatch: #3d7bd9;
 }
-.swatch[data-color="#3f8a6b"] {
-  --swatch: #3f8a6b;
+.swatch[data-color="#2f9e78"] {
+  --swatch: #2f9e78;
 }
-.swatch[data-color="#c4574f"] {
-  --swatch: #c4574f;
+.swatch[data-color="#e0605a"] {
+  --swatch: #e0605a;
 }
-.swatch[data-color="#343a46"] {
-  --swatch: #343a46;
+.swatch[data-color="#2f3542"] {
+  --swatch: #2f3542;
 }
 .width-control {
   grid-template-columns: repeat(3, 1fr);
