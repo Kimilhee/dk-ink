@@ -71,7 +71,11 @@ canvas.addEventListener("pointerdown", (event) => {
 });
 
 const editor = createInkEditor(canvas, {
-  color: typeof stored.color === "string" ? stored.color : undefined,
+  // 저장된 색이 지금 견본에 없으면(예전 색) 첫 견본 색으로 시작한다.
+  color:
+    typeof stored.color === "string" && document.querySelector(`[data-color="${stored.color}"]`)
+      ? stored.color
+      : document.querySelector<HTMLElement>("[data-color]")?.dataset.color,
   widthMode:
     stored.widthMode === "constant" || stored.widthMode === "pressure"
       ? stored.widthMode

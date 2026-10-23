@@ -319,17 +319,17 @@ button:disabled {
     0 0 0 2px #fff,
     0 0 0 4px var(--swatch);
 }
-.swatch[data-color="#1d4ed8"] {
-  --swatch: #1d4ed8;
+.swatch[data-color="#2563eb"] {
+  --swatch: #2563eb;
 }
-.swatch[data-color="#15803d"] {
-  --swatch: #15803d;
+.swatch[data-color="#16a34a"] {
+  --swatch: #16a34a;
 }
-.swatch[data-color="#b91c1c"] {
-  --swatch: #b91c1c;
+.swatch[data-color="#dc2626"] {
+  --swatch: #dc2626;
 }
-.swatch[data-color="#182231"] {
-  --swatch: #182231;
+.swatch[data-color="#2a3545"] {
+  --swatch: #2a3545;
 }
 .width-control {
   grid-template-columns: repeat(3, 1fr);
