@@ -137,9 +137,6 @@ button:disabled {
 .floating-toolbar.is-pen-near .tool-button {
   color: var(--idle-icon-color);
 }
-.floating-toolbar.is-pen-near .tool-button[aria-expanded="true"] {
-  background: #dde3ea;
-}
 .tool-button {
   display: grid;
   width: 44px;
@@ -168,10 +165,6 @@ button:disabled {
 }
 .tool-toggle[data-tool="eraser"] .icon-pen {
   transform: rotate(180deg);
-}
-.tool-button[aria-expanded="true"] {
-  background: var(--active-color);
-  color: #fff;
 }
 .tool-button:focus-visible {
   outline: 3px solid rgb(15 118 110 / 28%);
