@@ -10,7 +10,7 @@ const MAX_SPEED = 2.5;
 const CURVE = 3;
 /** 커질 때와 작아질 때의 시간 상수(ms). 커지는 쪽이 빨라야 하고, 작아지는 쪽은 느려야 한다. */
 const TAU_UP = 150;
-const TAU_DOWN = 800;
+const TAU_DOWN = 1400;
 /** 줄어드는 속도를 한 번 더 따라가는 시간 상수(ms). 줄어들기 시작하는 순간을 늦춘다. */
 const TAU_SETTLE = 800;
 
