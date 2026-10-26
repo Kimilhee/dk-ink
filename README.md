@@ -109,6 +109,9 @@ type StrokeStyle = { color: string; strokeWidth: number; widthMode: WidthMode; o
 `eraseStrokes` · `renderStrokes` · `drawOutlineStroke` · `drawEraserCursor` ·
 `pressureWidth` · `cloneStrokes` · `createInkHistory`.
 
+`createInkHistory`의 스냅샷은 배열만 복사하고 획 객체를 공유한다. 넘긴 획을 나중에 고칠
+거라면 `cloneStrokes`로 복사해서 넘긴다.
+
 ## 개발
 
 코드 읽기는 [분석 커리큘럼](docs/code-reading-guide.md)에서 시작한다. 다이어그램은 브라우저에서 바로 열 수 있다:

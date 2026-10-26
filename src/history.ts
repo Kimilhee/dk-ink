@@ -13,8 +13,12 @@ export type InkHistory = {
 /**
  * 획 묶음 전체를 스냅샷으로 쌓는 되돌리기 스택.
  *
- * 25심볼 이하 답안 한 블록이 대상이므로 스냅샷 복사 비용이 문제되지 않는다.
  * 지우개 한 번이 여러 획을 쪼개므로, 연산을 역재생하는 방식보다 스냅샷이 단순하다.
+ *
+ * 스냅샷은 **배열만 복사하고 획 객체는 공유한다.** 에디터는 다 쓴 획을 고치지 않는다 — 점이
+ * 늘어나는 건 진행 중인 획뿐이고(스냅샷은 그 획을 넣기 전에 뜬다), 지우개는 원래 획을 고치지
+ * 않고 새 조각을 만든다. 깊은 복사를 하면 펜을 댈 때마다 지금까지 쓴 모든 점을 복사하게 되어
+ * 필기가 쌓일수록 획 시작이 무거워지고 메모리도 스냅샷 수만큼 불어난다.
  */
 export function createInkHistory(limit: number): InkHistory {
   let past: Stroke[][] = [];
@@ -29,20 +33,20 @@ export function createInkHistory(limit: number): InkHistory {
     },
     commit(before) {
       if (limit <= 0) return;
-      past.push(cloneStrokes(before));
+      past.push([...before]);
       if (past.length > limit) past.shift();
       future = [];
     },
     undo(current) {
       const previous = past.pop();
       if (!previous) return undefined;
-      future.push(cloneStrokes(current));
+      future.push([...current]);
       return previous;
     },
     redo(current) {
       const next = future.pop();
       if (!next) return undefined;
-      past.push(cloneStrokes(current));
+      past.push([...current]);
       return next;
     },
     reset() {

@@ -47,3 +47,14 @@ test("스냅샷은 원본과 분리된다", () => {
   expect(copy[0].points[0].x).toBe(0);
   expect(copy[0].style.color).toBe("#000");
 });
+
+test("스냅샷은 배열만 복사하고 획 객체는 공유한다", () => {
+  const history = createInkHistory(10);
+  const source: Stroke[] = [strokeOf([{ x: 0, y: 0, t: 0 }])];
+  history.commit(source);
+  source.push(strokeOf([{ x: 1, y: 1, t: 1 }]));
+
+  const restored = history.undo(source)!;
+  expect(restored).toHaveLength(1);
+  expect(restored[0]).toBe(source[0]);
+});
