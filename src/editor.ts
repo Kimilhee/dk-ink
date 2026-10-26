@@ -16,6 +16,7 @@ const DEFAULT_STYLE: InkStyle = {
   strokeWidth: 3,
   widthMode: "pressure",
   opacity: 0.7,
+  holdToStraightLine: true,
   eraserWidth: 50,
   showEraserCursor: true,
   eraserCursorFill: "rgb(15 118 110 / 12%)",
@@ -87,6 +88,8 @@ export function createInkEditor(
   let activeTool: InkTool | undefined;
   let activePointerId: number | undefined;
   let current: Stroke | undefined;
+  let holdTimer: ReturnType<typeof setTimeout> | undefined;
+  let straightLineAnchor: InkPoint | undefined;
   let eraserCursor: Point | undefined;
   let previousEraserPoint: Point | undefined;
   let changedWhileErasing = false;
@@ -94,8 +97,15 @@ export function createInkEditor(
   /** 다 쓴 획이 바뀌어(지우기·되돌리기·갈아끼우기·크기 변경) 화면 밖 캔버스를 다시 그려야 한다. */
   let committedDirty = true;
 
+  function cancelHold(): void {
+    clearTimeout(holdTimer);
+    holdTimer = undefined;
+  }
+
   /** 진행 중인 제스처를 끝낸다. 펜을 뗐을 때와 획이 통째로 갈아끼워졌을 때 모두 쓴다. */
   function endGesture(): void {
+    cancelHold();
+    straightLineAnchor = undefined;
     activeTool = undefined;
     activePointerId = undefined;
     current = undefined;
@@ -127,7 +137,14 @@ export function createInkEditor(
 
   function appendPoint(event: PointerEvent, bounds: { left: number; top: number }): void {
     if (!current) return;
-    current.points.push(timedPoint(event, bounds));
+    const point = timedPoint(event, bounds);
+    if (straightLineAnchor) {
+      current.points = [straightLineAnchor, point];
+      return;
+    }
+    const start = current.points[0];
+    if (start && Math.hypot(point.x - start.x, point.y - start.y) > 4) cancelHold();
+    current.points.push(point);
   }
 
   /** 지금 설정을 획에 박아 넣는다. 나중에 설정이 바뀌어도 이 획은 이 모습 그대로다. */
@@ -163,6 +180,21 @@ export function createInkEditor(
     context.clearRect(0, 0, bounds.width, bounds.height);
     context.drawImage(committedCanvas, 0, 0, bounds.width, bounds.height);
     if (current) drawStrokes(context, [current]);
+    if (straightLineAnchor && current) {
+      context.save();
+      context.beginPath();
+      context.arc(
+        straightLineAnchor.x,
+        straightLineAnchor.y,
+        Math.max(6, current.style.strokeWidth),
+        0,
+        Math.PI * 2,
+      );
+      context.fillStyle = current.style.color;
+      context.globalAlpha = 1;
+      context.fill();
+      context.restore();
+    }
     if (eraserCursor && style.showEraserCursor) {
       drawEraserCursor(context, eraserCursor, style);
     }
@@ -223,6 +255,16 @@ export function createInkEditor(
     current = { points: [], style: snapshotStrokeStyle() };
     strokes = [...strokes, current];
     appendPoint(event, bounds);
+    if (style.holdToStraightLine) {
+      holdTimer = setTimeout(() => {
+        holdTimer = undefined;
+        if (!current) return;
+        straightLineAnchor = current.points[0];
+        current.points = [straightLineAnchor];
+        current.style.widthMode = "constant";
+        redrawNow();
+      }, 2000);
+    }
     redrawNow();
   }
 
@@ -359,6 +401,7 @@ export function createInkEditor(
     },
     resize,
     destroy() {
+      endGesture();
       cancelScheduledRedraw();
       observer.disconnect();
       if (previousToolAttribute === undefined) delete canvas.dataset.tool;

@@ -82,12 +82,17 @@ editor.destroy();
 | `strokeWidth`                             | `3` (필압 모드에선 최대)     |
 | `widthMode`                               | `"pressure"`                 |
 | `opacity`                                 | `0.7`                        |
+| `holdToStraightLine`                      | `true` (2초간 누르면 직선)   |
 | `eraserWidth`                             | `50`                         |
 | `showEraserCursor`                        | `true`                       |
 | `eraserCursorFill` / `eraserCursorStroke` | 청록 계열                    |
 | `historyLimit`                            | `50` (`0`이면 되돌리기 없음) |
 | `strokes`                                 | 초기 획                      |
 | `onChange`                                | —                            |
+
+펜으로 한 점에서 2초간 누르면 시작점에 동그란 표시가 나타난다(4px 이내 손떨림 허용).
+그 상태로 움직이면 시작점과 현재 위치를 잇는 일정한 두께의 직선이 그려지고, 펜을 떼면
+표시점은 사라진다. `holdToStraightLine: false`로 끌 수 있으며, 데모 설정에서도 켜고 끌 수 있다.
 
 ### 획은 자기 스타일을 들고 다닌다
 

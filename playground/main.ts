@@ -30,6 +30,7 @@ const SETTINGS_KEY = "dk-ink-playground-settings";
 
 type StoredSettings = {
   fingerDrawing?: unknown;
+  holdToStraightLine?: unknown;
   toolSwitch?: unknown;
   penFollow?: unknown;
   color?: unknown;
@@ -80,6 +81,7 @@ const editor = createInkEditor(canvas, {
     stored.widthMode === "constant" || stored.widthMode === "pressure"
       ? stored.widthMode
       : undefined,
+  holdToStraightLine: stored.holdToStraightLine !== false,
   strokeWidth: storedNumber(stored.strokeWidth),
   eraserWidth: storedNumber(stored.eraserWidth),
   onChange(strokes) {
@@ -149,6 +151,10 @@ pickable("finger-input-picker", "finger-input", {
     fingerDrawingEnabled = value === "on";
   },
   current: () => (fingerDrawingEnabled ? "on" : "off"),
+});
+pickable("hold-to-straight-line-picker", "hold-to-straight-line", {
+  apply: (value) => editor.setStyle({ holdToStraightLine: value === "on" }),
+  current: () => (editor.getStyle().holdToStraightLine ? "on" : "off"),
 });
 pickable("pen-follow-picker", "pen-follow", {
   apply: (value) => {
@@ -441,6 +447,7 @@ function saveSettings(): void {
       SETTINGS_KEY,
       JSON.stringify({
         fingerDrawing: fingerDrawingEnabled,
+        holdToStraightLine: style.holdToStraightLine,
         toolSwitch: toolSwitchMode,
         penFollow: penFlip.enabled,
         color: style.color,

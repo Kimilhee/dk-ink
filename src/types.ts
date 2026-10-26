@@ -52,6 +52,8 @@ export type InkStyle = {
   widthMode: WidthMode;
   /** 잉크 불투명도(0~1). 1보다 작으면 겹쳐 쓴 글씨가 비친다. */
   opacity: number;
+  /** 시작점에서 2초간 누르면 직선 모드로 전환한다. */
+  holdToStraightLine: boolean;
   /** 지우개 지름(px). */
   eraserWidth: number;
   /** 지우는 동안 커서 원을 그린다. 펜을 떼면 사라진다. */
