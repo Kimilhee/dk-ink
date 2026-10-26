@@ -8,6 +8,8 @@ export type FakeCanvas = {
   canvas: HTMLCanvasElement;
   emit(type: string, init: FakePointerInit): void;
   readonly renderCount: number;
+  /** 다 쓴 획 층(화면 밖 캔버스)을 통째로 다시 그린 횟수. */
+  readonly committedRenderCount: number;
   /** 점선 원(지우개 커서)이 그려진 횟수. setLineDash는 커서만 쓴다. */
   readonly cursorDrawCount: number;
 };
@@ -33,38 +35,23 @@ export function createFakeCanvas(
   const listeners = new Map<string, Set<(event: unknown) => void>>();
   let renderCount = 0;
   let cursorDrawCount = 0;
+  let committedRenderCount = 0;
   let clock = 0;
 
-  const context2d = new Proxy(
-    {
-      setTransform() {},
-      clearRect() {
-        renderCount += 1;
-      },
-      save() {},
-      restore() {},
-      beginPath() {},
-      closePath() {},
-      moveTo() {},
-      lineTo() {},
-      quadraticCurveTo() {},
-      arc() {},
-      fill() {},
-      stroke() {},
-      setLineDash() {
-        cursorDrawCount += 1;
-      },
-    } as Record<string, unknown>,
-    {
-      get(target, key) {
-        return key in target ? target[key as string] : undefined;
-      },
-      set(target, key, value) {
-        target[key as string] = value;
-        return true;
-      },
+  const context2d = createFakeContext({
+    clearRect() {
+      renderCount += 1;
     },
-  );
+    setLineDash() {
+      cursorDrawCount += 1;
+    },
+  });
+  // 에디터가 만드는 화면 밖 캔버스(다 쓴 획 층).
+  const committedContext = createFakeContext({
+    clearRect() {
+      committedRenderCount += 1;
+    },
+  });
 
   const canvas = {
     width,
@@ -72,6 +59,9 @@ export function createFakeCanvas(
     style: createFakeStyle(),
     dataset: {} as DOMStringMap,
     getContext: () => context2d,
+    ownerDocument: {
+      createElement: () => ({ width: 0, height: 0, getContext: () => committedContext }),
+    },
     getBoundingClientRect: () => ({ left: 0, top: 0, width, height }),
     setPointerCapture() {
       // 포인터가 이미 놓였으면 브라우저가 실제로 이렇게 던진다.
@@ -117,10 +107,36 @@ export function createFakeCanvas(
     get renderCount() {
       return renderCount;
     },
+    get committedRenderCount() {
+      return committedRenderCount;
+    },
     get cursorDrawCount() {
       return cursorDrawCount;
     },
   };
+}
+
+/** 호출만 받아 주는 2D 컨텍스트 대역. 세고 싶은 메서드만 `overrides`로 넘긴다. */
+function createFakeContext(overrides: Record<string, () => void>): CanvasRenderingContext2D {
+  const methods = [
+    "setTransform",
+    "clearRect",
+    "drawImage",
+    "save",
+    "restore",
+    "beginPath",
+    "closePath",
+    "moveTo",
+    "lineTo",
+    "quadraticCurveTo",
+    "arc",
+    "fill",
+    "stroke",
+    "setLineDash",
+  ];
+  const target: Record<string, unknown> = {};
+  for (const name of methods) target[name] = overrides[name] ?? (() => {});
+  return target as unknown as CanvasRenderingContext2D;
 }
 
 /** 값을 실제로 담는 CSSStyleDeclaration 대역. 스타일 복원을 검사하려면 필요하다. */

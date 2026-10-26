@@ -1,6 +1,6 @@
 import { eraseStrokes } from "./erase.ts";
 import { cloneStrokes, createInkHistory } from "./history.ts";
-import { drawEraserCursor, renderStrokes } from "./render.ts";
+import { drawEraserCursor, drawStrokes, renderStrokes } from "./render.ts";
 import type {
   InkEditorOptions,
   InkPoint,
@@ -67,6 +67,13 @@ export function createInkEditor(
   options: InkEditorOptions = {},
 ): InkEditor {
   const context = requireContext(canvas);
+  /**
+   * 다 쓴 획만 그려 두는 화면 밖 캔버스. 매 프레임 획 전체를 다시 그리면 필기가 쌓일수록
+   * 프레임이 무거워져 펜을 늦게 따라오므로, 프레임마다 이 그림을 복사하고 진행 중인 획만
+   * 덧그린다. DOM에 붙이지 않으므로 앱이 보는 캔버스는 여전히 하나다.
+   */
+  const committedCanvas = canvas.ownerDocument.createElement("canvas");
+  const committedContext = requireContext(committedCanvas, false);
 
   const style: InkStyle = {
     ...DEFAULT_STYLE,
@@ -84,6 +91,8 @@ export function createInkEditor(
   let previousEraserPoint: Point | undefined;
   let changedWhileErasing = false;
   let redrawFrame: number | undefined;
+  /** 다 쓴 획이 바뀌어(지우기·되돌리기·갈아끼우기·크기 변경) 화면 밖 캔버스를 다시 그려야 한다. */
+  let committedDirty = true;
 
   /** 진행 중인 제스처를 끝낸다. 펜을 뗐을 때와 획이 통째로 갈아끼워졌을 때 모두 쓴다. */
   function endGesture(): void {
@@ -138,6 +147,7 @@ export function createInkEditor(
       if (!changedWhileErasing) history.commit(strokes);
       strokes = result.strokes;
       changedWhileErasing = true;
+      committedDirty = true;
     }
     previousEraserPoint = point;
     eraserCursor = point;
@@ -145,7 +155,14 @@ export function createInkEditor(
 
   function redraw(): void {
     const bounds = canvas.getBoundingClientRect();
-    renderStrokes(context, strokes, bounds);
+    if (committedDirty) {
+      // 진행 중인 획은 `strokes` 끝에 들어 있지만 아직 다 쓴 획이 아니다.
+      renderStrokes(committedContext, current ? strokes.slice(0, -1) : strokes, bounds);
+      committedDirty = false;
+    }
+    context.clearRect(0, 0, bounds.width, bounds.height);
+    context.drawImage(committedCanvas, 0, 0, bounds.width, bounds.height);
+    if (current) drawStrokes(context, [current]);
     if (eraserCursor && style.showEraserCursor) {
       drawEraserCursor(context, eraserCursor, style);
     }
@@ -162,6 +179,16 @@ export function createInkEditor(
   function cancelScheduledRedraw(): void {
     if (redrawFrame !== undefined) cancelAnimationFrame(redrawFrame);
     redrawFrame = undefined;
+  }
+
+  /**
+   * 펜은 다음 프레임을 기다리지 않고 바로 그린다. `desynchronized` 캔버스는 그린 즉시 화면에
+   * 나갈 수 있어 rAF를 기다리면 최대 한 프레임을 버린다. 지우개는 지울 때마다 다 쓴 획을 전부
+   * 다시 그려야 해 이벤트마다 그리면 오히려 무거우므로 `scheduleRedraw`로 프레임에 모은다.
+   */
+  function redrawNow(): void {
+    cancelScheduledRedraw();
+    redraw();
   }
 
   /**
@@ -196,7 +223,7 @@ export function createInkEditor(
     current = { points: [], style: snapshotStrokeStyle() };
     strokes = [...strokes, current];
     appendPoint(event, bounds);
-    scheduleRedraw();
+    redrawNow();
   }
 
   function pointerMove(event: PointerEvent): void {
@@ -211,12 +238,13 @@ export function createInkEditor(
 
     if (activeTool === "eraser") {
       for (const sample of events) eraseTo(timedPoint(sample, bounds));
+      scheduleRedraw();
     } else {
       // 예측 점(`getPredictedEvents()`)은 쓰지 않는다. 방향을 꺾을 때 선이 펜이 가지 않은
       // 곳까지 순간적으로 삐져나갔다 되돌아오는 게 P580에서 1개만 써도 사라지지 않았다.
       for (const sample of events) appendPoint(sample, bounds);
+      redrawNow();
     }
-    scheduleRedraw();
   }
 
   function pointerUp(event: PointerEvent): void {
@@ -229,6 +257,8 @@ export function createInkEditor(
       eraseTo(timedPoint(event, bounds));
     } else {
       appendPoint(event, bounds);
+      // 끝난 획은 화면 밖 캔버스에 덧그리기만 한다. 어차피 통째로 다시 그릴 참이면 건너뛴다.
+      if (current && !committedDirty) drawStrokes(committedContext, [current]);
     }
 
     const changed = erasing ? changedWhileErasing : true;
@@ -240,6 +270,7 @@ export function createInkEditor(
 
   function replaceStrokes(next: Stroke[]): void {
     strokes = next;
+    committedDirty = true;
     endGesture();
     cancelScheduledRedraw();
     redraw();
@@ -251,8 +282,12 @@ export function createInkEditor(
     const ratio = window.devicePixelRatio || 1;
     canvas.width = Math.max(1, Math.floor(bounds.width * ratio));
     canvas.height = Math.max(1, Math.floor(bounds.height * ratio));
+    committedCanvas.width = canvas.width;
+    committedCanvas.height = canvas.height;
     // 캔버스 내부 이미지는 물리 픽셀, 좌표는 CSS 픽셀로 유지한다.
     context.setTransform(ratio, 0, 0, ratio, 0, 0);
+    committedContext.setTransform(ratio, 0, 0, ratio, 0, 0);
+    committedDirty = true;
     redraw();
   }
 
@@ -366,9 +401,13 @@ function applyRequiredStyle(canvas: HTMLCanvasElement): () => void {
  *
  * `desynchronized: true`로 브라우저 합성 경로를 가능한 한 건너뛰어 펜 입력 지연을 줄인다.
  * 지원하지 않는 환경에서는 브라우저가 이 힌트를 무시하고 일반 컨텍스트로 동작한다.
+ * 화면에 붙이지 않는 캔버스는 합성될 일이 없으니 `false`로 받는다.
  */
-function requireContext(canvas: HTMLCanvasElement): CanvasRenderingContext2D {
-  const context = canvas.getContext("2d", { desynchronized: true });
+function requireContext(
+  canvas: HTMLCanvasElement,
+  desynchronized = true,
+): CanvasRenderingContext2D {
+  const context = canvas.getContext("2d", { desynchronized });
   if (!context) throw new Error("Canvas 2D context is unavailable");
   return context;
 }

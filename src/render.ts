@@ -16,18 +16,23 @@ export function drawStaticLineStroke(
   context.stroke();
 }
 
-/**
- * 캔버스를 비우고 획 전체를 다시 그린다.
- *
- * 색·굵기·투명도는 전역 설정이 아니라 **각 획이 들고 있는 값**을 쓴다. 나중에 설정을 바꿔도
- * 이미 그린 획이 따라 바뀌지 않는 건 이 때문이다.
- */
+/** 캔버스를 비우고 획 전체를 다시 그린다. */
 export function renderStrokes(
   context: CanvasRenderingContext2D,
   strokes: readonly Stroke[],
   size: { width: number; height: number },
 ): void {
   context.clearRect(0, 0, size.width, size.height);
+  drawStrokes(context, strokes);
+}
+
+/**
+ * 지우지 않고 획들을 덧그린다.
+ *
+ * 색·굵기·투명도는 전역 설정이 아니라 **각 획이 들고 있는 값**을 쓴다. 나중에 설정을 바꿔도
+ * 이미 그린 획이 따라 바뀌지 않는 건 이 때문이다.
+ */
+export function drawStrokes(context: CanvasRenderingContext2D, strokes: readonly Stroke[]): void {
   context.lineCap = "round";
   context.lineJoin = "round";
   const previousAlpha = context.globalAlpha;

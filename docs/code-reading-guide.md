@@ -22,7 +22,7 @@
 
 **그림:** [펜 입력 순서도](https://kimilhee.github.io/dk-ink/analysis/pen-gesture.html).
 
-**읽기:** [`src/editor.ts`](../src/editor.ts)의 `pointerDown`, `pointerMove`, `pointerUp`, `timedPoint`, `scheduleRedraw`와 [`tests/editor.test.ts`](../tests/editor.test.ts).
+**읽기:** [`src/editor.ts`](../src/editor.ts)의 `pointerDown`, `pointerMove`, `pointerUp`, `timedPoint`, `scheduleRedraw`, `redrawNow`와 [`tests/editor.test.ts`](../tests/editor.test.ts).
 
 **해보기:** 펜으로 천천히 선 하나를 긋고 `pointerdown → pointermove → pointerup`에서 `strokes`가 어떻게 바뀌는지 종이에 3줄로 적는다. `getCoalescedEvents()`가 여러 점을 돌려줄 때의 반복문도 찾는다.
 
@@ -36,7 +36,7 @@
 
 **해보기:** 시험용 앱에서 `필압적용`과 `고정두께`를 번갈아 고른 뒤 선을 그린다. 코드에서 두 모드가 갈라지는 조건을 찾는다.
 
-**완료 조건:** 왜 `renderStrokes`가 전체를 지우고 다시 그리는지, 필압 모드에서는 왜 `lineWidth` 대신 채운 윤곽선이 필요한지 설명한다. `resize()`가 CSS 픽셀 좌표와 DPR 백버퍼를 어떻게 연결하는지도 확인한다.
+**완료 조건:** 왜 `renderStrokes`가 전체를 지우고 다시 그리는지, 필압 모드에서는 왜 `lineWidth` 대신 채운 윤곽선이 필요한지 설명한다. `resize()`가 CSS 픽셀 좌표와 DPR 백버퍼를 어떻게 연결하는지도 확인한다. `editor.ts`의 `redraw`가 다 쓴 획을 화면 밖 캔버스(`committedCanvas`)에 모아 두고 진행 중인 획만 덧그리는 이유도 설명한다.
 
 ## 4. 지우개로 획을 나누기
 

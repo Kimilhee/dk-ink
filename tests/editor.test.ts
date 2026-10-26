@@ -209,6 +209,55 @@ test("아무것도 지우지 않은 지우개 동작은 되돌리기·다시 실
   expect(changes).toEqual([1, 0, 1]);
 });
 
+test("펜은 프레임을 기다리지 않고 이동할 때마다 바로 그린다", () => {
+  fake.emit("pointerdown", { x: 0, y: 0 });
+  const before = fake.renderCount;
+  fake.emit("pointermove", { x: 10, y: 0 });
+  expect(fake.renderCount).toBe(before + 1);
+  fake.emit("pointermove", { x: 20, y: 0 });
+  expect(fake.renderCount).toBe(before + 2);
+});
+
+test("펜으로 쓰는 동안에는 다 쓴 획 층을 다시 그리지 않는다", () => {
+  drawStroke(10);
+  drawStroke(50);
+  const before = fake.committedRenderCount;
+
+  fake.emit("pointerdown", { x: 0, y: 100 });
+  fake.emit("pointermove", { x: 10, y: 100 });
+  fake.emit("pointermove", { x: 20, y: 100 });
+  fake.emit("pointerup", { x: 30, y: 100 });
+  globals.flushFrames();
+
+  expect(fake.committedRenderCount).toBe(before);
+  expect(editor.getStrokes()).toHaveLength(3);
+});
+
+test("지우개로 지우거나 되돌리면 다 쓴 획 층을 다시 그린다", () => {
+  drawStroke(10);
+  editor.tool = "eraser";
+  editor.setStyle({ eraserWidth: 40 });
+  const beforeErase = fake.committedRenderCount;
+  fake.emit("pointerdown", { x: 20, y: 10 });
+  globals.flushFrames();
+  expect(fake.committedRenderCount).toBe(beforeErase + 1);
+
+  fake.emit("pointerup", { x: 20, y: 10 });
+  const beforeUndo = fake.committedRenderCount;
+  editor.undo();
+  expect(fake.committedRenderCount).toBe(beforeUndo + 1);
+});
+
+test("아무것도 지우지 않는 지우개 이동은 다 쓴 획 층을 다시 그리지 않는다", () => {
+  drawStroke(10);
+  editor.tool = "eraser";
+  const before = fake.committedRenderCount;
+  fake.emit("pointerdown", { x: 300, y: 150 });
+  fake.emit("pointermove", { x: 320, y: 150 });
+  globals.flushFrames();
+  expect(fake.committedRenderCount).toBe(before);
+});
+
 test("포인터 캡처가 실패해도 획은 계속 기록된다", () => {
   const failing = createFakeCanvas(400, 200, { failPointerCapture: true });
   const captureless = createInkEditor(failing.canvas);
