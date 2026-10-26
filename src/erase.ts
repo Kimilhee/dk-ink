@@ -46,6 +46,13 @@ export function intersectsEraser(
   return false;
 }
 
+/**
+ * 지우개 밖에 남는 구간을 조각으로 나눈다.
+ *
+ * 어디서 자를지는 `RESAMPLE_STEP` 간격으로 보간한 점으로 정하지만, 조각에는 **원래 입력 점만**
+ * 남기고 잘린 경계에서만 보간 점을 하나 넣는다. 보간 점을 통째로 남기면 원래 꺾은선 위에 점이
+ * 촘촘히 박혀 `traceSide`의 곡선 다듬기가 사라지고, 지운 뒤 부드럽던 곡선이 각져 보인다.
+ */
 function splitOutsideEraser(
   points: readonly InkPoint[],
   from: Point,
@@ -56,16 +63,40 @@ function splitOutsideEraser(
 
   const fragments: InkPoint[][] = [];
   let fragment: InkPoint[] = [];
-  for (const point of resample(points)) {
-    if (distanceToSegment(point, from, to) > radius) {
-      fragment.push(point);
-      continue;
+  // 조각에 아직 넣지 않은 마지막 보간 점. 지워진 구간에 들어서면 이 점이 조각의 끝이 된다.
+  let pendingEdge: InkPoint | undefined;
+
+  const visit = (point: InkPoint, original: boolean) => {
+    if (distanceToSegment(point, from, to) <= radius) {
+      if (pendingEdge) fragment.push(pendingEdge);
+      if (fragment.length > 1) fragments.push(fragment);
+      fragment = [];
+      pendingEdge = undefined;
+      return;
     }
-    if (fragment.length > 1) fragments.push(fragment);
-    fragment = [];
+    // 지워진 구간을 막 벗어난 첫 점은 보간 점이어도 조각의 시작이 된다.
+    if (original || fragment.length === 0) {
+      fragment.push(point);
+      pendingEdge = undefined;
+    } else {
+      pendingEdge = point;
+    }
+  };
+
+  visit(points[0], true);
+  for (let index = 1; index < points.length; index += 1) {
+    const start = points[index - 1];
+    const end = points[index];
+    const steps = resampleSteps(start, end);
+    for (let step = 1; step < steps; step += 1) visit(interpolate(start, end, step / steps), false);
+    visit(end, true);
   }
   if (fragment.length > 1) fragments.push(fragment);
   return fragments;
+}
+
+function resampleSteps(start: Point, end: Point): number {
+  return Math.max(1, Math.ceil(Math.hypot(end.x - start.x, end.y - start.y) / RESAMPLE_STEP));
 }
 
 export function resample(points: readonly InkPoint[]): InkPoint[] {
@@ -73,8 +104,7 @@ export function resample(points: readonly InkPoint[]): InkPoint[] {
   for (let index = 1; index < points.length; index += 1) {
     const start = points[index - 1];
     const end = points[index];
-    const distance = Math.hypot(end.x - start.x, end.y - start.y);
-    const steps = Math.max(1, Math.ceil(distance / RESAMPLE_STEP));
+    const steps = resampleSteps(start, end);
     for (let step = 1; step <= steps; step += 1) {
       sampled.push(interpolate(start, end, step / steps));
     }

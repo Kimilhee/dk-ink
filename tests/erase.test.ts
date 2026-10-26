@@ -42,3 +42,27 @@ test("점 하나짜리 획(소수점, i의 점)도 지워진다", () => {
   expect(eraseStrokes([dot], { x: 5, y: 5 }, { x: 5, y: 5 }, 4).strokes).toHaveLength(0);
   expect(eraseStrokes([dot], { x: 80, y: 80 }, { x: 90, y: 90 }, 4).strokes).toHaveLength(1);
 });
+
+test("지운 뒤 남은 조각은 원래 점을 그대로 쓰고 잘린 경계에만 점을 더한다", () => {
+  // 점 사이가 먼 사인파. 보간 점으로 채우면 꺾은선이 드러나 곡선이 각져 보인다.
+  const original = strokeOf(
+    Array.from({ length: 12 }, (_, index) => ({
+      x: index * 20,
+      y: 50 + 30 * Math.sin((index / 11) * Math.PI * 2),
+      t: index,
+    })),
+  );
+  const result = eraseStrokes([original], { x: 110, y: 0 }, { x: 110, y: 100 }, 6);
+
+  expect(result.strokes).toHaveLength(2);
+  const [left, right] = result.strokes;
+  const isOriginal = (point: InkPoint) =>
+    original.points.some((source) => source.x === point.x && source.y === point.y);
+  // 경계 점(왼쪽 조각의 끝, 오른쪽 조각의 시작)을 뺀 나머지는 모두 원래 점이다.
+  expect(left.points.slice(0, -1).every(isOriginal)).toBe(true);
+  expect(right.points.slice(1).every(isOriginal)).toBe(true);
+  expect(left.points.at(-1)!.x).toBeCloseTo(107, 0);
+  expect(right.points[0].x).toBeCloseTo(113, 0);
+  // 지우개가 원래 점 사이(x=100~120)만 지나가므로 잃는 원래 점은 없고 경계 점 2개만 늘어난다.
+  expect(left.points.length + right.points.length).toBe(original.points.length + 2);
+});
