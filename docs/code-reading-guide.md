@@ -24,7 +24,7 @@
 
 **읽기:** [`src/editor.ts`](../src/editor.ts)의 `pointerDown`, `pointerMove`, `pointerUp`, `timedPoint`, `scheduleRedraw`와 [`tests/editor.test.ts`](../tests/editor.test.ts).
 
-**해보기:** 펜으로 천천히 선 하나를 긋고 `pointerdown → pointermove → pointerup`에서 `strokes`가 어떻게 바뀌는지 종이에 3줄로 적는다. `getCoalescedEvents()`가 여러 점을 돌려줄 때의 반복문과, `getPredictedEvents()`로 얻은 예측 점이 `current.points`에는 저장되지 않고 `redraw`에서만 덧대어지는 경로도 찾는다.
+**해보기:** 펜으로 천천히 선 하나를 긋고 `pointerdown → pointermove → pointerup`에서 `strokes`가 어떻게 바뀌는지 종이에 3줄로 적는다. `getCoalescedEvents()`가 여러 점을 돌려줄 때의 반복문도 찾는다.
 
 **완료 조건:** 왜 `pointerDown`에서 변경 전 획을 이력에 넣는지, `onChange`가 이동할 때마다 불리지 않고 종료 시 호출되는지 설명한다. 한 제스처 중 도구를 바꿔도 `activeTool`이 고정된다는 점과, 왜 `getBoundingClientRect()`를 샘플마다 부르지 않고 이벤트당 한 번만 구하는지 찾는다.
 

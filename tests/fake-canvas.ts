@@ -23,8 +23,6 @@ export type FakePointerInit = {
   coalesced?: Array<{ x: number; y: number; pressure?: number; timeStamp?: number }>;
   /** `getCoalescedEvents()`가 빈 배열을 돌려주는 상황을 재현한다. */
   emptyCoalesced?: boolean;
-  /** `getPredictedEvents()`가 돌려줄 예측 점. */
-  predicted?: Array<{ x: number; y: number; pressure?: number; timeStamp?: number }>;
 };
 
 export function createFakeCanvas(
@@ -113,15 +111,6 @@ export function createFakeCanvas(
               }))
           : undefined,
         ...(init.emptyCoalesced ? { getCoalescedEvents: () => [] } : {}),
-        getPredictedEvents: init.predicted
-          ? () =>
-              init.predicted!.map((point, index) => ({
-                clientX: point.x,
-                clientY: point.y,
-                pressure: point.pressure ?? 0.5,
-                timeStamp: point.timeStamp ?? clock + (index + 1) / 100,
-              }))
-          : undefined,
       };
       for (const handler of listeners.get(type) ?? []) handler(event);
     },

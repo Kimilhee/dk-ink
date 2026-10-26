@@ -80,13 +80,6 @@ export function createInkEditor(
   let activeTool: InkTool | undefined;
   let activePointerId: number | undefined;
   let current: Stroke | undefined;
-  /**
-   * 화면에만 앞서 그려 넣는 예측 점(`getPredictedEvents()`).
-   *
-   * 실제 획(`current.points`)에 섞으면 저장되는 필기 데이터가 왜곡되고 다음 입력이 왔을 때
-   * 어긋난 예측이 선 안에 박히므로, 매 이동마다 갈아끼우고 `redraw`에서만 끝에 덧대어 그린다.
-   */
-  let predictedPoints: InkPoint[] = [];
   let eraserCursor: Point | undefined;
   let previousEraserPoint: Point | undefined;
   let changedWhileErasing = false;
@@ -97,7 +90,6 @@ export function createInkEditor(
     activeTool = undefined;
     activePointerId = undefined;
     current = undefined;
-    predictedPoints = [];
     previousEraserPoint = undefined;
     changedWhileErasing = false;
     // 펜을 뗀 뒤에는 커서를 남기지 않는다. 지우고 있는 동안만 보여야 한다.
@@ -153,16 +145,7 @@ export function createInkEditor(
 
   function redraw(): void {
     const bounds = canvas.getBoundingClientRect();
-    if (current && predictedPoints.length > 0) {
-      const previewStroke: Stroke = {
-        ...current,
-        points: [...current.points, ...predictedPoints],
-      };
-      const previewStrokes = [...strokes.slice(0, -1), previewStroke];
-      renderStrokes(context, previewStrokes, bounds);
-    } else {
-      renderStrokes(context, strokes, bounds);
-    }
+    renderStrokes(context, strokes, bounds);
     if (eraserCursor && style.showEraserCursor) {
       drawEraserCursor(context, eraserCursor, style);
     }
@@ -229,11 +212,9 @@ export function createInkEditor(
     if (activeTool === "eraser") {
       for (const sample of events) eraseTo(timedPoint(sample, bounds));
     } else {
+      // 예측 점(`getPredictedEvents()`)은 쓰지 않는다. 방향을 꺾을 때 선이 펜이 가지 않은
+      // 곳까지 순간적으로 삐져나갔다 되돌아오는 게 P580에서 1개만 써도 사라지지 않았다.
       for (const sample of events) appendPoint(sample, bounds);
-      // 펜 끝과 그려진 선 사이의 유격을 줄이려고 브라우저가 예측한 다음 점들을 최대 2개까지
-      // 미리 그린다. 너무 길게 잡으면 작은 글씨나 수식에서 방향을 꺾을 때 선이 삐져나간다.
-      const predicted = event.getPredictedEvents?.() ?? [];
-      predictedPoints = predicted.slice(0, 2).map((sample) => timedPoint(sample, bounds));
     }
     scheduleRedraw();
   }

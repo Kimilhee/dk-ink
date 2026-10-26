@@ -72,24 +72,6 @@ test("뭉친 이벤트가 빈 배열이면 이벤트 자신을 점으로 쓴다"
   expect(editor.getStrokes()[0].points.map((point) => point.x)).toEqual([0, 10, 20, 30]);
 });
 
-test("예측 이벤트(predicted)는 화면에만 그리고 실제 획 데이터에는 남기지 않는다", () => {
-  fake.emit("pointerdown", { x: 0, y: 0 });
-  fake.emit("pointermove", {
-    x: 10,
-    y: 0,
-    predicted: [
-      { x: 20, y: 0 },
-      { x: 30, y: 0 },
-      { x: 40, y: 0 },
-    ],
-  });
-  globals.flushFrames();
-  expect(editor.getStrokes()[0].points.map((point) => point.x)).toEqual([0, 10]);
-
-  fake.emit("pointerup", { x: 15, y: 0 });
-  expect(editor.getStrokes()[0].points.map((point) => point.x)).toEqual([0, 10, 15]);
-});
-
 test("뭉친 이벤트 안의 점들이 각자 시각을 갖는다", () => {
   fake.emit("pointerdown", { x: 0, y: 0, timeStamp: 100 });
   fake.emit("pointermove", {
