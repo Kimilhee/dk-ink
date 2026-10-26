@@ -87,7 +87,7 @@ const editor = createInkEditor(canvas, {
   straightLineDelay: Math.max(500, Math.min(1500, storedNumber(stored.straightLineDelay) ?? 700)),
   strokeWidth: storedNumber(stored.strokeWidth),
   eraserWidth: storedNumber(stored.eraserWidth),
-  dynamicEraser: stored.dynamicEraser === true,
+  dynamicEraser: stored.dynamicEraser !== false,
   onChange(strokes) {
     setStatus(`획 ${strokes.length}개`);
     syncButtons();

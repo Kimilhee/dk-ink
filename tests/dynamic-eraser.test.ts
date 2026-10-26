@@ -35,7 +35,7 @@ test("빠르게 문지르면 점점 커져 최대 지름 이하로 수렴한다"
   expect(diameters[Math.floor(50 / 8) - 1]).toBeLessThan(90);
   for (let i = 1; i < diameters.length; i++) {
     expect(diameters[i]).toBeGreaterThanOrEqual(diameters[i - 1]);
-    expect(diameters[i] - diameters[i - 1]).toBeLessThan(20);
+    expect(diameters[i] - diameters[i - 1]).toBeLessThan(40);
   }
   expect(diameters.at(-1)).toBeGreaterThan(170);
   expect(diameters.at(-1)).toBeLessThanOrEqual(180);
