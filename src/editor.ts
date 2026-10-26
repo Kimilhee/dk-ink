@@ -17,7 +17,7 @@ const DEFAULT_STYLE: InkStyle = {
   widthMode: "pressure",
   opacity: 0.7,
   holdToStraightLine: true,
-  straightLineDelay: 1000,
+  straightLineDelay: 800,
   eraserWidth: 50,
   showEraserCursor: true,
   eraserCursorFill: "rgb(15 118 110 / 12%)",
@@ -144,7 +144,7 @@ export function createInkEditor(
       return;
     }
     const start = current.points[0];
-    if (start && Math.hypot(point.x - start.x, point.y - start.y) > 5) cancelHold();
+    if (start && Math.hypot(point.x - start.x, point.y - start.y) > 8) cancelHold();
     current.points.push(point);
   }
 
