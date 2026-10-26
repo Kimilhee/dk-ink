@@ -20,15 +20,16 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
-test("2초간 누르면 표시점이 생기고, 움직이는 동안 시작점과 끝점만 잇는다", () => {
+test("기본 1초간 누르면 흔적을 지우고, 움직이는 동안 시작점과 끝점만 잇는다", () => {
   const arc = vi.spyOn(fake.canvas.getContext("2d")!, "arc");
   fake.emit("pointerdown", { x: 10, y: 20 });
-  fake.emit("pointermove", { x: 12, y: 21 });
+  fake.emit("pointermove", { x: 13, y: 24 });
   arc.mockClear();
-  vi.advanceTimersByTime(1999);
+  vi.advanceTimersByTime(999);
   expect(arc).not.toHaveBeenCalled();
   vi.advanceTimersByTime(1);
   expect(arc).toHaveBeenCalledWith(10, 20, 6, 0, Math.PI * 2);
+  expect(editor.getStrokes()[0].points).toEqual([]);
 
   fake.emit("pointermove", {
     x: 90,
@@ -59,9 +60,9 @@ test("2초간 누르면 표시점이 생기고, 움직이는 동안 시작점과
   expect(editor.getStrokes()).toEqual([stroke]);
 });
 
-test("2초 전에 그리기 시작하면 나중에 멈춰도 자유 필기를 유지한다", () => {
+test("대기 시간 전에 5px 넘게 움직이면 나중에 멈춰도 자유 필기를 유지한다", () => {
   fake.emit("pointerdown", { x: 10, y: 20 });
-  fake.emit("pointermove", { x: 30, y: 60 });
+  fake.emit("pointermove", { x: 13, y: 24.1 });
   fake.emit("pointermove", { x: 10, y: 20 });
   vi.advanceTimersByTime(2000);
   fake.emit("pointerup", { x: 100, y: 70 });
@@ -106,4 +107,20 @@ test("지우개는 오래 눌러도 직선 모드로 바뀌지 않는다", () =>
   vi.advanceTimersByTime(2000);
   fake.emit("pointerup", { x: 100, y: 70 });
   expect(editor.getStrokes()).toEqual([]);
+});
+
+test.each([500, 1500, 2000])("설정한 %dms가 지나야 직선 모드가 된다", (delay) => {
+  editor.setStyle({ straightLineDelay: delay });
+  fake.emit("pointerdown", { x: 10, y: 20 });
+  fake.emit("pointermove", { x: 15, y: 20 });
+  vi.advanceTimersByTime(delay - 1);
+  expect(editor.getStrokes()[0].style.widthMode).toBe("pressure");
+  vi.advanceTimersByTime(1);
+  expect(editor.getStrokes()[0].points).toEqual([]);
+  fake.emit("pointerup", { x: 100, y: 70 });
+  expect(editor.getStrokes()[0].points).toMatchObject([
+    { x: 10, y: 20 },
+    { x: 100, y: 70 },
+  ]);
+  expect(editor.getStrokes()[0].style.widthMode).toBe("constant");
 });

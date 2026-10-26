@@ -31,6 +31,7 @@ const SETTINGS_KEY = "dk-ink-playground-settings";
 type StoredSettings = {
   fingerDrawing?: unknown;
   holdToStraightLine?: unknown;
+  straightLineDelay?: unknown;
   toolSwitch?: unknown;
   penFollow?: unknown;
   color?: unknown;
@@ -82,6 +83,7 @@ const editor = createInkEditor(canvas, {
       ? stored.widthMode
       : undefined,
   holdToStraightLine: stored.holdToStraightLine !== false,
+  straightLineDelay: Math.max(500, Math.min(2000, storedNumber(stored.straightLineDelay) ?? 1000)),
   strokeWidth: storedNumber(stored.strokeWidth),
   eraserWidth: storedNumber(stored.eraserWidth),
   onChange(strokes) {
@@ -180,6 +182,13 @@ pickable("width-mode-picker", "width-mode", {
 pickable("stroke-width-picker", "stroke-width", {
   apply: (value) => editor.setStyle({ strokeWidth: Number(value) }),
   current: () => String(editor.getStyle().strokeWidth),
+});
+
+element<HTMLInputElement>("straight-line-delay").addEventListener("input", (event) => {
+  const seconds = Number((event.target as HTMLInputElement).value);
+  editor.setStyle({ straightLineDelay: Math.round(seconds * 1000) });
+  element<HTMLOutputElement>("straight-line-delay-value").value = `${seconds.toFixed(1)}초`;
+  saveSettings();
 });
 
 element<HTMLInputElement>("eraser-width").addEventListener("input", (event) => {
@@ -311,6 +320,9 @@ function syncButtons(): void {
     `${erasing ? "지우개" : "펜"} 사용 중. 누르면 ${erasing ? "펜" : "지우개"}으로 바뀝니다`,
   );
   for (const sync of pickerSyncs) sync();
+  element<HTMLInputElement>("straight-line-delay").value = String(style.straightLineDelay / 1000);
+  element<HTMLOutputElement>("straight-line-delay-value").value =
+    `${(style.straightLineDelay / 1000).toFixed(1)}초`;
   element<HTMLInputElement>("eraser-width").value = String(style.eraserWidth);
   element<HTMLOutputElement>("eraser-width-value").value = `${style.eraserWidth}px`;
   element<HTMLButtonElement>("undo").disabled = !editor.canUndo;
@@ -448,6 +460,7 @@ function saveSettings(): void {
       JSON.stringify({
         fingerDrawing: fingerDrawingEnabled,
         holdToStraightLine: style.holdToStraightLine,
+        straightLineDelay: style.straightLineDelay,
         toolSwitch: toolSwitchMode,
         penFollow: penFlip.enabled,
         color: style.color,

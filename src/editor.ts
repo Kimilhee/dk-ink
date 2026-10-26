@@ -17,6 +17,7 @@ const DEFAULT_STYLE: InkStyle = {
   widthMode: "pressure",
   opacity: 0.7,
   holdToStraightLine: true,
+  straightLineDelay: 1000,
   eraserWidth: 50,
   showEraserCursor: true,
   eraserCursorFill: "rgb(15 118 110 / 12%)",
@@ -143,7 +144,7 @@ export function createInkEditor(
       return;
     }
     const start = current.points[0];
-    if (start && Math.hypot(point.x - start.x, point.y - start.y) > 4) cancelHold();
+    if (start && Math.hypot(point.x - start.x, point.y - start.y) > 5) cancelHold();
     current.points.push(point);
   }
 
@@ -260,10 +261,11 @@ export function createInkEditor(
         holdTimer = undefined;
         if (!current) return;
         straightLineAnchor = current.points[0];
-        current.points = [straightLineAnchor];
+        // 누르는 동안 생긴 흔적은 비우고, 시작점 표시는 별도로 그린다.
+        current.points = [];
         current.style.widthMode = "constant";
         redrawNow();
-      }, 2000);
+      }, style.straightLineDelay);
     }
     redrawNow();
   }

@@ -82,7 +82,8 @@ editor.destroy();
 | `strokeWidth`                             | `3` (필압 모드에선 최대)     |
 | `widthMode`                               | `"pressure"`                 |
 | `opacity`                                 | `0.7`                        |
-| `holdToStraightLine`                      | `true` (2초간 누르면 직선)   |
+| `holdToStraightLine`                      | `true` (길게 누르면 직선)    |
+| `straightLineDelay`                       | `1000` (대기 시간, ms)       |
 | `eraserWidth`                             | `50`                         |
 | `showEraserCursor`                        | `true`                       |
 | `eraserCursorFill` / `eraserCursorStroke` | 청록 계열                    |
@@ -90,7 +91,9 @@ editor.destroy();
 | `strokes`                                 | 초기 획                      |
 | `onChange`                                | —                            |
 
-펜으로 한 점에서 2초간 누르면 시작점에 동그란 표시가 나타난다(4px 이내 손떨림 허용).
+펜으로 한 점에서 기본 1초간 누르면 시작점에 동그란 표시가 나타난다(5px 이내 손떨림 허용).
+대기 시간은 `straightLineDelay`(ms)로 지정하며, 데모에서는 0.5~2초 슬라이더로 조절하고 저장한다.
+직선 모드로 전환되는 순간 누르는 동안 생긴 점과 흔적은 지운다.
 그 상태로 움직이면 시작점과 현재 위치를 잇는 일정한 두께의 직선이 그려지고, 펜을 떼면
 표시점은 사라진다. `holdToStraightLine: false`로 끌 수 있으며, 데모 설정에서도 켜고 끌 수 있다.
 
