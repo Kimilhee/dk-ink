@@ -66,6 +66,7 @@ export function attachPenFlip(
   let enabled = true;
   let flipped = false;
   let savedEraserWidth = 0;
+  let savedDynamicEraser = false;
   let holding = false;
   let penNear = false;
   /** 필기 중 숨긴 아이콘은 펜을 뗀 뒤 이 시각까지 다시 띄우지 않는다. 획 사이마다 깜빡이지 않게. */
@@ -106,11 +107,14 @@ export function attachPenFlip(
     flipped = next;
     eraserPress = undefined;
     if (flipped) {
-      savedEraserWidth = editor.getStyle().eraserWidth;
-      editor.setStyle({ eraserWidth: FLIPPED_ERASER_WIDTH });
+      const saved = editor.getStyle();
+      savedEraserWidth = saved.eraserWidth;
+      savedDynamicEraser = saved.dynamicEraser;
+      // 뒤집은 작은 지우개는 정밀 수정용이라 크기가 변하면 안 된다.
+      editor.setStyle({ eraserWidth: FLIPPED_ERASER_WIDTH, dynamicEraser: false });
       applyTool("eraser");
     } else {
-      editor.setStyle({ eraserWidth: savedEraserWidth });
+      editor.setStyle({ eraserWidth: savedEraserWidth, dynamicEraser: savedDynamicEraser });
       applyTool("pen");
     }
   }

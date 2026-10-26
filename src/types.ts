@@ -58,6 +58,11 @@ export type InkStyle = {
   straightLineDelay: number;
   /** 지우개 지름(px). */
   eraserWidth: number;
+  /**
+   * 지우개를 빠르게 문지를수록 지름이 커지고 느리게 움직이면 작아진다. 켜면 `eraserWidth`는
+   * 쓰지 않는다.
+   */
+  dynamicEraser: boolean;
   /** 지우는 동안 커서 원을 그린다. 펜을 떼면 사라진다. */
   showEraserCursor: boolean;
   eraserCursorFill: string;

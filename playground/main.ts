@@ -38,6 +38,7 @@ type StoredSettings = {
   widthMode?: unknown;
   strokeWidth?: unknown;
   eraserWidth?: unknown;
+  dynamicEraser?: unknown;
 };
 
 function loadSettings(): StoredSettings {
@@ -86,6 +87,7 @@ const editor = createInkEditor(canvas, {
   straightLineDelay: Math.max(500, Math.min(1500, storedNumber(stored.straightLineDelay) ?? 700)),
   strokeWidth: storedNumber(stored.strokeWidth),
   eraserWidth: storedNumber(stored.eraserWidth),
+  dynamicEraser: stored.dynamicEraser === true,
   onChange(strokes) {
     setStatus(`획 ${strokes.length}개`);
     syncButtons();
@@ -188,6 +190,12 @@ element<HTMLInputElement>("straight-line-delay").addEventListener("input", (even
   const seconds = Number((event.target as HTMLInputElement).value);
   editor.setStyle({ straightLineDelay: Math.round(seconds * 1000) });
   element<HTMLOutputElement>("straight-line-delay-value").value = `${seconds.toFixed(1)}초`;
+  saveSettings();
+});
+
+element<HTMLInputElement>("dynamic-eraser").addEventListener("change", (event) => {
+  editor.setStyle({ dynamicEraser: (event.target as HTMLInputElement).checked });
+  syncButtons();
   saveSettings();
 });
 
@@ -325,6 +333,9 @@ function syncButtons(): void {
     `${(style.straightLineDelay / 1000).toFixed(1)}초`;
   element<HTMLInputElement>("eraser-width").value = String(style.eraserWidth);
   element<HTMLOutputElement>("eraser-width-value").value = `${style.eraserWidth}px`;
+  element<HTMLInputElement>("dynamic-eraser").checked = style.dynamicEraser;
+  // 동적 지우개가 켜져 있으면 크기가 속도로 정해지므로 슬라이더는 의미가 없다.
+  element<HTMLElement>("eraser-width-row").hidden = style.dynamicEraser;
   element<HTMLButtonElement>("undo").disabled = !editor.canUndo;
   element<HTMLButtonElement>("redo").disabled = !editor.canRedo;
   toolStatus.textContent = `도구: ${erasing ? "지우개" : "펜"}`;
@@ -467,6 +478,7 @@ function saveSettings(): void {
         widthMode: style.widthMode,
         strokeWidth: style.strokeWidth,
         eraserWidth: style.eraserWidth,
+        dynamicEraser: style.dynamicEraser,
       }),
     );
   } catch {

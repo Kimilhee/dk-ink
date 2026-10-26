@@ -1,3 +1,4 @@
+import { createDynamicEraser } from "./dynamic-eraser.ts";
 import { eraseStrokes } from "./erase.ts";
 import { cloneStrokes, createInkHistory } from "./history.ts";
 import { drawEraserCursor, drawStrokes, renderStrokes } from "./render.ts";
@@ -19,6 +20,7 @@ const DEFAULT_STYLE: InkStyle = {
   holdToStraightLine: true,
   straightLineDelay: 700,
   eraserWidth: 50,
+  dynamicEraser: false,
   showEraserCursor: true,
   eraserCursorFill: "rgb(15 118 110 / 12%)",
   eraserCursorStroke: "#0f766e",
@@ -93,6 +95,9 @@ export function createInkEditor(
   let straightLineAnchor: InkPoint | undefined;
   let eraserCursor: Point | undefined;
   let previousEraserPoint: Point | undefined;
+  let previousEraserDiameter = 0;
+  let eraserDiameter = 0;
+  const dynamicEraser = createDynamicEraser();
   let changedWhileErasing = false;
   let redrawFrame: number | undefined;
   /** 다 쓴 획이 바뀌어(지우기·되돌리기·갈아끼우기·크기 변경) 화면 밖 캔버스를 다시 그려야 한다. */
@@ -111,6 +116,8 @@ export function createInkEditor(
     activePointerId = undefined;
     current = undefined;
     previousEraserPoint = undefined;
+    dynamicEraser.reset();
+    previousEraserDiameter = 0;
     changedWhileErasing = false;
     // 펜을 뗀 뒤에는 커서를 남기지 않는다. 지우고 있는 동안만 보여야 한다.
     eraserCursor = undefined;
@@ -158,8 +165,11 @@ export function createInkEditor(
     };
   }
 
-  function eraseTo(point: Point): void {
-    const result = eraseStrokes(strokes, previousEraserPoint ?? point, point, style.eraserWidth);
+  function eraseTo(point: InkPoint): void {
+    eraserDiameter = style.dynamicEraser ? dynamicEraser.next(point) : style.eraserWidth;
+    // 크기가 변하는 캡슐은 만들지 않고, 두 점의 지름 중 큰 쪽으로 선분을 훑어 빠르게 지나가도 건너뛰지 않게 한다.
+    const sweepDiameter = Math.max(eraserDiameter, previousEraserDiameter);
+    const result = eraseStrokes(strokes, previousEraserPoint ?? point, point, sweepDiameter);
     if (result.changed) {
       // 실제로 지워지기 직전에 한 번만 쌓는다. 아무것도 못 지운 탭이 이력(특히 redo)을 건드리면 안 된다.
       if (!changedWhileErasing) history.commit(strokes);
@@ -168,6 +178,7 @@ export function createInkEditor(
       committedDirty = true;
     }
     previousEraserPoint = point;
+    previousEraserDiameter = eraserDiameter;
     eraserCursor = point;
   }
 
@@ -197,7 +208,7 @@ export function createInkEditor(
       context.restore();
     }
     if (eraserCursor && style.showEraserCursor) {
-      drawEraserCursor(context, eraserCursor, style);
+      drawEraserCursor(context, eraserCursor, { ...style, eraserWidth: eraserDiameter });
     }
   }
 

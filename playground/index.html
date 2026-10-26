@@ -158,7 +158,12 @@
             </div>
           </div>
 
-          <label class="setting-row" for="eraser-width">
+          <div class="setting-row">
+            <label class="setting-label" for="dynamic-eraser">동적 지우개</label>
+            <input id="dynamic-eraser" type="checkbox" />
+          </div>
+
+          <label class="setting-row" for="eraser-width" id="eraser-width-row">
             <span class="setting-label">지우개 두께</span>
             <span class="range-control">
               <input id="eraser-width" type="range" min="8" max="100" step="2" value="50" />
