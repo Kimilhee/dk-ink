@@ -48,6 +48,8 @@ test("빠르게 지우다 멈춰도 천천히 작아진다", () => {
   const peak = fast.diameters.at(-1)!;
   const slow = move(eraser, fast, 0, 200, 8);
   expect(slow.diameters.at(-1)).toBeGreaterThan(peak * 0.6);
+  // 멈춘 직후 100ms 동안은 거의 줄지 않는다.
+  expect(slow.diameters[Math.floor(100 / 8) - 1]).toBeGreaterThan(peak * 0.95);
   const later = move(eraser, slow, 0, 3000, 8);
   expect(later.diameters.at(-1)).toBeLessThan(25);
 });

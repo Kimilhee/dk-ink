@@ -8,7 +8,9 @@ const MIN_SPEED = 0.4;
 const MAX_SPEED = 2.5;
 /** 커질 때와 작아질 때의 시간 상수(ms). 커지는 쪽이 빨라야 하고, 작아지는 쪽은 느려야 한다. */
 const TAU_UP = 150;
-const TAU_DOWN = 400;
+const TAU_DOWN = 300;
+/** 줄어드는 속도를 한 번 더 따라가는 시간 상수(ms). 줄어들기 시작하는 순간을 늦춘다. */
+const TAU_SETTLE = 300;
 
 export type DynamicEraser = {
   /** 점을 받아 그 점에서의 지우개 지름(px)을 돌려준다. 첫 점은 최소 지름이다. */
@@ -20,12 +22,14 @@ export type DynamicEraser = {
 /**
  * 펜 이동 속도에 따라 지우개 지름을 연속으로 바꾼다.
  *
- * 속도를 시간 기반 비대칭 EMA로 다듬는다 — 계수를 경과 시간으로 정하므로 이벤트 빈도(60Hz/240Hz)와
+ * 속도를 시간 기반 비대칭 EMA로 다듬는다. 줄어들 때는 EMA를 한 번 더 거쳐(2단 필터) 처음에는 거의
+ * 변하지 않다가 서서히 줄기 시작한다. 커질 때는 2단째가 바로 따라붙어 반응이 늦어지지 않는다. — 계수를 경과 시간으로 정하므로 이벤트 빈도(60Hz/240Hz)와
  * 무관하다. 멈춘 채 대고 있을 때를 위한 타이머는 없다: 다음 이동 때 긴 간격이 그대로 반영돼 줄어든다.
  */
 export function createDynamicEraser(): DynamicEraser {
   let previous: InkPoint | undefined;
   let smoothed = 0;
+  let displayed = 0;
 
   return {
     next(point) {
@@ -34,14 +38,19 @@ export function createDynamicEraser(): DynamicEraser {
         const instant = Math.hypot(point.x - previous.x, point.y - previous.y) / elapsed;
         const tau = instant > smoothed ? TAU_UP : TAU_DOWN;
         smoothed += (1 - Math.exp(-elapsed / tau)) * (instant - smoothed);
+        displayed =
+          smoothed > displayed
+            ? smoothed
+            : displayed + (1 - Math.exp(-elapsed / TAU_SETTLE)) * (smoothed - displayed);
       }
       previous = point;
-      const ratio = Math.min(Math.max((smoothed - MIN_SPEED) / (MAX_SPEED - MIN_SPEED), 0), 1);
+      const ratio = Math.min(Math.max((displayed - MIN_SPEED) / (MAX_SPEED - MIN_SPEED), 0), 1);
       return MIN_DIAMETER + (MAX_DIAMETER - MIN_DIAMETER) * ratio;
     },
     reset() {
       previous = undefined;
       smoothed = 0;
+      displayed = 0;
     },
   };
 }
