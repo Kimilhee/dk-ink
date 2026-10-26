@@ -88,6 +88,14 @@ const editor = createInkEditor(canvas, {
   },
 });
 
+// 진단: `desynchronized`(저지연 캔버스)가 이 브라우저에서 실제로 켜졌는지 본다. 같은 캔버스에
+// `getContext("2d")`를 다시 부르면 에디터가 만든 컨텍스트를 그대로 돌려받는다.
+element<HTMLOutputElement>("low-latency-status").value = canvas
+  .getContext("2d")
+  ?.getContextAttributes?.().desynchronized
+  ? "켜짐"
+  : "꺼짐";
+
 // S펜 호버 중 포인터 옆 연필 아이콘으로 켜는 작은 지우개. 자세한 동작은 pen-flip.ts 참고.
 const penFlip = attachPenFlip(editor, stage, syncButtons);
 penFlip.enabled = stored.penFollow !== false;
