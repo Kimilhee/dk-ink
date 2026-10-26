@@ -17,7 +17,7 @@ const DEFAULT_STYLE: InkStyle = {
   widthMode: "pressure",
   opacity: 0.7,
   holdToStraightLine: true,
-  straightLineDelay: 800,
+  straightLineDelay: 700,
   eraserWidth: 50,
   showEraserCursor: true,
   eraserCursorFill: "rgb(15 118 110 / 12%)",

@@ -20,12 +20,12 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
-test("기본 0.8초간 누르면 흔적을 지우고, 움직이는 동안 시작점과 끝점만 잇는다", () => {
+test("기본 0.7초간 누르면 흔적을 지우고, 움직이는 동안 시작점과 끝점만 잇는다", () => {
   const arc = vi.spyOn(fake.canvas.getContext("2d")!, "arc");
   fake.emit("pointerdown", { x: 10, y: 20 });
   fake.emit("pointermove", { x: 18, y: 20 });
   arc.mockClear();
-  vi.advanceTimersByTime(799);
+  vi.advanceTimersByTime(699);
   expect(arc).not.toHaveBeenCalled();
   vi.advanceTimersByTime(1);
   expect(arc).toHaveBeenCalledWith(10, 20, 6, 0, Math.PI * 2);
@@ -109,7 +109,7 @@ test("지우개는 오래 눌러도 직선 모드로 바뀌지 않는다", () =>
   expect(editor.getStrokes()).toEqual([]);
 });
 
-test.each([500, 1500, 2000])("설정한 %dms가 지나야 직선 모드가 된다", (delay) => {
+test.each([500, 700, 1500])("설정한 %dms가 지나야 직선 모드가 된다", (delay) => {
   editor.setStyle({ straightLineDelay: delay });
   fake.emit("pointerdown", { x: 10, y: 20 });
   fake.emit("pointermove", { x: 18, y: 20 });

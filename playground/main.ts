@@ -83,7 +83,7 @@ const editor = createInkEditor(canvas, {
       ? stored.widthMode
       : undefined,
   holdToStraightLine: stored.holdToStraightLine !== false,
-  straightLineDelay: Math.max(500, Math.min(2000, storedNumber(stored.straightLineDelay) ?? 800)),
+  straightLineDelay: Math.max(500, Math.min(1500, storedNumber(stored.straightLineDelay) ?? 700)),
   strokeWidth: storedNumber(stored.strokeWidth),
   eraserWidth: storedNumber(stored.eraserWidth),
   onChange(strokes) {

@@ -54,7 +54,7 @@ export type InkStyle = {
   opacity: number;
   /** 시작점에서 길게 누르면 직선 모드로 전환한다(8px 이내 움직임 허용). */
   holdToStraightLine: boolean;
-  /** 직선 모드 전환 대기 시간(ms). 기본값은 800. */
+  /** 직선 모드 전환 대기 시간(ms). 기본값은 700. */
   straightLineDelay: number;
   /** 지우개 지름(px). */
   eraserWidth: number;
