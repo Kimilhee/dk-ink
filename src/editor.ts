@@ -120,6 +120,7 @@ export function createInkEditor(
    */
   let size = { width: 0, height: 0 };
   let gestureOrigin = { left: 0, top: 0 };
+  let background = "#fff";
 
   function cancelHold(): void {
     clearTimeout(holdTimer);
@@ -205,7 +206,7 @@ export function createInkEditor(
       committedDirty = false;
     }
     context.clearRect(0, 0, size.width, size.height);
-    if (current) drawStrokes(context, [current]);
+    if (current) drawStrokes(context, [wetStroke(current)]);
     if (straightLineAnchor && current) {
       context.save();
       context.beginPath();
@@ -341,14 +342,62 @@ export function createInkEditor(
 
   /**
    * 다 쓴 획 층(일반 캔버스)은 다음 합성 프레임에야 화면에 나오지만, 앱 캔버스(desynchronized)를
-   * 지우면 곧바로 나간다. 즉시 지우면 획이 한 프레임 사라지고, 두 프레임을 미루면 두 층에 같은
-   * 반투명 획이 겹쳐 진해진다. 그 사이인 한 프레임 뒤에 지운다.
+   * 지우면 곧바로 나간다. 즉시 지우면 획이 한 프레임 사라지므로 두 프레임 뒤에 지운다. 앱 캔버스의
+   * 획은 불투명(`wetStroke`)이라 그동안 두 층에 겹쳐도 진해지지 않는다.
    */
   function clearLiveAfterCommit(): void {
     liveClearFrame = requestAnimationFrame(() => {
-      liveClearFrame = undefined;
-      if (!activeTool) redraw();
+      liveClearFrame = requestAnimationFrame(() => {
+        liveClearFrame = undefined;
+        if (!activeTool) redraw();
+      });
     });
+  }
+
+  /**
+   * 쓰는 중인 획은 반투명 대신, 배경 위에 반투명으로 칠한 것과 같은 색의 불투명으로 그린다.
+   * 반투명 획은 두 층에 겹치는 순간 진해져 깜빡이지만 불투명 획은 겹쳐도 그대로다.
+   */
+  function wetStroke(stroke: Stroke): Stroke {
+    if (stroke.style.opacity >= 1) return stroke;
+    return {
+      ...stroke,
+      style: { ...stroke.style, color: blendOverBackground(stroke.style), opacity: 1 },
+    };
+  }
+
+  const blendCache = new Map<string, string>();
+  /**
+   * 캔버스 뒤에 보이는 배경색. 투명하지 않은 배경을 가진 가장 가까운 조상의 색이다.
+   * 필기 중 스타일을 읽으면 강제 재계산이 생기므로 `resize`에서만 잰다.
+   */
+  function readBackgroundColor(): string {
+    const view = canvas.ownerDocument.defaultView;
+    for (let node = canvas.parentElement; node && view; node = node.parentElement) {
+      const color = view.getComputedStyle(node).backgroundColor;
+      if (color && color !== "transparent" && !color.endsWith(", 0)")) return color;
+    }
+    return "#fff";
+  }
+
+  /** 브라우저가 실제로 섞은 색을 1×1 캔버스에서 읽어 반투명 획과 정확히 같은 색을 얻는다. */
+  function blendOverBackground({ color, opacity }: StrokeStyle): string {
+    const key = `${color}|${opacity}|${background}`;
+    const cached = blendCache.get(key);
+    if (cached) return cached;
+    const swatch = canvas.ownerDocument.createElement("canvas");
+    swatch.width = 1;
+    swatch.height = 1;
+    const swatchContext = requireContext(swatch, false);
+    swatchContext.fillStyle = background;
+    swatchContext.fillRect(0, 0, 1, 1);
+    swatchContext.globalAlpha = opacity;
+    swatchContext.fillStyle = color;
+    swatchContext.fillRect(0, 0, 1, 1);
+    const [red, green, blue] = swatchContext.getImageData(0, 0, 1, 1).data;
+    const blended = `rgb(${red} ${green} ${blue})`;
+    blendCache.set(key, blended);
+    return blended;
   }
 
   function replaceStrokes(next: Stroke[]): void {
@@ -363,6 +412,7 @@ export function createInkEditor(
   function resize(): void {
     const bounds = canvas.getBoundingClientRect();
     size = { width: bounds.width, height: bounds.height };
+    background = readBackgroundColor();
     const ratio = window.devicePixelRatio || 1;
     canvas.width = Math.max(1, Math.floor(bounds.width * ratio));
     canvas.height = Math.max(1, Math.floor(bounds.height * ratio));

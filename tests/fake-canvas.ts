@@ -140,8 +140,11 @@ function createFakeContext(overrides: Record<string, () => void>): CanvasRenderi
     "fill",
     "stroke",
     "setLineDash",
+    "fillRect",
   ];
-  const target: Record<string, unknown> = {};
+  const target: Record<string, unknown> = {
+    getImageData: () => ({ data: [0, 0, 0, 255] }),
+  };
   for (const name of methods) target[name] = overrides[name] ?? (() => {});
   return target as unknown as CanvasRenderingContext2D;
 }
