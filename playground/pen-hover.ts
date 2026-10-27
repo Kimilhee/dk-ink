@@ -14,6 +14,9 @@ type HoverChange = (near: boolean, reason: string) => void;
 /** 마지막 펜 이벤트 이후 이만큼 조용하면 호버가 끝난 것으로 본다. */
 const IDLE_TIMEOUT_MS = 700;
 
+/** 호버 범위를 벗어났다는 이벤트 뒤 이만큼 펜 이벤트가 없어야 실제로 떠난 것으로 본다. */
+const LEAVE_GRACE_MS = 200;
+
 export function watchPenHover(isExempt: ExemptCheck, onChange: HoverChange): void {
   let near = false;
   let idleTimer: ReturnType<typeof setTimeout> | undefined;
@@ -48,7 +51,11 @@ export function watchPenHover(isExempt: ExemptCheck, onChange: HoverChange): voi
   // 펜이 호버 범위를 벗어나면 `relatedTarget`이 비어 있다. 엘리먼트 사이를 옮겨 다닐 때는
   // 다음 엘리먼트가 들어 있으므로 그것과 구분된다. 이 이벤트를 듣지 않고 위의 타이머에만
   // 기대면, 화면의 포인터는 이미 사라졌는데 표시가 한참 뒤에 풀린다.
+  // 단 P580의 Chrome은 펜을 화면에서 뗄 때마다(아직 호버 중인데도) 같은 이벤트를 보낸다.
+  // 바로 풀면 획마다 표시가 깜빡이므로, 잠깐 기다려 그사이 펜 이벤트가 다시 오면 유지한다.
   document.addEventListener("pointerout", (event) => {
-    if (event.pointerType === "pen" && event.relatedTarget === null) forget("pointerout");
+    if (event.pointerType !== "pen" || event.relatedTarget !== null) return;
+    if (idleTimer !== undefined) clearTimeout(idleTimer);
+    idleTimer = setTimeout(() => forget("pointerout"), LEAVE_GRACE_MS);
   });
 }
