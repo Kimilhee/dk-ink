@@ -63,7 +63,8 @@ export type InkEditor = {
  * 캔버스 하나를 필기 에디터로 만든다.
  *
  * 동작에 필요한 CSS(`touch-action: none` 등)는 직접 캔버스에 넣으므로 별도 스타일시트를
- * 불러올 필요가 없다. 크기·배경·테두리는 앱이 정한다. 현재 도구는 `data-tool` 속성으로
+ * 불러올 필요가 없다. 크기·테두리는 앱이 정하고, 배경은 캔버스를 감싼 요소에 칠한다(다 쓴 획 층이
+ * 캔버스 아래에 겹치므로 캔버스에 칠하면 가려진다). 현재 도구는 `data-tool` 속성으로
  * 노출되므로 `canvas[data-tool="eraser"]` 같은 선택자를 쓸 수 있다.
  */
 export function createInkEditor(

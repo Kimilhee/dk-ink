@@ -52,9 +52,14 @@ editor.setStrokes(strokes); // 다시 불러오기
 editor.destroy();
 ```
 
-캔버스의 **크기·배경·테두리는 앱이 정한다.** 동작에 필요한 CSS(`touch-action: none` 등)만
+캔버스의 **크기·테두리는 앱이 정한다.** 동작에 필요한 CSS(`touch-action: none` 등)만
 라이브러리가 캔버스에 직접 넣으므로 스타일시트를 따로 불러올 필요가 없다. 넣기 전의 인라인
 값은 기억해 두었다가 `destroy()`에서 되돌리므로, 앱이 걸어둔 스타일을 덮어쓴 채 떠나지 않는다.
+
+다 쓴 획은 캔버스 **바로 아래에 겹친 별도 캔버스**에 그린다(캔버스 앞 형제로 DOM에 붙고
+`destroy()`에서 떼어진다). 그래서 **배경은 캔버스가 아니라 캔버스를 감싼 요소에 칠해야 한다.**
+캔버스에 배경을 칠하면 다 쓴 획이 가려진다. 캔버스가 `position: static`이면 아래 층보다 위에
+오도록 `position: relative`가 들어간다.
 현재 도구는 `data-tool` 속성으로 노출되니 `canvas[data-tool="eraser"] { cursor: crosshair }`
 처럼 쓰면 된다.
 
