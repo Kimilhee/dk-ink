@@ -87,8 +87,6 @@ export function createInkEditor(
   if (canvas.ownerDocument.defaultView?.getComputedStyle(canvas).position === "static") {
     canvas.style.setProperty("position", "relative");
   }
-  /** 획을 마친 뒤 앱 캔버스의 그 획을 지우기로 예약한 프레임. */
-  let liveClearFrame: number | undefined;
 
   const style: InkStyle = {
     ...DEFAULT_STYLE,
@@ -334,22 +332,10 @@ export function createInkEditor(
     const changed = erasing ? changedWhileErasing : true;
     endGesture();
     cancelScheduledRedraw();
-    if (erasing) redraw();
-    else clearLiveAfterCommit();
+    // 다 쓴 획 층에 덧그린 것과 같은 순간에 앱 캔버스의 그 획을 지운다. 지우기를 미루면 두 층에
+    // 같은 획이 겹쳐 반투명 획이 한 프레임 진해진다.
+    redraw();
     if (changed) onChange?.(strokes);
-  }
-
-  /**
-   * 다 쓴 획 층(일반 캔버스)은 다음 합성 프레임에야 화면에 나오지만, 앱 캔버스(desynchronized)를
-   * 지우면 곧바로 나간다. 펜을 떼자마자 지우면 획이 한 프레임 사라져 깜빡이므로 두 프레임 뒤에 지운다.
-   */
-  function clearLiveAfterCommit(): void {
-    liveClearFrame = requestAnimationFrame(() => {
-      liveClearFrame = requestAnimationFrame(() => {
-        liveClearFrame = undefined;
-        if (!activeTool) redraw();
-      });
-    });
   }
 
   function replaceStrokes(next: Stroke[]): void {
@@ -450,7 +436,6 @@ export function createInkEditor(
     destroy() {
       endGesture();
       cancelScheduledRedraw();
-      if (liveClearFrame !== undefined) cancelAnimationFrame(liveClearFrame);
       observer.disconnect();
       committedCanvas.remove();
       if (previousPosition) canvas.style.setProperty("position", previousPosition);
