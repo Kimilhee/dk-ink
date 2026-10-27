@@ -72,12 +72,22 @@ export function createInkEditor(
 ): InkEditor {
   const context = requireContext(canvas);
   /**
-   * 다 쓴 획만 그려 두는 화면 밖 캔버스. 매 프레임 획 전체를 다시 그리면 필기가 쌓일수록
-   * 프레임이 무거워져 펜을 늦게 따라오므로, 프레임마다 이 그림을 복사하고 진행 중인 획만
-   * 덧그린다. DOM에 붙이지 않으므로 앱이 보는 캔버스는 여전히 하나다.
+   * 다 쓴 획만 그려 두는 캔버스. 앱 캔버스 바로 아래에 겹쳐 두고, 앱 캔버스에는 진행 중인 획만
+   * 그린다. 그러면 펜 이벤트마다 다 쓴 획 그림을 화면 크기 그대로 복사할 필요가 없고, 두 층을
+   * 합치는 일은 브라우저 합성기가 맡는다. 입력은 계속 앱 캔버스가 받는다.
    */
   const committedCanvas = canvas.ownerDocument.createElement("canvas");
   const committedContext = requireContext(committedCanvas, false);
+  committedCanvas.style.setProperty("position", "absolute");
+  committedCanvas.style.setProperty("pointer-events", "none");
+  canvas.before(committedCanvas);
+  // 위치가 지정된 형제는 static 요소 위에 그려지므로, 앱 캔버스도 위치를 줘서 위에 오게 한다.
+  const previousPosition = canvas.style.getPropertyValue("position");
+  if (canvas.ownerDocument.defaultView?.getComputedStyle(canvas).position === "static") {
+    canvas.style.setProperty("position", "relative");
+  }
+  /** 획을 마친 뒤 앱 캔버스의 그 획을 지우기로 예약한 프레임. */
+  let liveClearFrame: number | undefined;
 
   const style: InkStyle = {
     ...DEFAULT_STYLE,
@@ -100,7 +110,7 @@ export function createInkEditor(
   const dynamicEraser = createDynamicEraser();
   let changedWhileErasing = false;
   let redrawFrame: number | undefined;
-  /** 다 쓴 획이 바뀌어(지우기·되돌리기·갈아끼우기·크기 변경) 화면 밖 캔버스를 다시 그려야 한다. */
+  /** 다 쓴 획이 바뀌어(지우기·되돌리기·갈아끼우기·크기 변경) 다 쓴 획 층을 다시 그려야 한다. */
   let committedDirty = true;
   /**
    * 레이아웃 측정값 캐시. 필기 중 `getBoundingClientRect()`를 부르면, 그 사이 앱이 DOM을 건드린
@@ -194,7 +204,6 @@ export function createInkEditor(
       committedDirty = false;
     }
     context.clearRect(0, 0, size.width, size.height);
-    context.drawImage(committedCanvas, 0, 0, size.width, size.height);
     if (current) drawStrokes(context, [current]);
     if (straightLineAnchor && current) {
       context.save();
@@ -317,15 +326,29 @@ export function createInkEditor(
       eraseTo(timedPoint(event, bounds));
     } else {
       appendPoint(event, bounds);
-      // 끝난 획은 화면 밖 캔버스에 덧그리기만 한다. 어차피 통째로 다시 그릴 참이면 건너뛴다.
+      // 끝난 획은 다 쓴 획 층에 덧그리기만 한다. 어차피 통째로 다시 그릴 참이면 건너뛴다.
       if (current && !committedDirty) drawStrokes(committedContext, [current]);
     }
 
     const changed = erasing ? changedWhileErasing : true;
     endGesture();
     cancelScheduledRedraw();
-    redraw();
+    if (erasing) redraw();
+    else clearLiveAfterCommit();
     if (changed) onChange?.(strokes);
+  }
+
+  /**
+   * 다 쓴 획 층(일반 캔버스)은 다음 합성 프레임에야 화면에 나오지만, 앱 캔버스(desynchronized)를
+   * 지우면 곧바로 나간다. 펜을 떼자마자 지우면 획이 한 프레임 사라져 깜빡이므로 두 프레임 뒤에 지운다.
+   */
+  function clearLiveAfterCommit(): void {
+    liveClearFrame = requestAnimationFrame(() => {
+      liveClearFrame = requestAnimationFrame(() => {
+        liveClearFrame = undefined;
+        if (!activeTool) redraw();
+      });
+    });
   }
 
   function replaceStrokes(next: Stroke[]): void {
@@ -345,6 +368,10 @@ export function createInkEditor(
     canvas.height = Math.max(1, Math.floor(bounds.height * ratio));
     committedCanvas.width = canvas.width;
     committedCanvas.height = canvas.height;
+    committedCanvas.style.setProperty("left", `${canvas.offsetLeft}px`);
+    committedCanvas.style.setProperty("top", `${canvas.offsetTop}px`);
+    committedCanvas.style.setProperty("width", `${size.width}px`);
+    committedCanvas.style.setProperty("height", `${size.height}px`);
     // 캔버스 내부 이미지는 물리 픽셀, 좌표는 CSS 픽셀로 유지한다.
     context.setTransform(ratio, 0, 0, ratio, 0, 0);
     committedContext.setTransform(ratio, 0, 0, ratio, 0, 0);
@@ -422,7 +449,11 @@ export function createInkEditor(
     destroy() {
       endGesture();
       cancelScheduledRedraw();
+      if (liveClearFrame !== undefined) cancelAnimationFrame(liveClearFrame);
       observer.disconnect();
+      committedCanvas.remove();
+      if (previousPosition) canvas.style.setProperty("position", previousPosition);
+      else canvas.style.removeProperty("position");
       if (previousToolAttribute === undefined) delete canvas.dataset.tool;
       else canvas.dataset.tool = previousToolAttribute;
       restoreStyle();

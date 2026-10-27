@@ -60,8 +60,15 @@ export function createFakeCanvas(
     dataset: {} as DOMStringMap,
     getContext: () => context2d,
     ownerDocument: {
-      createElement: () => ({ width: 0, height: 0, getContext: () => committedContext }),
+      createElement: () => ({
+        width: 0,
+        height: 0,
+        style: createFakeStyle(),
+        getContext: () => committedContext,
+        remove() {},
+      }),
     },
+    before() {},
     getBoundingClientRect: () => ({ left: 0, top: 0, width, height }),
     setPointerCapture() {
       // 포인터가 이미 놓였으면 브라우저가 실제로 이렇게 던진다.
