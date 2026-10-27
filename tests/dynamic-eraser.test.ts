@@ -20,11 +20,19 @@ function move(
   return { x, t, diameters };
 }
 
-test("느리게 움직이면 최소 지름에 머문다", () => {
+test.each([0.2, 0.4])("느리게 움직이면 최소 지름에 머문다 (%s px/ms)", (speed) => {
   const eraser = createDynamicEraser();
   expect(eraser.next({ x: 0, y: 0, t: 0 })).toBe(20);
-  const { diameters } = move(eraser, { x: 0, t: 0 }, 0.2, 1000, 8);
+  const { diameters } = move(eraser, { x: 0, t: 0 }, speed, 1000, 8);
   expect(Math.max(...diameters)).toBe(20);
+});
+
+test("보통 속도로 움직여도 일찍 커지기 시작한다", () => {
+  const eraser = createDynamicEraser();
+  eraser.next({ x: 0, y: 0, t: 0 });
+  const { diameters } = move(eraser, { x: 0, t: 0 }, 1, 304, 8);
+  expect(diameters[Math.floor(150 / 8) - 1]).toBeGreaterThan(25);
+  expect(diameters.at(-1)).toBeGreaterThan(35);
 });
 
 test("빠르게 문지르면 점점 커져 최대 지름 이하로 수렴한다", () => {
@@ -50,7 +58,7 @@ test("빠르게 지우다 멈춰도 천천히 작아진다", () => {
   expect(slow.diameters.at(-1)).toBeGreaterThan(peak * 0.6);
   // 멈춘 직후 100ms 동안은 거의 줄지 않는다.
   expect(slow.diameters[Math.floor(100 / 8) - 1]).toBeGreaterThan(peak * 0.95);
-  const later = move(eraser, slow, 0, 3000, 8);
+  const later = move(eraser, slow, 0, 4000, 8);
   expect(later.diameters.at(-1)).toBeLessThan(25);
 });
 

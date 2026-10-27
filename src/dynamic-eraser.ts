@@ -6,8 +6,8 @@ const MAX_DIAMETER = 180;
 /** 속도(px/ms). `MIN_SPEED` 이하는 항상 최소 지름, `MAX_SPEED` 이상은 항상 최대 지름. */
 const MIN_SPEED = 0.4;
 const MAX_SPEED = 2.5;
-/** 속도 비율에 거듭제곱을 씌워, 빠를수록 같은 속도 증가에 지름이 더 많이 커지게 한다. */
-const CURVE = 3;
+/** 느린 움직임의 정밀함을 유지하면서 보통 속도에서도 지름이 눈에 띄게 커지도록 한다. */
+const CURVE = 1.5;
 /** 커질 때와 작아질 때의 시간 상수(ms). 커지는 쪽이 빨라야 하고, 작아지는 쪽은 느려야 한다. */
 const TAU_UP = 150;
 const TAU_DOWN = 1400;
