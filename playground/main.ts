@@ -380,6 +380,7 @@ function containsPoint(element: HTMLElement, x: number, y: number): boolean {
 /** 진단용: 실제로 도착한 이벤트를 그대로 보여준다 — 막힌 터치는 로그에도 안 남으니,
  * "이후로 로그가 없다"도 유의미한 신호다. */
 function logDebug(message: string): void {
+  if (!debugPanel.open) return;
   const now = new Date();
   const time = [now.getHours(), now.getMinutes(), now.getSeconds()]
     .map((n) => String(n).padStart(2, "0"))

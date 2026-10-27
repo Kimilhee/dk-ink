@@ -117,6 +117,7 @@ export function attachPenFlip(
 
   function syncIcon(): void {
     const erasing = editor.tool === "eraser";
+    if (icon.classList.contains("is-flipped") === erasing) return;
     icon.classList.toggle("is-flipped", erasing);
     icon.setAttribute(
       "aria-label",
@@ -125,10 +126,10 @@ export function attachPenFlip(
   }
 
   function hide(): void {
-    icon.classList.remove("is-erasing");
+    if (icon.classList.contains("is-erasing")) icon.classList.remove("is-erasing");
     cancelFollow();
     penPress = undefined;
-    icon.hidden = true;
+    if (!icon.hidden) icon.hidden = true;
   }
 
   function moveTo(x: number, y: number): void {
