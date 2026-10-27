@@ -102,6 +102,13 @@ export function createInkEditor(
   let redrawFrame: number | undefined;
   /** 다 쓴 획이 바뀌어(지우기·되돌리기·갈아끼우기·크기 변경) 화면 밖 캔버스를 다시 그려야 한다. */
   let committedDirty = true;
+  /**
+   * 레이아웃 측정값 캐시. 필기 중 `getBoundingClientRect()`를 부르면, 그 사이 앱이 DOM을 건드린
+   * 경우 브라우저가 레이아웃을 동기로 다시 계산해 프레임을 놓친다. 크기는 `resize`에서만,
+   * 위치는 획을 시작할 때 한 번만 잰다 — 획 도중에는 캔버스가 스크롤되지 않는다(`touch-action: none`).
+   */
+  let size = { width: 0, height: 0 };
+  let gestureOrigin = { left: 0, top: 0 };
 
   function cancelHold(): void {
     clearTimeout(holdTimer);
@@ -126,10 +133,8 @@ export function createInkEditor(
   /**
    * 이벤트 하나를 캔버스 안의 점으로 바꾼다.
    *
-   * `bounds`를 안에서 구하지 않고 바깥에서 받는 이유: 뭉친 이벤트(`coalesced`)와 예측 이벤트를
-   * 풀면 한 번의 `pointermove` 안에서 이 함수가 여러 번 불리는데, 같은 이벤트 처리 중에는
-   * 캔버스 위치가 바뀌지 않으므로 이벤트당 한 번만 재서 나눠 쓰는 편이 낫다. 그렇다고 `resize`
-   * 때만 캐시해 두면 스크롤로 캔버스 위치가 옮겨졌을 때 좌표가 어긋난다.
+   * `bounds`는 획을 시작할 때 잰 `gestureOrigin`이다. `resize` 때만 캐시해 두면 스크롤로
+   * 캔버스 위치가 옮겨졌을 때 좌표가 어긋나므로 획마다 다시 잰다.
    */
   function timedPoint(event: PointerEvent, bounds: { left: number; top: number }): InkPoint {
     // `performance.now()`가 아니라 이벤트가 들고 온 시각을 쓴다. 뭉친 이벤트는 한 프레임에
@@ -183,14 +188,13 @@ export function createInkEditor(
   }
 
   function redraw(): void {
-    const bounds = canvas.getBoundingClientRect();
     if (committedDirty) {
       // 진행 중인 획은 `strokes` 끝에 들어 있지만 아직 다 쓴 획이 아니다.
-      renderStrokes(committedContext, current ? strokes.slice(0, -1) : strokes, bounds);
+      renderStrokes(committedContext, current ? strokes.slice(0, -1) : strokes, size);
       committedDirty = false;
     }
-    context.clearRect(0, 0, bounds.width, bounds.height);
-    context.drawImage(committedCanvas, 0, 0, bounds.width, bounds.height);
+    context.clearRect(0, 0, size.width, size.height);
+    context.drawImage(committedCanvas, 0, 0, size.width, size.height);
     if (current) drawStrokes(context, [current]);
     if (straightLineAnchor && current) {
       context.save();
@@ -257,7 +261,8 @@ export function createInkEditor(
     event.preventDefault();
     capturePointer(event.pointerId);
 
-    const bounds = canvas.getBoundingClientRect();
+    gestureOrigin = canvas.getBoundingClientRect();
+    const bounds = gestureOrigin;
     if (activeTool === "eraser") {
       eraseTo(timedPoint(event, bounds));
       scheduleRedraw();
@@ -289,7 +294,7 @@ export function createInkEditor(
     // 이벤트 자신이 유일한 점이다 — 빈 배열을 그대로 쓰면 획이 시작·끝점만 남는다.
     const coalesced = event.getCoalescedEvents?.();
     const events = coalesced?.length ? coalesced : [event];
-    const bounds = canvas.getBoundingClientRect();
+    const bounds = gestureOrigin;
 
     if (activeTool === "eraser") {
       for (const sample of events) eraseTo(timedPoint(sample, bounds));
@@ -306,7 +311,7 @@ export function createInkEditor(
     if (!activeTool || event.pointerId !== activePointerId) return;
     event.preventDefault();
     const erasing = activeTool === "eraser";
-    const bounds = canvas.getBoundingClientRect();
+    const bounds = gestureOrigin;
 
     if (erasing) {
       eraseTo(timedPoint(event, bounds));
@@ -334,6 +339,7 @@ export function createInkEditor(
 
   function resize(): void {
     const bounds = canvas.getBoundingClientRect();
+    size = { width: bounds.width, height: bounds.height };
     const ratio = window.devicePixelRatio || 1;
     canvas.width = Math.max(1, Math.floor(bounds.width * ratio));
     canvas.height = Math.max(1, Math.floor(bounds.height * ratio));
