@@ -73,6 +73,12 @@ canvas.addEventListener("pointerdown", (event) => {
   event.preventDefault();
 });
 
+// 비교 실험: `?desync=off`이면 저지연 캔버스를 끈다. 에디터보다 먼저 컨텍스트를 만들어 두면
+// 에디터의 `getContext`가 이 컨텍스트를 그대로 돌려받는다.
+if (new URLSearchParams(location.search).get("desync") === "off") {
+  canvas.getContext("2d", { desynchronized: false });
+}
+
 const editor = createInkEditor(canvas, {
   // 저장된 색이 지금 견본에 없으면(예전 색) 첫 견본 색으로 시작한다.
   color:
