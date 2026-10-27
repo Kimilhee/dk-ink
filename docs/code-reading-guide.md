@@ -24,7 +24,7 @@
 
 **읽기:** [`src/editor.ts`](../src/editor.ts)의 `pointerDown`, `pointerMove`, `pointerUp`, `timedPoint`, `scheduleRedraw`, `redrawNow`와 [`tests/editor.test.ts`](../tests/editor.test.ts).
 
-**해보기:** 펜으로 천천히 선 하나를 긋고 `pointerdown → pointermove → pointerup`에서 `strokes`가 어떻게 바뀌는지 종이에 3줄로 적는다. `getCoalescedEvents()`가 여러 점을 돌려줄 때의 반복문도 찾는다.
+**해보기:** 펜으로 천천히 선 하나를 긋고 `pointerdown → pointermove → pointerup`에서 `strokes`가 어떻게 바뀌는지 종이에 3줄로 적는다. `getCoalescedEvents()`가 여러 점을 돌려줄 때의 반복문도 찾는다. 한 점에서 길게 누르면 직선 모드로 바뀌는 `holdTimer`(`straightLineDelay`, 기본 700ms)와 [`tests/straight-line.test.ts`](../tests/straight-line.test.ts)도 확인한다.
 
 **완료 조건:** 왜 `pointerDown`에서 변경 전 획을 이력에 넣는지, `onChange`가 이동할 때마다 불리지 않고 종료 시 호출되는지 설명한다. 한 제스처 중 도구를 바꿔도 `activeTool`이 고정된다는 점과, 왜 `getBoundingClientRect()`를 샘플마다 부르지 않고 이벤트당 한 번만 구하는지 찾는다.
 
@@ -42,11 +42,11 @@
 
 **그림:** [지우개 동작 흐름도](https://kimilhee.github.io/dk-ink/analysis/eraser-workflow.html). `교차함`과 `교차 안 함` 두 갈래를 따라간다.
 
-**읽기:** [`src/editor.ts`](../src/editor.ts)의 `eraseTo`와 지우개 분기, [`src/erase.ts`](../src/erase.ts)의 `eraseStrokes`, `intersectsEraser`, `splitOutsideEraser`, [`tests/erase.test.ts`](../tests/erase.test.ts).
+**읽기:** [`src/editor.ts`](../src/editor.ts)의 `eraseTo`와 지우개 분기, [`src/dynamic-eraser.ts`](../src/dynamic-eraser.ts)의 `createDynamicEraser`, [`src/erase.ts`](../src/erase.ts)의 `eraseStrokes`, `intersectsEraser`, `splitOutsideEraser`, [`tests/erase.test.ts`](../tests/erase.test.ts), [`tests/dynamic-eraser.test.ts`](../tests/dynamic-eraser.test.ts).
 
 **해보기:** 긴 선 하나를 그리고 가운데를 지운다. JSON에서 획이 둘로 나뉘는지 확인한다. 코드에서 실제로 지워지는 첫 순간에만 이력을 저장하는 위치와, `changed`가 `false`이면 redo가 보존되는 경로를 찾는다.
 
-**완료 조건:** 지우개가 이미지 픽셀을 지우는 방식이 아니라 기존 `Stroke`를 조각으로 바꾼다는 점을 설명한다. 분할된 조각이 원래 `style`을 이어받는 위치를 찾는다.
+**완료 조건:** 지우개가 이미지 픽셀을 지우는 방식이 아니라 기존 `Stroke`를 조각으로 바꾼다는 점을 설명한다. 분할된 조각이 원래 `style`을 이어받는 위치를 찾는다. `dynamicEraser`가 켜졌을 때 지름이 속도로 정해지고, 두 점의 지름 중 큰 쪽으로 선분을 훑는 이유(`sweepDiameter`)를 설명한다.
 
 ## 5. 되돌리기와 외부에서 상태 바꾸기
 
@@ -64,7 +64,7 @@
 
 **해보기:** 캔버스 크기를 바꿔도 획 좌표가 유지되는 경로를 따라간다. `destroy()`가 해제하는 리스너와 `ResizeObserver`, 되돌리는 인라인 스타일을 목록으로 적는다.
 
-**완료 조건:** 앱이 담당하는 UI·설정과 라이브러리가 담당하는 입력·획·렌더링의 경계를 설명한다. [`playground/pen-flip.ts`](../playground/pen-flip.ts)와 [`playground/pen-hover.ts`](../playground/pen-hover.ts)를 따라, 펜 아이콘을 한 번 탭하면(8px 이하로 움직이고 떼면) 20px 지우개가 되고 한 번 누르고 떼면 펜으로 돌아오는 경로를 확인한다.
+**완료 조건:** 앱이 담당하는 UI·설정과 라이브러리가 담당하는 입력·획·렌더링의 경계를 설명한다. [`playground/pen-flip.ts`](../playground/pen-flip.ts)와 [`playground/pen-hover.ts`](../playground/pen-hover.ts)를 따라, 펜 아이콘을 한 번 탭하면(8px 이하로 움직이고 300ms 안에 떼면) 20px 지우개가 되고 한 번 누르고 떼면 펜으로 돌아오는 경로를 확인한다.
 
 ## 마지막 점검
 
@@ -75,4 +75,4 @@
 3. 색을 바꾼 뒤에도 이전 선 색이 유지되는 이유는 무엇인가?
 4. 앱에서 에디터를 제거할 때 `destroy()`는 무엇을 정리하는가?
 
-그다음 작은 실습으로 기본 펜 색을 바꿔 보고, 시험용 앱에서 새 획에만 적용되는지 확인한다. `vp test`와 `vp check`가 통과하면 코드 흐름을 실제로 따라간 것이다.
+그다음 작은 실습으로 기본 펜 색을 바꿔 보고, 시험용 앱에서 새 획에만 적용되는지 확인한다. [펜·지우개 단계별 보기](https://kimilhee.github.io/dk-ink/algorithm.html)에서 윤곽선과 지우개 계산을 눈으로 따라가 볼 수도 있다. `vp test`와 `vp check`가 통과하면 코드 흐름을 실제로 따라간 것이다.

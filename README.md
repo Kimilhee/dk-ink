@@ -9,6 +9,8 @@
   하나뿐이라 점마다 굵기를 못 주므로, 윤곽을 만들어 채운다.
 - **벡터 지우개** — 획 단위로 지우지 않고 지나간 자리만 잘라낸다. 글자 가운데를 지나가면
   획이 두 조각으로 남는다.
+- **동적 지우개** — `dynamicEraser`를 켜면 지우개를 빠르게 문지를수록 지름이 커지고(20~180px)
+  느리게 움직이면 작아진다. 켜면 `eraserWidth`는 쓰지 않는다.
 - **되돌리기 / 다시 실행** — 획 묶음 스냅샷 스택.
 - **뭉친 이벤트 복원** — 저사양 기기는 포인터 이벤트를 뭉쳐 보낸다.
   `getCoalescedEvents()`까지 풀어서 궤적이 각지지 않게 한다.
@@ -68,7 +70,7 @@ editor.destroy();
 | `canUndo` / `canRedo`              | 버튼 활성 상태에 쓴다.                                                                             |
 | `getStrokes()`                     | 내부 상태와 분리된 복사본.                                                                         |
 | `setStrokes(strokes, options?)`    | 통째로 교체. `{ recordHistory: false }`면 되돌리기 이력을 건너뛴다.                                |
-| `getStyle()` / `setStyle(partial)` | 색·굵기·모드·지우개 지름.                                                                          |
+| `getStyle()` / `setStyle(partial)` | 색·굵기·모드·지우개 설정.                                                                          |
 | `undo()` / `redo()` / `clear()`    | 바뀐 게 있으면 `true`.                                                                             |
 | `resize()`                         | `ResizeObserver`가 부르므로 보통 직접 쓸 일이 없다.                                                |
 | `destroy()`                        | 리스너·옵저버 해제, 이력 비움, 캔버스 스타일·`data-tool`을 부착 이전으로 복원. 그린 내용은 그대로. |
@@ -85,6 +87,7 @@ editor.destroy();
 | `holdToStraightLine`                      | `true` (길게 누르면 직선)    |
 | `straightLineDelay`                       | `700` (대기 시간, ms)        |
 | `eraserWidth`                             | `50`                         |
+| `dynamicEraser`                           | `false` (속도로 지름 결정)   |
 | `showEraserCursor`                        | `true`                       |
 | `eraserCursorFill` / `eraserCursorStroke` | 청록 계열                    |
 | `historyLimit`                            | `50` (`0`이면 되돌리기 없음) |
@@ -114,8 +117,8 @@ type StrokeStyle = { color: string; strokeWidth: number; widthMode: WidthMode; o
 ### 하위 함수
 
 에디터를 쓰지 않고 직접 조립할 때 쓸 순수 함수도 내보낸다:
-`eraseStrokes` · `renderStrokes` · `drawOutlineStroke` · `drawEraserCursor` ·
-`pressureWidth` · `cloneStrokes` · `createInkHistory`.
+`eraseStrokes` · `renderStrokes` · `drawStaticLineStroke` · `drawOutlineStroke` ·
+`drawEraserCursor` · `pressureWidth` · `cloneStrokes` · `createInkHistory` · `createDynamicEraser`.
 
 `createInkHistory`의 스냅샷은 배열만 복사하고 획 객체를 공유한다. 넘긴 획을 나중에 고칠
 거라면 `cloneStrokes`로 복사해서 넘긴다.
