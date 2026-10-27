@@ -46,12 +46,13 @@ export function createFakeCanvas(
       cursorDrawCount += 1;
     },
   });
-  // 에디터가 만드는 화면 밖 캔버스(다 쓴 획 층).
+  // 에디터가 만드는 층 캔버스. 첫 번째가 다 쓴 획 층, 그다음이 마르는 층이다.
   const committedContext = createFakeContext({
     clearRect() {
       committedRenderCount += 1;
     },
   });
+  const layerContexts = [committedContext, createFakeContext({})];
 
   const canvas = {
     width,
@@ -60,13 +61,16 @@ export function createFakeCanvas(
     dataset: {} as DOMStringMap,
     getContext: () => context2d,
     ownerDocument: {
-      createElement: () => ({
-        width: 0,
-        height: 0,
-        style: createFakeStyle(),
-        getContext: () => committedContext,
-        remove() {},
-      }),
+      createElement: () => {
+        const layerContext = layerContexts.shift() ?? createFakeContext({});
+        return {
+          width: 0,
+          height: 0,
+          style: createFakeStyle(),
+          getContext: () => layerContext,
+          remove() {},
+        };
+      },
     },
     before() {},
     getBoundingClientRect: () => ({ left: 0, top: 0, width, height }),
@@ -140,11 +144,8 @@ function createFakeContext(overrides: Record<string, () => void>): CanvasRenderi
     "fill",
     "stroke",
     "setLineDash",
-    "fillRect",
   ];
-  const target: Record<string, unknown> = {
-    getImageData: () => ({ data: [0, 0, 0, 255] }),
-  };
+  const target: Record<string, unknown> = {};
   for (const name of methods) target[name] = overrides[name] ?? (() => {});
   return target as unknown as CanvasRenderingContext2D;
 }

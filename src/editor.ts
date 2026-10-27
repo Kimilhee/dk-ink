@@ -12,6 +12,10 @@ import type {
   StrokeStyle,
 } from "./types.ts";
 
+/** 펜을 뗀 뒤 획이 마르기 시작할 때까지와, 다 마르는 데 걸리는 시간. */
+const DRY_DELAY_MS = 500;
+const DRY_DURATION_MS = 1000;
+
 const DEFAULT_STYLE: InkStyle = {
   color: "#1d4ed8",
   strokeWidth: 3,
@@ -74,21 +78,28 @@ export function createInkEditor(
   const context = requireContext(canvas);
   /**
    * 다 쓴 획만 그려 두는 캔버스. 앱 캔버스 바로 아래에 겹쳐 두고, 앱 캔버스에는 진행 중인 획만
-   * 그린다. 그러면 펜 이벤트마다 다 쓴 획 그림을 화면 크기 그대로 복사할 필요가 없고, 두 층을
+   * 그린다. 그러면 펜 이벤트마다 다 쓴 획 그림을 화면 크기 그대로 복사할 필요가 없고, 층을
    * 합치는 일은 브라우저 합성기가 맡는다. 입력은 계속 앱 캔버스가 받는다.
    */
-  const committedCanvas = canvas.ownerDocument.createElement("canvas");
+  const committedCanvas = createLayer(canvas);
   const committedContext = requireContext(committedCanvas, false);
-  committedCanvas.style.setProperty("position", "absolute");
-  committedCanvas.style.setProperty("pointer-events", "none");
-  canvas.before(committedCanvas);
+  /**
+   * 막 끝난 획이 "마르는" 동안 머무는 층. 다 쓴 획 층과 같은 일반 캔버스라, 다 마른 획을 그쪽으로
+   * 옮길 때 두 층이 같은 프레임에 함께 바뀌어 깜빡이지 않는다.
+   */
+  const dryingCanvas = createLayer(canvas);
+  const dryingContext = requireContext(dryingCanvas, false);
+  let drying: Array<{ stroke: Stroke; endedAt: number }> = [];
+  let dryFrame: number | undefined;
+  /** 마르는 층에 새 획이 들어와 다시 그려야 한다. */
+  let dryingStale = false;
+  /** 앱 캔버스에 함께 그려 둔, 아직 마르기 시작하지 않은 획의 수. */
+  let liveWetCount = 0;
   // 위치가 지정된 형제는 static 요소 위에 그려지므로, 앱 캔버스도 위치를 줘서 위에 오게 한다.
   const previousPosition = canvas.style.getPropertyValue("position");
   if (canvas.ownerDocument.defaultView?.getComputedStyle(canvas).position === "static") {
     canvas.style.setProperty("position", "relative");
   }
-  /** 획을 마친 뒤 앱 캔버스의 그 획을 지우기로 예약한 프레임. */
-  let liveClearFrame: number | undefined;
 
   const style: InkStyle = {
     ...DEFAULT_STYLE,
@@ -204,9 +215,22 @@ export function createInkEditor(
       // 진행 중인 획은 `strokes` 끝에 들어 있지만 아직 다 쓴 획이 아니다.
       renderStrokes(committedContext, current ? strokes.slice(0, -1) : strokes, size);
       committedDirty = false;
+      // 마르던 획도 방금 다 쓴 획 층에 들어갔다. 마르는 층에 남기면 두 번 그려진다.
+      drying = [];
+      dryingContext.clearRect(0, 0, size.width, size.height);
     }
     context.clearRect(0, 0, size.width, size.height);
-    if (current) drawStrokes(context, [wetStroke(current)]);
+    // 펜을 뗀 획은 마르기 시작할 때까지 앱 캔버스에도 그대로 둔다. 마르는 층(일반 캔버스)은
+    // 앱 캔버스(desynchronized)보다 늦게 화면에 나오므로, 바로 지우면 그사이 획이 한 프레임
+    // 사라진다. 두 층 모두 불투명하게 보이는 상태라(`drawInk`) 겹쳐 있어도 변하지 않는다.
+    const now = performance.now();
+    liveWetCount = 0;
+    for (const entry of drying) {
+      if (dryProgress(entry, now) > 0) continue;
+      drawInk(context, entry.stroke, 1);
+      liveWetCount += 1;
+    }
+    if (current) drawInk(context, current, 1);
     if (straightLineAnchor && current) {
       context.save();
       context.beginPath();
@@ -328,45 +352,72 @@ export function createInkEditor(
       eraseTo(timedPoint(event, bounds));
     } else {
       appendPoint(event, bounds);
-      // 끝난 획은 다 쓴 획 층에 덧그리기만 한다. 어차피 통째로 다시 그릴 참이면 건너뛴다.
-      if (current && !committedDirty) drawStrokes(committedContext, [current]);
+      // 끝난 획은 마르는 층으로 보낸다. 어차피 다 쓴 획 층을 통째로 다시 그릴 참이면 건너뛴다.
+      if (current && !committedDirty) startDrying(current);
     }
 
     const changed = erasing ? changedWhileErasing : true;
     endGesture();
     cancelScheduledRedraw();
-    if (erasing) redraw();
-    else clearLiveAfterCommit();
+    redraw();
     if (changed) onChange?.(strokes);
   }
 
   /**
-   * 다 쓴 획 층(일반 캔버스)은 다음 합성 프레임에야 화면에 나오지만, 앱 캔버스(desynchronized)를
-   * 지우면 곧바로 나간다. 즉시 지우면 획이 한 프레임 사라지므로 두 프레임 뒤에 지운다. 앱 캔버스의
-   * 획은 불투명(`wetStroke`)이라 그동안 두 층에 겹쳐도 진해지지 않는다.
+   * 획 모양대로 배경색을 `underlay`만큼 깔고 그 위에 반투명 잉크를 칠한다. `underlay`가 1이면
+   * 아래가 가려져 바탕 위에 칠한 것과 같은 색의 불투명 획이 되고, 0이면 원래 반투명 획이다.
+   * 쓰는 중에는 1이었다가 펜을 떼면 0으로 서서히 줄어, 잉크가 마르듯 아래 글자가 비쳐 나온다.
    */
-  function clearLiveAfterCommit(): void {
-    liveClearFrame = requestAnimationFrame(() => {
-      liveClearFrame = requestAnimationFrame(() => {
-        liveClearFrame = undefined;
-        if (!activeTool) redraw();
-      });
-    });
+  function drawInk(target: CanvasRenderingContext2D, stroke: Stroke, underlay: number): void {
+    if (underlay > 0 && stroke.style.opacity < 1) {
+      drawStrokes(target, [
+        { ...stroke, style: { ...stroke.style, color: background, opacity: underlay } },
+      ]);
+    }
+    drawStrokes(target, [stroke]);
+  }
+
+  function startDrying(stroke: Stroke): void {
+    drying.push({ stroke, endedAt: performance.now() });
+    dryingStale = true;
+    renderDrying();
+  }
+
+  /** 0이면 아직 마르기 전, 1이면 다 마름. */
+  function dryProgress({ endedAt }: { endedAt: number }, now: number): number {
+    return Math.min(1, Math.max(0, (now - endedAt - DRY_DELAY_MS) / DRY_DURATION_MS));
   }
 
   /**
-   * 쓰는 중인 획은 반투명 대신, 배경 위에 반투명으로 칠한 것과 같은 색의 불투명으로 그린다.
-   * 반투명 획은 두 층에 겹치는 순간 진해져 깜빡이지만 불투명 획은 겹쳐도 그대로다.
+   * 마르는 층을 다시 그린다. 다 마른 획은 같은 순간 다 쓴 획 층으로 옮겨 두 층이 함께 바뀌게 한다.
+   * 마르기 전 대기 중에는 모습이 그대로이므로 새 획이 들어왔을 때만 그린다.
    */
-  function wetStroke(stroke: Stroke): Stroke {
-    if (stroke.style.opacity >= 1) return stroke;
-    return {
-      ...stroke,
-      style: { ...stroke.style, color: blendOverBackground(stroke.style), opacity: 1 },
-    };
+  function renderDrying(): void {
+    const now = performance.now();
+    if (dryingStale || drying.some((entry) => dryProgress(entry, now) > 0)) {
+      dryingStale = false;
+      dryingContext.clearRect(0, 0, size.width, size.height);
+      drying = drying.filter((entry) => {
+        const progress = dryProgress(entry, now);
+        if (progress < 1) {
+          drawInk(dryingContext, entry.stroke, 1 - progress);
+          return true;
+        }
+        if (!committedDirty) drawStrokes(committedContext, [entry.stroke]);
+        return false;
+      });
+    }
+    if (drying.length > 0 && dryFrame === undefined) {
+      dryFrame = requestAnimationFrame(() => {
+        dryFrame = undefined;
+        renderDrying();
+        // 마르기 시작한 획은 앱 캔버스에서 걷어 마르는 층의 모습이 보이게 한다.
+        const wet = drying.filter((entry) => dryProgress(entry, performance.now()) === 0).length;
+        if (wet !== liveWetCount) redraw();
+      });
+    }
   }
 
-  const blendCache = new Map<string, string>();
   /**
    * 캔버스 뒤에 보이는 배경색. 투명하지 않은 배경을 가진 가장 가까운 조상의 색이다.
    * 필기 중 스타일을 읽으면 강제 재계산이 생기므로 `resize`에서만 잰다.
@@ -378,26 +429,6 @@ export function createInkEditor(
       if (color && color !== "transparent" && !color.endsWith(", 0)")) return color;
     }
     return "#fff";
-  }
-
-  /** 브라우저가 실제로 섞은 색을 1×1 캔버스에서 읽어 반투명 획과 정확히 같은 색을 얻는다. */
-  function blendOverBackground({ color, opacity }: StrokeStyle): string {
-    const key = `${color}|${opacity}|${background}`;
-    const cached = blendCache.get(key);
-    if (cached) return cached;
-    const swatch = canvas.ownerDocument.createElement("canvas");
-    swatch.width = 1;
-    swatch.height = 1;
-    const swatchContext = requireContext(swatch, false);
-    swatchContext.fillStyle = background;
-    swatchContext.fillRect(0, 0, 1, 1);
-    swatchContext.globalAlpha = opacity;
-    swatchContext.fillStyle = color;
-    swatchContext.fillRect(0, 0, 1, 1);
-    const [red, green, blue] = swatchContext.getImageData(0, 0, 1, 1).data;
-    const blended = `rgb(${red} ${green} ${blue})`;
-    blendCache.set(key, blended);
-    return blended;
   }
 
   function replaceStrokes(next: Stroke[]): void {
@@ -416,15 +447,18 @@ export function createInkEditor(
     const ratio = window.devicePixelRatio || 1;
     canvas.width = Math.max(1, Math.floor(bounds.width * ratio));
     canvas.height = Math.max(1, Math.floor(bounds.height * ratio));
-    committedCanvas.width = canvas.width;
-    committedCanvas.height = canvas.height;
-    committedCanvas.style.setProperty("left", `${canvas.offsetLeft}px`);
-    committedCanvas.style.setProperty("top", `${canvas.offsetTop}px`);
-    committedCanvas.style.setProperty("width", `${size.width}px`);
-    committedCanvas.style.setProperty("height", `${size.height}px`);
+    for (const layer of [committedCanvas, dryingCanvas]) {
+      layer.width = canvas.width;
+      layer.height = canvas.height;
+      layer.style.setProperty("left", `${canvas.offsetLeft}px`);
+      layer.style.setProperty("top", `${canvas.offsetTop}px`);
+      layer.style.setProperty("width", `${size.width}px`);
+      layer.style.setProperty("height", `${size.height}px`);
+    }
     // 캔버스 내부 이미지는 물리 픽셀, 좌표는 CSS 픽셀로 유지한다.
-    context.setTransform(ratio, 0, 0, ratio, 0, 0);
-    committedContext.setTransform(ratio, 0, 0, ratio, 0, 0);
+    for (const target of [context, committedContext, dryingContext]) {
+      target.setTransform(ratio, 0, 0, ratio, 0, 0);
+    }
     committedDirty = true;
     redraw();
   }
@@ -499,9 +533,10 @@ export function createInkEditor(
     destroy() {
       endGesture();
       cancelScheduledRedraw();
-      if (liveClearFrame !== undefined) cancelAnimationFrame(liveClearFrame);
+      if (dryFrame !== undefined) cancelAnimationFrame(dryFrame);
       observer.disconnect();
       committedCanvas.remove();
+      dryingCanvas.remove();
       if (previousPosition) canvas.style.setProperty("position", previousPosition);
       else canvas.style.removeProperty("position");
       if (previousToolAttribute === undefined) delete canvas.dataset.tool;
@@ -537,6 +572,15 @@ function applyRequiredStyle(canvas: HTMLCanvasElement): () => void {
       else canvas.style.removeProperty(name);
     }
   };
+}
+
+/** 앱 캔버스 바로 아래에 겹치는 그리기 전용 캔버스를 붙인다. 입력은 앱 캔버스가 받는다. */
+function createLayer(canvas: HTMLCanvasElement): HTMLCanvasElement {
+  const layer = canvas.ownerDocument.createElement("canvas");
+  layer.style.setProperty("position", "absolute");
+  layer.style.setProperty("pointer-events", "none");
+  canvas.before(layer);
+  return layer;
 }
 
 /**
