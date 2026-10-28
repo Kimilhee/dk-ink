@@ -12,6 +12,8 @@ export type FakeCanvas = {
   readonly committedRenderCount: number;
   /** 점선 원(지우개 커서)이 그려진 횟수. setLineDash는 커서만 쓴다. */
   readonly cursorDrawCount: number;
+  /** 앱 캔버스에 칠한(fill·stroke) 횟수. */
+  readonly paintCount: number;
 };
 
 export type FakePointerInit = {
@@ -36,6 +38,7 @@ export function createFakeCanvas(
   let renderCount = 0;
   let cursorDrawCount = 0;
   let committedRenderCount = 0;
+  let paintCount = 0;
   let clock = 0;
 
   const context2d = createFakeContext({
@@ -44,6 +47,12 @@ export function createFakeCanvas(
     },
     setLineDash() {
       cursorDrawCount += 1;
+    },
+    fill() {
+      paintCount += 1;
+    },
+    stroke() {
+      paintCount += 1;
     },
   });
   // 에디터가 만드는 층 캔버스. 첫 번째가 다 쓴 획 층, 그다음이 마르는 층이다.
@@ -123,6 +132,9 @@ export function createFakeCanvas(
     },
     get cursorDrawCount() {
       return cursorDrawCount;
+    },
+    get paintCount() {
+      return paintCount;
     },
   };
 }

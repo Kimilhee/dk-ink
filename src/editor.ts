@@ -470,6 +470,9 @@ export function createInkEditor(
       cancelScheduledRedraw();
       drying.dispose();
       observer.disconnect();
+      // 다 쓴 획은 곧 떼어낼 아래 층에 있다. "그려진 내용은 지우지 않는다"는 약속을 지키려면
+      // 남는 캔버스에 옮겨 그려야 한다. 젖은 획을 덮어 그리지 않도록 비우고 원래 모습으로 그린다.
+      renderStrokes(context, strokes, size);
       committedCanvas.remove();
       dryingCanvas.remove();
       if (previousPosition) canvas.style.setProperty("position", previousPosition);

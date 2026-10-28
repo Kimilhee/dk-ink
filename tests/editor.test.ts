@@ -307,6 +307,13 @@ test("도구를 data-tool 속성으로 노출한다", () => {
   expect(fake.canvas.dataset.tool).toBe("eraser");
 });
 
+test("destroy는 아래 층의 다 쓴 획을 남는 캔버스로 옮겨 그린다", () => {
+  editor.setStrokes([{ points: [{ x: 10, y: 10, t: 0 }], style: editorStrokeStyle() }]);
+  const before = fake.paintCount;
+  editor.destroy();
+  expect(fake.paintCount).toBeGreaterThan(before);
+});
+
 test("destroy 이후에는 입력을 받지 않는다", () => {
   editor.destroy();
   drawStroke();
