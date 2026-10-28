@@ -32,11 +32,11 @@
 
 **그림:** [렌더링 데이터 흐름도](https://kimilhee.github.io/dk-ink/analysis/render-dataflow.html). `pressure`와 `constant` 두 경로를 비교한다.
 
-**읽기:** [`src/render.ts`](../src/render.ts)의 `renderStrokes`, `drawStaticLineStroke`, [`src/outline.ts`](../src/outline.ts)의 `drawOutlineStroke`, `pressureWidth`, [`tests/render.test.ts`](../tests/render.test.ts).
+**읽기:** [`src/render.ts`](../src/render.ts)의 `renderStrokes`, `drawStaticLineStroke`, `drawInk`, [`src/drying.ts`](../src/drying.ts)의 `createDryingLayer`, [`src/outline.ts`](../src/outline.ts)의 `drawOutlineStroke`, `pressureWidth`, [`tests/render.test.ts`](../tests/render.test.ts).
 
 **해보기:** 시험용 앱에서 `필압적용`과 `고정두께`를 번갈아 고른 뒤 선을 그린다. 코드에서 두 모드가 갈라지는 조건을 찾는다.
 
-**완료 조건:** 왜 `renderStrokes`가 전체를 지우고 다시 그리는지, 필압 모드에서는 왜 `lineWidth` 대신 채운 윤곽선이 필요한지 설명한다. `resize()`가 CSS 픽셀 좌표와 DPR 백버퍼를 어떻게 연결하는지도 확인한다. `editor.ts`의 `redraw`가 다 쓴 획을 앱 캔버스 아래에 겹친 캔버스(`committedCanvas`)에 모아 두고, 앱 캔버스에는 진행 중인 획만 그리는 이유도 설명한다([스트로크 캐싱](./stroke-cache.md)).
+**완료 조건:** 왜 `renderStrokes`가 전체를 지우고 다시 그리는지, 필압 모드에서는 왜 `lineWidth` 대신 채운 윤곽선이 필요한지 설명한다. `resize()`가 CSS 픽셀 좌표와 DPR 백버퍼를 어떻게 연결하는지도 확인한다. `editor.ts`의 `redraw`가 다 쓴 획을 앱 캔버스 아래에 겹친 캔버스(`committedCanvas`)에 모아 두고, 앱 캔버스에는 진행 중인 획만 그리는 이유와, 펜을 뗀 획이 그 사이의 마르는 층(`dryingCanvas`)을 거쳐 불투명에서 반투명으로 바뀌는 이유도 설명한다([스트로크 캐싱](./stroke-cache.md)).
 
 ## 4. 지우개로 획을 나누기
 
