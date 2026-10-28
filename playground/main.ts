@@ -101,14 +101,6 @@ const editor = createInkEditor(canvas, {
   },
 });
 
-// 진단: `desynchronized`(저지연 캔버스)가 이 브라우저에서 실제로 켜졌는지 본다. 같은 캔버스에
-// `getContext("2d")`를 다시 부르면 에디터가 만든 컨텍스트를 그대로 돌려받는다.
-element<HTMLOutputElement>("low-latency-status").value = canvas
-  .getContext("2d")
-  ?.getContextAttributes?.().desynchronized
-  ? "켜짐"
-  : "꺼짐";
-
 // S펜 호버 중 포인터 옆 연필 아이콘으로 켜는 작은 지우개. 자세한 동작은 pen-flip.ts 참고.
 const penFlip = attachPenFlip(editor, stage, syncButtons);
 penFlip.enabled = stored.penFollow !== false;
@@ -122,7 +114,7 @@ penFlip.enabled = stored.penFollow !== false;
 // 호버 모드에서도 경로를 입력 종류로 갈라 둔다: 호버는 펜·마우스가, 탭은 손가락·키보드가
 // 맡는다. 손가락에는 호버가 없어서 호버 경로로는 영영 전환되지 않기 때문에, 호버 모드라도
 // 손가락 탭은 받아야 한다.
-let toolSwitchMode: "click" | "hover" = stored.toolSwitch === "click" ? "click" : "hover";
+let toolSwitchMode: "click" | "hover" = stored.toolSwitch === "hover" ? "hover" : "click";
 
 function toggleTool(): void {
   // 연필을 뒤집은 중에 도구 버튼을 누르면 영구 지우개로 넘어가지 않고 펜으로 돌아온다.
@@ -215,10 +207,9 @@ element<HTMLInputElement>("straight-line-delay").addEventListener("input", (even
   saveSettings();
 });
 
-element<HTMLInputElement>("dynamic-eraser").addEventListener("change", (event) => {
-  editor.setStyle({ dynamicEraser: (event.target as HTMLInputElement).checked });
-  syncButtons();
-  saveSettings();
+pickable("dynamic-eraser-picker", "dynamic-eraser", {
+  apply: (value) => editor.setStyle({ dynamicEraser: value === "on" }),
+  current: () => (editor.getStyle().dynamicEraser ? "on" : "off"),
 });
 
 element<HTMLInputElement>("eraser-width").addEventListener("input", (event) => {
@@ -358,7 +349,6 @@ function syncButtons(): void {
     `${(style.straightLineDelay / 1000).toFixed(1)}초`;
   element<HTMLInputElement>("eraser-width").value = String(style.eraserWidth);
   element<HTMLOutputElement>("eraser-width-value").value = `${style.eraserWidth}px`;
-  element<HTMLInputElement>("dynamic-eraser").checked = style.dynamicEraser;
   // 동적 지우개가 켜져 있으면 크기가 속도로 정해지므로 슬라이더는 의미가 없다.
   element<HTMLElement>("eraser-width-row").hidden = style.dynamicEraser;
   element<HTMLButtonElement>("undo").disabled = !editor.canUndo;
