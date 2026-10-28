@@ -11,8 +11,5 @@ dist
 .env.*
 !.env.example
 playground/dist
-.archify/**/*.browser-check.json
-.archify/**/*.delivery.json
-.archify/**/*.finalize-summary.json
-.archify/**/*.finalize.json
-.archify/**/*.visual-check.*
+# archify 생성 원본. 실행마다 수 MB씩 쌓이고, 배포되는 HTML은 playground/public/analysis/에 있다.
+.archify/
