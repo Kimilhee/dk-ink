@@ -1,9 +1,15 @@
 import { drawInk } from "./render.ts";
 import type { Stroke } from "./types.ts";
 
-/** 펜을 뗀 뒤 획이 마르기 시작할 때까지와, 다 마르는 데 걸리는 시간(ms). */
-const DRY_DELAY_MS = 500;
-const DRY_DURATION_MS = 1000;
+/**
+ * 펜을 뗀 뒤 획이 마르기 시작할 때까지와, 다 마르는 데 걸리는 시간(ms).
+ *
+ * 마르는 동안은 획을 매 프레임 다시 그리므로, 빨리 이어 쓰면 이 시간 안에 쓴 획이 쌓여 필기가
+ * 무거워진다. 대기는 앱 캔버스와 이 층의 출력 시점 차이(한두 프레임)를 덮을 만큼만, 마르기는
+ * 색 변화가 눈에 띄지 않을 만큼만 둔다. (v0.1.87: 0.5초+1초에서 줄임)
+ */
+const DRY_DELAY_MS = 250;
+const DRY_DURATION_MS = 500;
 
 export type DryingLayer = {
   /** 펜을 뗀 획을 넣는다. 이때부터 마르기 시작할 때까지는 "젖은" 획이다. */

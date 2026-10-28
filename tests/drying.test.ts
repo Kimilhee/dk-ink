@@ -45,15 +45,15 @@ test("펜을 뗀 획은 젖어 있다가 마르기 시작하면 앱 캔버스에
   layer.add(STROKE);
   expect(layer.wetStrokes()).toEqual([STROKE]);
 
-  advance(400);
+  advance(200);
   expect(onWetChange).not.toHaveBeenCalled();
 
-  advance(200);
+  advance(100);
   expect(layer.wetStrokes()).toEqual([]);
   expect(onWetChange).toHaveBeenCalledTimes(1);
   expect(settle).not.toHaveBeenCalled();
 
-  advance(1000);
+  advance(500);
   expect(settle).toHaveBeenCalledWith(STROKE);
 });
 
