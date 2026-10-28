@@ -130,33 +130,42 @@ function toggleTool(): void {
     penFlip.unflip();
     return;
   }
-  editor.tool = editor.tool === "eraser" ? "pen" : "eraser";
+  // 직선 도구를 쓰던 중이면 이 버튼이 고른 도구(펜)로 돌아오기만 한다.
+  editor.tool = editor.tool === "pen" ? "eraser" : "pen";
+  syncButtons();
+}
+
+// 직선 도구는 다시 누를 때까지 유지된다. 다시 누르면 펜으로 돌아온다.
+function toggleLineTool(): void {
+  if (penFlip.flipped) penFlip.unflip();
+  editor.tool = editor.tool === "line" ? "pen" : "line";
   syncButtons();
 }
 
 // 도구를 지정하는 대신 뒤집는 동작이라 멱등이 아니다. 같은 손가락 입력이 `pointerdown`과
 // `touchstart` 양쪽으로 들어오면 두 번 뒤집혀 제자리로 돌아오므로, 중복 호출을 걸러주는
 // `activateOnPress`로 배선해야 한다.
-activateOnPress("tool-toggle", (source) => {
-  if (toolSwitchMode === "click" || source === "touch" || source === "keyboard") toggleTool();
-});
-// 직선 도구는 다시 누를 때까지 유지된다. 다시 누르면 펜으로 돌아온다.
-activateOnPress("line-tool", () => {
-  if (penFlip.flipped) penFlip.unflip();
-  editor.tool = editor.tool === "line" ? "pen" : "line";
-  syncButtons();
-});
+const hoverSwitches = [
+  { button: toolToggle, toggle: toggleTool, inside: false },
+  { button: lineTool, toggle: toggleLineTool, inside: false },
+];
+for (const { button, toggle } of hoverSwitches) {
+  activateOnPress(button.id, (source) => {
+    if (toolSwitchMode === "click" || source === "touch" || source === "keyboard") toggle();
+  });
+}
 // 포인터가 버튼 영역에 들어오는 순간 전환한다. `pointerenter`가 있지만 스타일러스 호버에서는
 // 기기에 따라 오지 않아, 호버 중에도 꾸준히 들어오는 `pointermove`의 좌표로 직접 판정한다.
 // 경계를 넘어선 첫 이벤트에서만 반응해야 하므로 직전 안팎 여부를 기억해 둔다.
-let pointerInsideToggle = false;
 document.addEventListener("pointermove", (event) => {
   // 기본(탭) 모드에서는 매 이벤트마다 영역을 재는 비용을 치르지 않는다.
   // 손가락은 위 탭 경로가 맡는다 — 여기서도 받으면 버튼 위를 스쳐 지나가는 것만으로 전환된다.
   if (toolSwitchMode !== "hover" || event.pointerType === "touch") return;
-  const inside = containsPoint(toolToggle, event.clientX, event.clientY);
-  if (inside && !pointerInsideToggle) toggleTool();
-  pointerInsideToggle = inside;
+  for (const target of hoverSwitches) {
+    const inside = containsPoint(target.button, event.clientX, event.clientY);
+    if (inside && !target.inside) target.toggle();
+    target.inside = inside;
+  }
 });
 
 // `pickable`은 함수 선언이라 끌어올려지지만 이 배열은 아니다. 첫 호출보다 아래에 두면
@@ -340,6 +349,8 @@ function syncButtons(): void {
     "aria-label",
     `${erasing ? "지우개" : "펜"} 사용 중. 누르면 ${erasing ? "펜" : "지우개"}으로 바뀝니다`,
   );
+  // 선택된 도구의 버튼에 표시가 들어온다. 펜/지우개 버튼은 둘 중 어느 쪽이든 켜진다.
+  toolToggle.setAttribute("aria-pressed", String(editor.tool !== "line"));
   lineTool.setAttribute("aria-pressed", String(editor.tool === "line"));
   for (const sync of pickerSyncs) sync();
   element<HTMLInputElement>("straight-line-delay").value = String(style.straightLineDelay / 1000);
