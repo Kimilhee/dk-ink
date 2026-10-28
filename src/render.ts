@@ -52,6 +52,27 @@ export function drawStrokes(context: CanvasRenderingContext2D, strokes: readonly
   context.globalAlpha = previousAlpha;
 }
 
+/**
+ * 획 모양대로 배경색을 `underlay`만큼 깔고 그 위에 획을 칠한다.
+ *
+ * `underlay`가 1이면 아래가 가려져, 바탕 위에 반투명으로 칠한 것과 같은 색의 **불투명** 획이 된다.
+ * 불투명 획은 두 층에 겹쳐 그려져도 진해지지 않으므로 층을 옮기는 동안 쓴다. 0이면 원래 반투명
+ * 획이고, 그 사이 값은 아래의 교차점·문항 글자가 서서히 비쳐 나오는 "마르는 중"이다.
+ */
+export function drawInk(
+  context: CanvasRenderingContext2D,
+  stroke: Stroke,
+  underlay: number,
+  background: string,
+): void {
+  if (underlay > 0 && stroke.style.opacity < 1) {
+    drawStrokes(context, [
+      { ...stroke, style: { ...stroke.style, color: background, opacity: underlay } },
+    ]);
+  }
+  drawStrokes(context, [stroke]);
+}
+
 /** 지우개가 어디를 지울지 보여주는 점선 원. */
 export function drawEraserCursor(
   context: CanvasRenderingContext2D,

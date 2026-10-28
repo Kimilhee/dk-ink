@@ -27,7 +27,7 @@ v0.1.74까지는 `committedCanvas`를 화면에 붙이지 않고, 펜 이벤트�
 
 획은 반투명(기본 0.7)이다. 문항 위에 써도 인쇄된 글자가 비쳐 보여야 하기 때문이다. 그런데 반투명 획을 앱 캔버스(`desynchronized`)에서 아래 층으로 넘기면, 두 층이 화면에 나가는 시점이 달라 같은 획이 잠깐 겹쳐 **진해지거나**(늦게 지울 때) **사라진다**(일찍 지울 때). 두 경로는 맞출 수 없다.
 
-그래서 획 모양대로 배경색을 먼저 깔고 그 위에 반투명 잉크를 칠한다(`drawInk`). 배경을 다 깔면 바탕 위에 반투명으로 칠한 것과 같은 색의 불투명 획이 되어, 두 층에 겹쳐도 변하지 않는다. 쓰는 중과 마르기 전에는 배경을 다 깔고, 마르는 동안 배경의 진하기를 0으로 줄인다. 바탕 위의 색은 그대로이고, 교차점과 그 아래 글자만 잉크가 마르듯 서서히 비쳐 나온다.
+그래서 획 모양대로 배경색을 먼저 깔고 그 위에 반투명 잉크를 칠한다(`render.ts`의 `drawInk`). 배경을 다 깔면 바탕 위에 반투명으로 칠한 것과 같은 색의 불투명 획이 되어, 두 층에 겹쳐도 변하지 않는다. 쓰는 중과 마르기 전에는 배경을 다 깔고, 마르는 동안 배경의 진하기를 0으로 줄인다. 바탕 위의 색은 그대로이고, 교차점과 그 아래 글자만 잉크가 마르듯 서서히 비쳐 나온다.
 
 - **층 순서:** 다 쓴 획 층 → 마르는 층 → 앱 캔버스. 마르는 층과 다 쓴 획 층은 둘 다 일반 캔버스라, 다 마른 획을 옮길 때 같은 프레임에 함께 바뀐다.
 - **배경색:** 투명하지 않은 배경을 가진 가장 가까운 조상의 색을 쓴다. 필기 중 스타일을 읽지 않도록 `resize`에서만 잰다.
@@ -74,7 +74,8 @@ v0.1.74까지는 `committedCanvas`를 화면에 붙이지 않고, 펜 이벤트�
 근거는 커밋 `7e21bb24aaa611619394f168576841f821e1da6a`에 고정했다. Archify 노드를 누르면 해당 버전의 소스 위치를 확인할 수 있다.
 
 - [`src/editor.ts`](../src/editor.ts): `committedCanvas`, `redraw`, `pointerUp`, `eraseTo`, `replaceStrokes`, `resize`.
-- [`src/render.ts`](../src/render.ts): 전체를 비우는 `renderStrokes`와 덧그리는 `drawStrokes`.
+- [`src/render.ts`](../src/render.ts): 전체를 비우는 `renderStrokes`와 덧그리는 `drawStrokes`, 배경을 깔아 불투명하게 보이게 하는 `drawInk`.
+- [`src/drying.ts`](../src/drying.ts): 막 끝난 획을 말리고 다 쓴 획 층으로 넘기는 `createDryingLayer`.
 - [`src/outline.ts`](../src/outline.ts): 필압 획을 만드는 `drawOutlineStroke`.
 - [`src/history.ts`](../src/history.ts): 배열 복사로 상태를 저장하는 `createInkHistory`.
 - [`tests/editor.test.ts`](../tests/editor.test.ts): 캐시 재사용·무효화와 펜 즉시 그리기 검증.
