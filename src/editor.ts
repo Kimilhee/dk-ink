@@ -121,6 +121,8 @@ export function createInkEditor(
    * 저장되는 획 데이터에 그대로 남는다.
    */
   let size = { width: 0, height: 0 };
+  /** 아래 층에 마지막으로 준 위치(`alignLayers`). */
+  let layerOffset = { left: Number.NaN, top: Number.NaN };
   /** 마르는 획 아래에 깔 배경색(`readBackgroundColor`). */
   let background = "#fff";
 
@@ -288,6 +290,7 @@ export function createInkEditor(
     capturePointer(event.pointerId);
 
     const bounds = canvas.getBoundingClientRect();
+    alignLayers();
     if (activeTool === "eraser") {
       eraseTo(timedPoint(event, bounds));
       scheduleRedraw();
@@ -375,6 +378,22 @@ export function createInkEditor(
     onChange?.(strokes);
   }
 
+  /**
+   * 아래 층을 앱 캔버스 자리에 겹친다. `ResizeObserver`는 크기가 그대로인 이동(앱이 여백이나
+   * 배치를 바꾼 경우)을 알려 주지 않아, `resize`뿐 아니라 획을 시작할 때마다 확인한다. 바로 앞의
+   * `getBoundingClientRect`가 레이아웃을 이미 계산해 두므로 위치를 읽는 비용은 거의 없다.
+   */
+  function alignLayers(): void {
+    const left = canvas.offsetLeft;
+    const top = canvas.offsetTop;
+    if (left === layerOffset.left && top === layerOffset.top) return;
+    layerOffset = { left, top };
+    for (const layer of [committedCanvas, dryingCanvas]) {
+      layer.style.setProperty("left", `${left}px`);
+      layer.style.setProperty("top", `${top}px`);
+    }
+  }
+
   function resize(): void {
     const bounds = canvas.getBoundingClientRect();
     size = { width: bounds.width, height: bounds.height };
@@ -385,11 +404,10 @@ export function createInkEditor(
     for (const layer of [committedCanvas, dryingCanvas]) {
       layer.width = canvas.width;
       layer.height = canvas.height;
-      layer.style.setProperty("left", `${canvas.offsetLeft}px`);
-      layer.style.setProperty("top", `${canvas.offsetTop}px`);
       layer.style.setProperty("width", `${size.width}px`);
       layer.style.setProperty("height", `${size.height}px`);
     }
+    alignLayers();
     // 캔버스 내부 이미지는 물리 픽셀, 좌표는 CSS 픽셀로 유지한다.
     for (const target of [context, committedContext, dryingContext]) {
       target.setTransform(ratio, 0, 0, ratio, 0, 0);

@@ -268,6 +268,16 @@ test("아무것도 지우지 않는 지우개 이동은 다 쓴 획 층을 다�
   expect(fake.committedRenderCount).toBe(before);
 });
 
+test("크기는 그대로 캔버스만 옮겨지면 다음 획을 시작할 때 아래 층도 따라간다", () => {
+  // 앱이 여백을 바꿨다. 크기가 그대로라 ResizeObserver는 알려 주지 않는다.
+  Object.assign(fake.canvas, { offsetLeft: 50, offsetTop: 30 });
+  drawStroke();
+  for (const layer of fake.layers) {
+    expect(layer.style.getPropertyValue("left")).toBe("50px");
+    expect(layer.style.getPropertyValue("top")).toBe("30px");
+  }
+});
+
 test("포인터 캡처가 실패해도 획은 계속 기록된다", () => {
   const failing = createFakeCanvas(400, 200, { failPointerCapture: true });
   const captureless = createInkEditor(failing.canvas);

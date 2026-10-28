@@ -14,6 +14,8 @@ export type FakeCanvas = {
   readonly cursorDrawCount: number;
   /** 앱 캔버스에 칠한(fill·stroke) 횟수. */
   readonly paintCount: number;
+  /** 에디터가 붙인 층 캔버스. 첫 번째가 다 쓴 획 층이다. */
+  readonly layers: HTMLCanvasElement[];
 };
 
 export type FakePointerInit = {
@@ -62,6 +64,7 @@ export function createFakeCanvas(
     },
   });
   const layerContexts = [committedContext, createFakeContext({})];
+  const layers: HTMLCanvasElement[] = [];
 
   const canvas = {
     width,
@@ -72,16 +75,20 @@ export function createFakeCanvas(
     ownerDocument: {
       createElement: () => {
         const layerContext = layerContexts.shift() ?? createFakeContext({});
-        return {
+        const layer = {
           width: 0,
           height: 0,
           style: createFakeStyle(),
           getContext: () => layerContext,
           remove() {},
-        };
+        } as unknown as HTMLCanvasElement;
+        layers.push(layer);
+        return layer;
       },
     },
     before() {},
+    offsetLeft: 0,
+    offsetTop: 0,
     getBoundingClientRect: () => ({ left: 0, top: 0, width, height }),
     setPointerCapture() {
       // 포인터가 이미 놓였으면 브라우저가 실제로 이렇게 던진다.
@@ -136,6 +143,7 @@ export function createFakeCanvas(
     get paintCount() {
       return paintCount;
     },
+    layers,
   };
 }
 
