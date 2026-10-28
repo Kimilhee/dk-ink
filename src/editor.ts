@@ -115,12 +115,12 @@ export function createInkEditor(
   /** 다 쓴 획이 바뀌어(지우기·되돌리기·갈아끼우기·크기 변경) 다 쓴 획 층을 다시 그려야 한다. */
   let committedDirty = true;
   /**
-   * 레이아웃 측정값 캐시. 필기 중 `getBoundingClientRect()`를 부르면, 그 사이 앱이 DOM을 건드린
-   * 경우 브라우저가 레이아웃을 동기로 다시 계산해 프레임을 놓친다. 크기는 `resize`에서만,
-   * 위치는 획을 시작할 때 한 번만 잰다 — 획 도중에는 캔버스가 스크롤되지 않는다(`touch-action: none`).
+   * 캔버스 크기(CSS 픽셀). 크기가 바뀌면 `ResizeObserver`가 `resize`를 부르므로 그때만 잰다.
+   * 위치는 캐시하지 않는다 — 휠·프로그램 스크롤이나 레이아웃 이동은 획 도중에도 일어나고
+   * (`touch-action: none`이 막는 건 캔버스에서 시작한 터치 스크롤뿐이다), 어긋난 좌표는
+   * 저장되는 획 데이터에 그대로 남는다.
    */
   let size = { width: 0, height: 0 };
-  let gestureOrigin = { left: 0, top: 0 };
   /** 마르는 획 아래에 깔 배경색(`readBackgroundColor`). */
   let background = "#fff";
 
@@ -158,8 +158,9 @@ export function createInkEditor(
   /**
    * 이벤트 하나를 캔버스 안의 점으로 바꾼다.
    *
-   * `bounds`는 획을 시작할 때 잰 `gestureOrigin`이다. `resize` 때만 캐시해 두면 스크롤로
-   * 캔버스 위치가 옮겨졌을 때 좌표가 어긋나므로 획마다 다시 잰다.
+   * `bounds`를 안에서 구하지 않고 바깥에서 받는 이유: 뭉친 이벤트(`coalesced`)를 풀면 한 번의
+   * `pointermove` 안에서 이 함수가 여러 번 불리는데, 같은 이벤트 처리 중에는 캔버스 위치가
+   * 바뀌지 않으므로 이벤트당 한 번만 재서 나눠 쓰는 편이 낫다.
    */
   function timedPoint(event: PointerEvent, bounds: { left: number; top: number }): InkPoint {
     // `performance.now()`가 아니라 이벤트가 들고 온 시각을 쓴다. 뭉친 이벤트는 한 프레임에
@@ -286,8 +287,7 @@ export function createInkEditor(
     event.preventDefault();
     capturePointer(event.pointerId);
 
-    gestureOrigin = canvas.getBoundingClientRect();
-    const bounds = gestureOrigin;
+    const bounds = canvas.getBoundingClientRect();
     if (activeTool === "eraser") {
       eraseTo(timedPoint(event, bounds));
       scheduleRedraw();
@@ -319,7 +319,7 @@ export function createInkEditor(
     // 이벤트 자신이 유일한 점이다 — 빈 배열을 그대로 쓰면 획이 시작·끝점만 남는다.
     const coalesced = event.getCoalescedEvents?.();
     const events = coalesced?.length ? coalesced : [event];
-    const bounds = gestureOrigin;
+    const bounds = canvas.getBoundingClientRect();
 
     if (activeTool === "eraser") {
       for (const sample of events) eraseTo(timedPoint(sample, bounds));
@@ -336,7 +336,7 @@ export function createInkEditor(
     if (!activeTool || event.pointerId !== activePointerId) return;
     event.preventDefault();
     const erasing = activeTool === "eraser";
-    const bounds = gestureOrigin;
+    const bounds = canvas.getBoundingClientRect();
 
     if (erasing) {
       eraseTo(timedPoint(event, bounds));

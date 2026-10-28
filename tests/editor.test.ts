@@ -99,6 +99,16 @@ test("필기 속도를 점 간격으로 복원할 수 있다", () => {
   expect(gaps).toEqual([8, 8]);
 });
 
+test("획 도중 캔버스가 움직여도 점은 캔버스 기준 좌표로 남는다", () => {
+  fake.emit("pointerdown", { x: 10, y: 10 });
+  // 휠 스크롤·레이아웃 이동으로 캔버스가 50px 내려갔다.
+  fake.canvas.getBoundingClientRect = () =>
+    ({ left: 0, top: 50, width: 400, height: 200 }) as DOMRect;
+  fake.emit("pointermove", { x: 20, y: 90 });
+  fake.emit("pointerup", { x: 30, y: 90 });
+  expect(editor.getStrokes()[0].points.map((point) => point.y)).toEqual([10, 40, 40]);
+});
+
 test("진행 중인 획은 다른 포인터를 무시한다", () => {
   fake.emit("pointerdown", { x: 10, y: 10, pointerId: 1 });
   fake.emit("pointermove", { x: 20, y: 20, pointerId: 2 });
