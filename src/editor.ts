@@ -104,6 +104,9 @@ export function createInkEditor(
   let activePointerId: number | undefined;
   let current: Stroke | undefined;
   let holdTimer: ReturnType<typeof setTimeout> | undefined;
+  /** 펜이 마지막으로 머문 자리. 여기서 8px 넘게 벗어나면 대기 시간을 처음부터 다시 잰다. */
+  let holdOrigin: Point | undefined;
+  /** 직선의 시작점. 있으면 진행 중인 획은 이 점과 현재 위치만 잇는다. */
   let straightLineAnchor: InkPoint | undefined;
   let eraserCursor: Point | undefined;
   let previousEraserPoint: Point | undefined;
@@ -140,6 +143,29 @@ export function createInkEditor(
   function cancelHold(): void {
     clearTimeout(holdTimer);
     holdTimer = undefined;
+    holdOrigin = undefined;
+  }
+
+  function restartHold(point: Point): void {
+    clearTimeout(holdTimer);
+    holdOrigin = point;
+    holdTimer = setTimeout(() => {
+      holdTimer = undefined;
+      snapToStraightLine();
+    }, style.straightLineDelay);
+  }
+
+  /**
+   * 획 끝에서 멈춘 펜을 직선으로 바꾼다. 쓰기 전에 펜을 대고 머뭇거리거나 글씨를 쓰다 멈춘
+   * 경우까지 직선이 되면 안 되므로, 충분히 길고 곧게 그은 획만 바꾼다.
+   */
+  function snapToStraightLine(): void {
+    if (!current || !isStraightEnough(current.points)) return;
+    const start = current.points[0];
+    straightLineAnchor = start;
+    current.points = [start, current.points[current.points.length - 1]];
+    current.style.widthMode = "constant";
+    redrawNow();
   }
 
   /** 진행 중인 제스처를 끝낸다. 펜을 뗐을 때와 획이 통째로 갈아끼워졌을 때 모두 쓴다. */
@@ -183,9 +209,13 @@ export function createInkEditor(
       current.points = [straightLineAnchor, point];
       return;
     }
-    const start = current.points[0];
-    if (start && Math.hypot(point.x - start.x, point.y - start.y) > 8) cancelHold();
     current.points.push(point);
+    if (
+      style.holdToStraightLine &&
+      (!holdOrigin || Math.hypot(point.x - holdOrigin.x, point.y - holdOrigin.y) > 8)
+    ) {
+      restartHold(point);
+    }
   }
 
   /** 지금 설정을 획에 박아 넣는다. 나중에 설정이 바뀌어도 이 획은 이 모습 그대로다. */
@@ -299,17 +329,12 @@ export function createInkEditor(
     history.commit(strokes);
     current = { points: [], style: snapshotStrokeStyle() };
     strokes = [...strokes, current];
-    appendPoint(event, bounds);
-    if (style.holdToStraightLine) {
-      holdTimer = setTimeout(() => {
-        holdTimer = undefined;
-        if (!current) return;
-        straightLineAnchor = current.points[0];
-        // 누르는 동안 생긴 흔적은 비우고, 시작점 표시는 별도로 그린다.
-        current.points = [];
-        current.style.widthMode = "constant";
-        redrawNow();
-      }, style.straightLineDelay);
+    if (activeTool === "line") {
+      // 직선 도구는 누른 자리가 곧 시작점이다. 움직이기 전까지는 시작점 표시만 보인다.
+      straightLineAnchor = timedPoint(event, bounds);
+      current.style.widthMode = "constant";
+    } else {
+      appendPoint(event, bounds);
     }
     redrawNow();
   }
@@ -554,6 +579,31 @@ function requireContext(
   const context = canvas.getContext("2d", { desynchronized });
   if (!context) throw new Error("Canvas 2D context is unavailable");
   return context;
+}
+
+/** 이보다 짧은 획은 직선으로 바꾸지 않는다(px). 획 시작에서 머뭇거린 경우를 걸러낸다. */
+const MIN_STRAIGHT_LINE_LENGTH = 16;
+
+/**
+ * 모든 점이 시작점–끝점 선분 가까이에 있는가. 허용 폭은 길이의 8%(최소 6px)라 길게 그은
+ * 손떨림은 받아주고, 꺾인 획(ㄱ, L)이나 갔다 되돌아온 획은 걸러낸다.
+ */
+function isStraightEnough(points: readonly Point[]): boolean {
+  const start = points[0];
+  const end = points[points.length - 1];
+  if (!start || !end) return false;
+  const length = Math.hypot(end.x - start.x, end.y - start.y);
+  if (length < MIN_STRAIGHT_LINE_LENGTH) return false;
+  const tolerance = Math.max(6, length * 0.08);
+  return points.every((point) => distanceToSegment(point, start, end) <= tolerance);
+}
+
+function distanceToSegment(point: Point, start: Point, end: Point): number {
+  const dx = end.x - start.x;
+  const dy = end.y - start.y;
+  const t = ((point.x - start.x) * dx + (point.y - start.y) * dy) / (dx * dx + dy * dy);
+  const clamped = Math.max(0, Math.min(1, t));
+  return Math.hypot(point.x - (start.x + clamped * dx), point.y - (start.y + clamped * dy));
 }
 
 /** `undefined` 값이 기본 스타일을 덮어쓰지 않게 걸러낸다. */

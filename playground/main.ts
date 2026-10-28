@@ -11,6 +11,7 @@ const toolbar = element<HTMLElement>("tool-picker");
 const dragHandle = element<HTMLButtonElement>("toolbar-drag-handle");
 const debugPanel = element<HTMLDetailsElement>("debug-panel");
 const toolToggle = element<HTMLButtonElement>("tool-toggle");
+const lineTool = element<HTMLButtonElement>("line-tool");
 const settingsPanel = element<HTMLElement>("settings-panel");
 const settingsToggle = element<HTMLButtonElement>("settings-toggle");
 const toolStatus = element<HTMLElement>("tool-status");
@@ -138,6 +139,12 @@ function toggleTool(): void {
 // `activateOnPress`로 배선해야 한다.
 activateOnPress("tool-toggle", (source) => {
   if (toolSwitchMode === "click" || source === "touch" || source === "keyboard") toggleTool();
+});
+// 직선 도구는 다시 누를 때까지 유지된다. 다시 누르면 펜으로 돌아온다.
+activateOnPress("line-tool", () => {
+  if (penFlip.flipped) penFlip.unflip();
+  editor.tool = editor.tool === "line" ? "pen" : "line";
+  syncButtons();
 });
 // 포인터가 버튼 영역에 들어오는 순간 전환한다. `pointerenter`가 있지만 스타일러스 호버에서는
 // 기기에 따라 오지 않아, 호버 중에도 꾸준히 들어오는 `pointermove`의 좌표로 직접 판정한다.
@@ -333,6 +340,7 @@ function syncButtons(): void {
     "aria-label",
     `${erasing ? "지우개" : "펜"} 사용 중. 누르면 ${erasing ? "펜" : "지우개"}으로 바뀝니다`,
   );
+  lineTool.setAttribute("aria-pressed", String(editor.tool === "line"));
   for (const sync of pickerSyncs) sync();
   element<HTMLInputElement>("straight-line-delay").value = String(style.straightLineDelay / 1000);
   element<HTMLOutputElement>("straight-line-delay-value").value =
@@ -344,7 +352,7 @@ function syncButtons(): void {
   element<HTMLElement>("eraser-width-row").hidden = style.dynamicEraser;
   element<HTMLButtonElement>("undo").disabled = !editor.canUndo;
   element<HTMLButtonElement>("redo").disabled = !editor.canRedo;
-  toolStatus.textContent = `도구: ${erasing ? "지우개" : "펜"}`;
+  toolStatus.textContent = `도구: ${erasing ? "지우개" : editor.tool === "line" ? "직선" : "펜"}`;
 }
 
 /**

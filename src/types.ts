@@ -38,7 +38,8 @@ export type Stroke = {
   style: StrokeStyle;
 };
 
-export type InkTool = "pen" | "eraser";
+/** `line`은 누른 자리에서 뗀 자리까지 일정한 두께의 직선을 긋는다. */
+export type InkTool = "pen" | "eraser" | "line";
 
 /** `pressure`는 필압에 따라 굵기가 변하고, `constant`는 일정하다. */
 export type WidthMode = "pressure" | "constant";
@@ -52,9 +53,12 @@ export type InkStyle = {
   widthMode: WidthMode;
   /** 잉크 불투명도(0~1). 1보다 작으면 겹쳐 쓴 글씨가 비친다. */
   opacity: number;
-  /** 시작점에서 길게 누르면 직선 모드로 전환한다(8px 이내 움직임 허용). */
+  /**
+   * 획을 긋다가 끝에서 멈추고 있으면(8px 이내 움직임 허용) 시작점과 그 자리를 잇는 직선으로
+   * 바꾼다. 획이 어느 정도 곧을 때만 바뀌고, 바뀐 뒤에도 펜을 떼기 전까지 끝점을 옮길 수 있다.
+   */
   holdToStraightLine: boolean;
-  /** 직선 모드 전환 대기 시간(ms). 기본값은 700. */
+  /** 직선으로 바꾸기까지 멈춰 있어야 하는 시간(ms). 기본값은 700. */
   straightLineDelay: number;
   /** 지우개 지름(px). */
   eraserWidth: number;

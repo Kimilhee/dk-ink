@@ -149,7 +149,7 @@ button:disabled {
   border-radius: 9px;
   background: transparent;
 }
-.tool-button:hover:not(:disabled):not([aria-expanded="true"]) {
+.tool-button:hover:not(:disabled):not([aria-expanded="true"]):not([aria-pressed="true"]) {
   background: #edf1f5;
 }
 /* 연필 그림(촉이 왼쪽 아래)을 마스크로 씌워 글자색(currentColor)을 그대로 따른다. */
@@ -167,6 +167,16 @@ button:disabled {
 }
 .tool-toggle[data-tool="eraser"] .icon-pen {
   transform: rotate(180deg);
+}
+.icon-line {
+  width: 26px;
+  height: 26px;
+  background-color: currentColor;
+  mask: url("./image/icon-straight-line.svg") center / contain no-repeat;
+}
+.tool-button[aria-pressed="true"] {
+  background: var(--active-color);
+  color: #fff;
 }
 .tool-button:focus-visible {
   outline: 3px solid rgb(15 118 110 / 28%);
