@@ -65,12 +65,21 @@ export function drawInk(
   underlay: number,
   background: string,
 ): void {
-  if (underlay > 0 && stroke.style.opacity < 1) {
-    drawStrokes(context, [
-      { ...stroke, style: { ...stroke.style, color: background, opacity: underlay } },
-    ]);
+  const { style } = stroke;
+  if (underlay <= 0 || style.opacity >= 1 || stroke.points.length === 0) {
+    drawStrokes(context, [stroke]);
+    return;
   }
-  drawStrokes(context, [stroke]);
+  drawStrokes(context, [{ ...stroke, style: { ...style, color: background, opacity: underlay } }]);
+  // 칠한 뒤에도 캔버스는 마지막 경로를 기억하므로, 같은 모양을 잉크색으로 한 번 더 칠한다.
+  // 획을 두 번 그리면 필압 윤곽 계산도 두 번이 되는데, 쓰는 중인 획은 펜 이벤트마다 여기를 지난다.
+  const previousAlpha = context.globalAlpha;
+  context.globalAlpha = style.opacity;
+  context.fillStyle = style.color;
+  context.strokeStyle = style.color;
+  if (style.widthMode === "pressure") context.fill();
+  else context.stroke();
+  context.globalAlpha = previousAlpha;
 }
 
 /** 지우개가 어디를 지울지 보여주는 점선 원. */
