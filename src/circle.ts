@@ -73,12 +73,10 @@ function fitCircle(points: readonly Point[]): { circle: Circle; error: number } 
 }
 
 /**
- * 둘레가 고르게 휘는지 본다. 다각형은 두 가지 중 하나로 드러난다. 모서리를 둥글게 그리면
- * 곧은 변이 둘레의 많은 부분을 차지하고, 변이 조금 휘어 곧은 구간이 없으면 대신 모서리에서
- * 꺾임이 몰린다. 거의 꺾이지 않는 구간이 4분의 1을 넘거나, 가장 크게 꺾인 곳이 평균의
- * 3.2배를 넘으면 원으로 보지 않는다. 손으로 그린 원과 찌그러진 원은 2.7배 아래에 머문다.
+ * 둘레가 고르게 휘는지 본다. 다각형은 모서리를 둥글게 그려도 곧은 변이 둘레의 많은 부분을
+ * 차지하므로, 거의 꺾이지 않는 구간이 4분의 1을 넘으면 원으로 보지 않는다.
  */
-export function isSmooth(samples: readonly Point[]): boolean {
+function isSmooth(samples: readonly Point[]): boolean {
   // 같은 간격으로 다시 뽑은 점에서 앞뒤 4칸씩 비교해 손떨림보다 큰 휘어짐만 잰다.
   const span = 4;
   const turns: number[] = [];
@@ -94,11 +92,11 @@ export function isSmooth(samples: readonly Point[]): boolean {
   }
   const mean = turns.reduce((sum, turn) => sum + turn, 0) / turns.length;
   const straight = turns.filter((turn) => turn < mean * 0.3).length;
-  return straight <= turns.length * 0.25 && Math.max(...turns) <= mean * 3.2;
+  return straight <= turns.length * 0.25;
 }
 
 /** 최대 97개 점으로 제한해 꼬리를 찾는 비용이 원래 입력 점 수에 따라 급증하지 않게 한다. */
-export function resample(points: readonly Point[]): Point[] {
+function resample(points: readonly Point[]): Point[] {
   const distances = [0];
   for (let i = 1; i < points.length; i += 1) {
     distances.push(

@@ -2,7 +2,6 @@ import { circlePoints, recognizeCircle } from "./circle.ts";
 import { createDynamicEraser } from "./dynamic-eraser.ts";
 import { eraseStrokes } from "./erase.ts";
 import { cloneStrokes, createInkHistory } from "./history.ts";
-import { centroid, polygonPoints, recognizePolygon, regularPolygon } from "./polygon.ts";
 import { createDryingLayer } from "./drying.ts";
 import { drawEraserCursor, drawInk, drawStrokes, renderStrokes } from "./render.ts";
 import type {
@@ -119,17 +118,7 @@ export function createInkEditor(
   let holdOrigin: Point | undefined;
   /** 직선의 시작점. 있으면 진행 중인 획은 이 점과 현재 위치만 잇는다. */
   let straightLineAnchor: InkPoint | undefined;
-  /**
-   * 원이나 다각형으로 보정한 뒤의 상태. 중심을 고정하고 펜과 중심 사이의 거리로 크기를 정한다.
-   * `radius`는 지금 크기이고, `draw`는 그 크기의 도형을 획 점으로 만든다.
-   */
-  let shape:
-    | (Point & {
-        radius: number;
-        radiusOffset: number;
-        draw: (radius: number, sample: InkPoint) => InkPoint[];
-      })
-    | undefined;
+  let circle: (Point & { radiusOffset: number }) | undefined;
   let eraserCursor: Point | undefined;
   let previousEraserPoint: Point | undefined;
   let previousEraserDiameter = 0;
@@ -181,45 +170,18 @@ export function createInkEditor(
     }, style.straightLineDelay);
   }
 
-  /**
-   * 곧은 획, 시작점 근처까지 돌아온 원, 닫힌 다각형을 보정한다. 원 앞뒤의 짧은 꼬리는 허용한다.
-   * 다각형은 그린 꼭짓점을 그대로 쓰고, 2초까지 계속 멈춰 있으면 정다각형으로 바꾼다.
-   */
+  /** 곧은 획과 시작점 근처까지 돌아온 원을 보정한다. 원 앞뒤의 짧은 꼬리는 허용한다. */
   function snapToShape(): void {
     if (!current) return;
     const end = current.points[current.points.length - 1];
-    // 다각형을 먼저 본다. 변이 조금 휜 육각형은 원 조건도 통과할 수 있지만, 모서리에서 꺾인
-    // 것이 확인되면 다각형이 맞다.
-    const corners = recognizePolygon(current.points);
-    const recognized = !corners && style.holdToCircle ? recognizeCircle(current.points) : undefined;
+    const recognized = style.holdToCircle ? recognizeCircle(current.points) : undefined;
     if (recognized) {
-      startShapeAdjust(recognized, recognized.radius, end, (radius, sample) =>
-        circlePoints(recognized, radius, sample),
-      );
-    } else if (corners) {
-      const center = centroid(corners);
-      const drawPolygon = (shapeCorners: readonly Point[]) => {
-        const base = averageDistance(shapeCorners, center);
-        return (radius: number, sample: InkPoint) =>
-          polygonPoints(
-            shapeCorners.map((corner) => ({
-              x: center.x + ((corner.x - center.x) * radius) / base,
-              y: center.y + ((corner.y - center.y) * radius) / base,
-            })),
-            sample,
-          );
+      circle = {
+        x: recognized.x,
+        y: recognized.y,
+        radiusOffset: recognized.radius - Math.hypot(end.x - recognized.x, end.y - recognized.y),
       };
-      startShapeAdjust(center, averageDistance(corners, center), end, drawPolygon(corners));
-      holdTimer = setTimeout(
-        () => {
-          holdTimer = undefined;
-          if (!shape || !current) return;
-          shape.draw = drawPolygon(regularPolygon(corners));
-          current.points = shape.draw(shape.radius, current.points[0]);
-          redrawNow();
-        },
-        Math.max(0, 2000 - style.straightLineDelay),
-      );
+      current.points = circlePoints(circle, recognized.radius, end);
     } else if (style.holdToStraightLine && isStraightEnough(current.points)) {
       straightLineAnchor = current.points[0];
       current.points = [straightLineAnchor, end];
@@ -230,28 +192,11 @@ export function createInkEditor(
     redrawNow();
   }
 
-  function startShapeAdjust(
-    center: Point,
-    radius: number,
-    end: InkPoint,
-    draw: (radius: number, sample: InkPoint) => InkPoint[],
-  ): void {
-    if (!current) return;
-    shape = {
-      x: center.x,
-      y: center.y,
-      radius,
-      radiusOffset: radius - Math.hypot(end.x - center.x, end.y - center.y),
-      draw,
-    };
-    current.points = draw(radius, end);
-  }
-
   /** 진행 중인 제스처를 끝낸다. 펜을 뗐을 때와 획이 통째로 갈아끼워졌을 때 모두 쓴다. */
   function endGesture(): void {
     cancelHold();
     straightLineAnchor = undefined;
-    shape = undefined;
+    circle = undefined;
     activeTool = undefined;
     activePointerId = undefined;
     current = undefined;
@@ -285,17 +230,10 @@ export function createInkEditor(
   function appendPoint(event: PointerEvent, bounds: { left: number; top: number }): void {
     if (!current) return;
     const point = timedPoint(event, bounds);
-    if (shape) {
-      // 크기를 조절하기 시작하면 그린 모양을 원한 것이므로 정다각형으로 바꾸지 않는다.
-      if (holdOrigin && Math.hypot(point.x - holdOrigin.x, point.y - holdOrigin.y) > 8) {
-        cancelHold();
-      }
-      // 보정 직후 펜과 도형 둘레가 조금 달라도 첫 움직임에서 크기가 튀지 않게 한다.
-      shape.radius = Math.max(
-        1,
-        Math.hypot(point.x - shape.x, point.y - shape.y) + shape.radiusOffset,
-      );
-      current.points = shape.draw(shape.radius, point);
+    if (circle) {
+      // 보정 직후 펜과 원둘레가 조금 달라도 첫 움직임에서 크기가 튀지 않게 한다.
+      const radius = Math.hypot(point.x - circle.x, point.y - circle.y) + circle.radiusOffset;
+      current.points = circlePoints(circle, Math.max(1, radius), point);
       return;
     }
     if (straightLineAnchor) {
@@ -369,7 +307,7 @@ export function createInkEditor(
     } else {
       drawStrokes(context, strokes.slice(strokes.length - appStrokeCount()));
     }
-    const anchor = straightLineAnchor ?? shape;
+    const anchor = straightLineAnchor ?? circle;
     if (anchor && current) drawShapeAnchor(anchor, current.style);
     if (eraserCursor && style.showEraserCursor) {
       drawEraserCursor(context, eraserCursor, { ...style, eraserWidth: eraserDiameter });
@@ -734,11 +672,4 @@ function pickStyle(source: Partial<InkStyle>): Partial<InkStyle> {
     if (source[key] !== undefined) Object.assign(picked, { [key]: source[key] });
   }
   return picked;
-}
-
-function averageDistance(points: readonly Point[], center: Point): number {
-  return (
-    points.reduce((sum, point) => sum + Math.hypot(point.x - center.x, point.y - center.y), 0) /
-    points.length
-  );
 }

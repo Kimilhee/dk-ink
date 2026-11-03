@@ -84,6 +84,29 @@ test.each([{ turns: 0.5 }, { turns: 0.75 }, { turns: 2 }, { ry: 20 }])(
   },
 );
 
+test("촘촘하게 그린 사각형도 원으로 보정하지 않는다", () => {
+  const corners = [
+    { x: 200, y: 50 },
+    { x: 200, y: 150 },
+    { x: 100, y: 150 },
+    { x: 100, y: 50 },
+    { x: 200, y: 50 },
+  ];
+  fake.emit("pointerdown", corners[0]);
+  for (let edge = 0; edge < 4; edge += 1) {
+    for (let step = 1; step <= 12; step += 1) {
+      const start = corners[edge];
+      const end = corners[edge + 1];
+      fake.emit("pointermove", {
+        x: start.x + ((end.x - start.x) * step) / 12,
+        y: start.y + ((end.y - start.y) * step) / 12,
+      });
+    }
+  }
+  vi.advanceTimersByTime(2000);
+  expect(editor.getStrokes()[0].style.widthMode).toBe("pressure");
+});
+
 test.each([
   { name: "마름모", sides: 4 },
   { name: "오각형", sides: 5 },
@@ -117,17 +140,7 @@ test.each([
   fake.emit("pointerdown", rounded[0]);
   for (const point of [...rounded.slice(1), rounded[0]]) fake.emit("pointermove", point);
   vi.advanceTimersByTime(2000);
-  // 다각형으로 바뀌는 것은 괜찮다(tests/polygon.test.ts). 원만 아니면 된다.
-  const [stroke] = editor.getStrokes();
-  if (stroke.style.widthMode === "pressure") return;
-  const center = {
-    x: stroke.points.reduce((sum, point) => sum + point.x, 0) / stroke.points.length,
-    y: stroke.points.reduce((sum, point) => sum + point.y, 0) / stroke.points.length,
-  };
-  const distances = stroke.points.map((point) =>
-    Math.hypot(point.x - center.x, point.y - center.y),
-  );
-  expect(Math.max(...distances) - Math.min(...distances)).toBeGreaterThan(5);
+  expect(editor.getStrokes()[0].style.widthMode).toBe("pressure");
 });
 
 test("원 보정을 꺼도 직선 보정은 유지한다", () => {
