@@ -170,7 +170,7 @@ export function createInkEditor(
     }, style.straightLineDelay);
   }
 
-  /** 곧은 획과 거의 닫힌 원만 보정한다. 글씨나 열린 곡선은 그대로 둔다. */
+  /** 곧은 획과 시작점 근처까지 돌아온 원을 보정한다. 원 앞뒤의 짧은 꼬리는 허용한다. */
   function snapToShape(): void {
     if (!current) return;
     const end = current.points[current.points.length - 1];

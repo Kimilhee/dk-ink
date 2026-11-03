@@ -2,8 +2,38 @@ import type { InkPoint, Point } from "./types.ts";
 
 export type Circle = Point & { radius: number };
 
-/** 거의 한 바퀴를 그린 원만 받는다. 열린 호, 타원, 각진 도형과 되짚은 획은 제외한다. */
+/** 앞뒤의 짧은 꼬리를 제외하고 원을 찾는다. 입력 속도에 따라 꼬리의 비중이 달라지지 않게 거리로 나눈다. */
 export function recognizeCircle(points: readonly Point[]): Circle | undefined {
+  const whole = fitCircle(points);
+  if (whole || points.length < 12) return whole;
+  const samples = resample(points);
+  const maxTrim = Math.floor((samples.length - 1) * 0.25);
+  let best: Circle | undefined;
+  let bestError = Infinity;
+  for (let trim = 1; trim <= maxTrim; trim += 1) {
+    for (let start = 0; start <= trim; start += 1) {
+      const candidate = samples.slice(start, samples.length - (trim - start));
+      const circle = fitCircle(candidate);
+      if (!circle) continue;
+      const error =
+        candidate.reduce((sum, point) => {
+          const deviation =
+            (Math.hypot(point.x - circle.x, point.y - circle.y) - circle.radius) / circle.radius;
+          return sum + deviation * deviation;
+        }, 0) /
+          candidate.length +
+        (trim / samples.length) * 0.01;
+      if (error < bestError) {
+        best = circle;
+        bestError = error;
+      }
+    }
+  }
+  return best;
+}
+
+/** 최소 약 300도를 돌고 시작점 근처까지 돌아왔는지 확인한다. */
+function fitCircle(points: readonly Point[]): Circle | undefined {
   if (points.length < 12) return;
   let minX = Infinity;
   let minY = Infinity;
@@ -21,7 +51,7 @@ export function recognizeCircle(points: readonly Point[]): Circle | undefined {
   if (radius < 12) return;
   const first = points[0];
   const last = points[points.length - 1];
-  if (Math.hypot(first.x - last.x, first.y - last.y) > radius * 0.5) return;
+  if (Math.hypot(first.x - last.x, first.y - last.y) > radius * 0.9) return;
 
   let sweep = 0;
   let travel = 0;
@@ -39,8 +69,36 @@ export function recognizeCircle(points: readonly Point[]): Circle | undefined {
     sweep += angle;
     travel += Math.abs(angle);
   }
-  if (Math.abs(sweep) < Math.PI * 1.75 || travel > Math.PI * 2.5) return;
+  if (Math.abs(sweep) < Math.PI * 1.65 || travel > Math.PI * 2.5) return;
   return { x, y, radius };
+}
+
+/** 최대 97개 점으로 제한해 꼬리를 찾는 비용이 원래 입력 점 수에 따라 급증하지 않게 한다. */
+function resample(points: readonly Point[]): Point[] {
+  const distances = [0];
+  for (let i = 1; i < points.length; i += 1) {
+    distances.push(
+      distances[i - 1] + Math.hypot(points[i].x - points[i - 1].x, points[i].y - points[i - 1].y),
+    );
+  }
+  const length = distances[distances.length - 1];
+  if (length === 0) return [];
+  const samples: Point[] = [points[0]];
+  let segment = 1;
+  for (let i = 1; i < 96; i += 1) {
+    const distance = (length * i) / 96;
+    while (distances[segment] < distance) segment += 1;
+    const fraction =
+      (distance - distances[segment - 1]) / (distances[segment] - distances[segment - 1]);
+    const before = points[segment - 1];
+    const after = points[segment];
+    samples.push({
+      x: before.x + (after.x - before.x) * fraction,
+      y: before.y + (after.y - before.y) * fraction,
+    });
+  }
+  samples.push(points[points.length - 1]);
+  return samples;
 }
 
 /** 기존 획 형식을 유지해 저장, 지우개, 실행 취소에도 같은 경로를 쓴다. */
