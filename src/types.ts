@@ -60,7 +60,7 @@ export type InkStyle = {
   holdToStraightLine: boolean;
   /** 시작점 근처까지 원을 그린 뒤 멈추면 짧은 꼬리를 제외하고 정원으로 보정한다. 펜을 떼기 전까지 중심을 고정하고 크기를 조절한다. */
   holdToCircle: boolean;
-  /** 직선이나 원으로 바꾸기까지 멈춰 있어야 하는 시간(ms). 기본값은 700. */
+  /** 직선, 원, 다각형으로 바꾸기까지 멈춰 있어야 하는 시간(ms). 기본값은 700. */
   straightLineDelay: number;
   /** 지우개 지름(px). */
   eraserWidth: number;
