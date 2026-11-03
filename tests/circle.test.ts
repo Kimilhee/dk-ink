@@ -107,6 +107,42 @@ test("촘촘하게 그린 사각형도 원으로 보정하지 않는다", () => 
   expect(editor.getStrokes()[0].style.widthMode).toBe("pressure");
 });
 
+test.each([
+  { name: "마름모", sides: 4 },
+  { name: "오각형", sides: 5 },
+  { name: "육각형", sides: 6 },
+])("모서리를 둥글게 그린 $name 도형은 원으로 보정하지 않는다", ({ sides }) => {
+  const corners = Array.from({ length: sides }, (_, i) => {
+    const angle = -Math.PI / 2 + (i / sides) * Math.PI * 2;
+    return { x: 150 + 50 * Math.cos(angle), y: 100 + 50 * Math.sin(angle) };
+  });
+  const outline: { x: number; y: number }[] = [];
+  for (let edge = 0; edge < sides; edge += 1) {
+    const start = corners[edge];
+    const end = corners[(edge + 1) % sides];
+    for (let step = 0; step < 20; step += 1) {
+      outline.push({
+        x: start.x + ((end.x - start.x) * step) / 20,
+        y: start.y + ((end.y - start.y) * step) / 20,
+      });
+    }
+  }
+  // 손으로 그린 것처럼 이웃한 점을 평균해 모서리를 둥글린다.
+  const rounded = outline.map((_, i) => {
+    const near = [-4, -3, -2, -1, 0, 1, 2, 3, 4].map(
+      (offset) => outline[(i + offset + outline.length) % outline.length],
+    );
+    return {
+      x: near.reduce((sum, point) => sum + point.x, 0) / near.length,
+      y: near.reduce((sum, point) => sum + point.y, 0) / near.length,
+    };
+  });
+  fake.emit("pointerdown", rounded[0]);
+  for (const point of [...rounded.slice(1), rounded[0]]) fake.emit("pointermove", point);
+  vi.advanceTimersByTime(2000);
+  expect(editor.getStrokes()[0].style.widthMode).toBe("pressure");
+});
+
 test("원 보정을 꺼도 직선 보정은 유지한다", () => {
   editor.setStyle({ holdToCircle: false });
   drawRound();

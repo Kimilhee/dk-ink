@@ -4,9 +4,11 @@ export type Circle = Point & { radius: number };
 
 /** 앞뒤의 짧은 꼬리를 제외하고 원을 찾는다. 입력 속도에 따라 꼬리의 비중이 달라지지 않게 거리로 나눈다. */
 export function recognizeCircle(points: readonly Point[]): Circle | undefined {
-  const whole = fitCircle(points);
-  if (whole || points.length < 12) return whole?.circle;
+  if (points.length < 12) return;
   const samples = resample(points);
+  const whole = fitCircle(points);
+  // 통째로 맞아도 곧은 꼬리 때문에 매끄럽지 않을 수 있으니, 그때는 꼬리를 잘라 다시 본다.
+  if (whole && isSmooth(samples)) return whole.circle;
   const maxTrim = Math.floor((samples.length - 1) * 0.25);
   let best: Circle | undefined;
   let bestError = Infinity;
@@ -14,7 +16,7 @@ export function recognizeCircle(points: readonly Point[]): Circle | undefined {
     for (let start = 0; start <= trim; start += 1) {
       const candidate = samples.slice(start, samples.length - (trim - start));
       const fit = fitCircle(candidate);
-      if (!fit) continue;
+      if (!fit || !isSmooth(candidate)) continue;
       // 비슷하게 맞으면 꼬리를 덜 잘라낸 후보를 고른다.
       const error = fit.error + (trim / samples.length) * 0.01;
       if (error < bestError) {
@@ -68,6 +70,29 @@ function fitCircle(points: readonly Point[]): { circle: Circle; error: number } 
   }
   if (Math.abs(sweep) < Math.PI * 1.65 || travel > Math.PI * 2.5) return;
   return { circle: { x, y, radius }, error: squaredError / points.length };
+}
+
+/**
+ * 둘레가 고르게 휘는지 본다. 다각형은 모서리를 둥글게 그려도 곧은 변이 둘레의 많은 부분을
+ * 차지하므로, 거의 꺾이지 않는 구간이 4분의 1을 넘으면 원으로 보지 않는다.
+ */
+function isSmooth(samples: readonly Point[]): boolean {
+  // 같은 간격으로 다시 뽑은 점에서 앞뒤 4칸씩 비교해 손떨림보다 큰 휘어짐만 잰다.
+  const span = 4;
+  const turns: number[] = [];
+  for (let i = span; i < samples.length - span; i += 1) {
+    const before = samples[i - span];
+    const point = samples[i];
+    const after = samples[i + span];
+    const inX = point.x - before.x;
+    const inY = point.y - before.y;
+    const outX = after.x - point.x;
+    const outY = after.y - point.y;
+    turns.push(Math.abs(Math.atan2(inX * outY - inY * outX, inX * outX + inY * outY)));
+  }
+  const mean = turns.reduce((sum, turn) => sum + turn, 0) / turns.length;
+  const straight = turns.filter((turn) => turn < mean * 0.3).length;
+  return straight <= turns.length * 0.25;
 }
 
 /** 최대 97개 점으로 제한해 꼬리를 찾는 비용이 원래 입력 점 수에 따라 급증하지 않게 한다. */
