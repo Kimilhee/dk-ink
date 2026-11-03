@@ -5,7 +5,7 @@ export type Circle = Point & { radius: number };
 /** 앞뒤의 짧은 꼬리를 제외하고 원을 찾는다. 입력 속도에 따라 꼬리의 비중이 달라지지 않게 거리로 나눈다. */
 export function recognizeCircle(points: readonly Point[]): Circle | undefined {
   const whole = fitCircle(points);
-  if (whole || points.length < 12) return whole;
+  if (whole || points.length < 12) return whole?.circle;
   const samples = resample(points);
   const maxTrim = Math.floor((samples.length - 1) * 0.25);
   let best: Circle | undefined;
@@ -13,18 +13,12 @@ export function recognizeCircle(points: readonly Point[]): Circle | undefined {
   for (let trim = 1; trim <= maxTrim; trim += 1) {
     for (let start = 0; start <= trim; start += 1) {
       const candidate = samples.slice(start, samples.length - (trim - start));
-      const circle = fitCircle(candidate);
-      if (!circle) continue;
-      const error =
-        candidate.reduce((sum, point) => {
-          const deviation =
-            (Math.hypot(point.x - circle.x, point.y - circle.y) - circle.radius) / circle.radius;
-          return sum + deviation * deviation;
-        }, 0) /
-          candidate.length +
-        (trim / samples.length) * 0.01;
+      const fit = fitCircle(candidate);
+      if (!fit) continue;
+      // 비슷하게 맞으면 꼬리를 덜 잘라낸 후보를 고른다.
+      const error = fit.error + (trim / samples.length) * 0.01;
       if (error < bestError) {
-        best = circle;
+        best = fit.circle;
         bestError = error;
       }
     }
@@ -33,7 +27,7 @@ export function recognizeCircle(points: readonly Point[]): Circle | undefined {
 }
 
 /** 최소 약 300도를 돌고 시작점 근처까지 돌아왔는지 확인한다. */
-function fitCircle(points: readonly Point[]): Circle | undefined {
+function fitCircle(points: readonly Point[]): { circle: Circle; error: number } | undefined {
   if (points.length < 12) return;
   let minX = Infinity;
   let minY = Infinity;
@@ -55,9 +49,12 @@ function fitCircle(points: readonly Point[]): Circle | undefined {
 
   let sweep = 0;
   let travel = 0;
+  let squaredError = 0;
   for (let i = 0; i < points.length; i += 1) {
     const point = points[i];
-    if (Math.abs(Math.hypot(point.x - x, point.y - y) - radius) > radius * 0.35) return;
+    const deviation = Math.hypot(point.x - x, point.y - y) - radius;
+    if (Math.abs(deviation) > radius * 0.35) return;
+    squaredError += (deviation / radius) ** 2;
     if (i === 0) continue;
     const before = points[i - 1];
     const angle = Math.atan2(
@@ -70,7 +67,7 @@ function fitCircle(points: readonly Point[]): Circle | undefined {
     travel += Math.abs(angle);
   }
   if (Math.abs(sweep) < Math.PI * 1.65 || travel > Math.PI * 2.5) return;
-  return { x, y, radius };
+  return { circle: { x, y, radius }, error: squaredError / points.length };
 }
 
 /** 최대 97개 점으로 제한해 꼬리를 찾는 비용이 원래 입력 점 수에 따라 급증하지 않게 한다. */

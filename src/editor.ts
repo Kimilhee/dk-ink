@@ -1,4 +1,4 @@
-import { circlePoints, recognizeCircle, type Circle } from "./circle.ts";
+import { circlePoints, recognizeCircle } from "./circle.ts";
 import { createDynamicEraser } from "./dynamic-eraser.ts";
 import { eraseStrokes } from "./erase.ts";
 import { cloneStrokes, createInkHistory } from "./history.ts";
@@ -118,7 +118,7 @@ export function createInkEditor(
   let holdOrigin: Point | undefined;
   /** 직선의 시작점. 있으면 진행 중인 획은 이 점과 현재 위치만 잇는다. */
   let straightLineAnchor: InkPoint | undefined;
-  let circle: (Circle & { pointerRadius: number }) | undefined;
+  let circle: (Point & { radiusOffset: number }) | undefined;
   let eraserCursor: Point | undefined;
   let previousEraserPoint: Point | undefined;
   let previousEraserDiameter = 0;
@@ -177,10 +177,11 @@ export function createInkEditor(
     const recognized = style.holdToCircle ? recognizeCircle(current.points) : undefined;
     if (recognized) {
       circle = {
-        ...recognized,
-        pointerRadius: Math.hypot(end.x - recognized.x, end.y - recognized.y),
+        x: recognized.x,
+        y: recognized.y,
+        radiusOffset: recognized.radius - Math.hypot(end.x - recognized.x, end.y - recognized.y),
       };
-      current.points = circlePoints(circle, circle.radius, end);
+      current.points = circlePoints(circle, recognized.radius, end);
     } else if (style.holdToStraightLine && isStraightEnough(current.points)) {
       straightLineAnchor = current.points[0];
       current.points = [straightLineAnchor, end];
@@ -231,8 +232,7 @@ export function createInkEditor(
     const point = timedPoint(event, bounds);
     if (circle) {
       // 보정 직후 펜과 원둘레가 조금 달라도 첫 움직임에서 크기가 튀지 않게 한다.
-      const radius =
-        circle.radius + Math.hypot(point.x - circle.x, point.y - circle.y) - circle.pointerRadius;
+      const radius = Math.hypot(point.x - circle.x, point.y - circle.y) + circle.radiusOffset;
       current.points = circlePoints(circle, Math.max(1, radius), point);
       return;
     }
