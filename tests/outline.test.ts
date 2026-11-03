@@ -3,13 +3,13 @@ import { drawOutlineStroke, pressureWidth } from "../src/outline.ts";
 import { renderStrokes } from "../src/render.ts";
 import type { InkPoint } from "../src/types.ts";
 
-test("필압이 0.7이면 최대 굵기에 닿는다", () => {
-  expect(pressureWidth(4, 0.7)).toBeCloseTo(4);
+test("필압이 0.6이면 최대 굵기에 닿는다", () => {
+  expect(pressureWidth(4, 0.6)).toBeCloseTo(4);
   expect(pressureWidth(4, 1)).toBeCloseTo(4);
 });
 
 test("필압이 낮을수록 얇아지고 0에서도 굵기가 남는다", () => {
-  expect(pressureWidth(4, 0.35)).toBeCloseTo(2.15);
+  expect(pressureWidth(4, 0.3)).toBeCloseTo(2.15);
   expect(pressureWidth(4, 0)).toBeCloseTo(0.3);
 });
 

@@ -65,8 +65,8 @@ export function drawOutlineStroke(
 /** `pressure` 모드에서 필압을 굵기로 바꾼다. */
 export function pressureWidth(maxWidth: number, pressure = 0.5): number {
   const normalized = Math.max(0, Math.min(1, pressure));
-  // 필압 0.7에서 최대 굵기에 닿는다. 그 위는 사람이 거의 내지 않는 구간이다.
-  const response = Math.min(1, normalized / 0.7);
+  // 필압 0.6에서 최대 굵기에 닿는다. 그 위는 사람이 거의 내지 않는 구간이다.
+  const response = Math.min(1, normalized / 0.6);
   return 0.3 + (maxWidth - 0.3) * response;
 }
 
