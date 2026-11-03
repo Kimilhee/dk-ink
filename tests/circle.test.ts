@@ -69,7 +69,13 @@ test.each([1, -1])("방향 %d로 조금 삐뚤게 그린 원도 보정한다", (
   expect(stroke.points[0]).toEqual(stroke.points[stroke.points.length - 1]);
 });
 
-test.each([{ turns: 0.75 }, { turns: 2 }, { ry: 25 }])(
+test("가로 100px, 세로 56px로 찌그러진 원도 보정한다", () => {
+  drawRound({ ry: 28 });
+  vi.advanceTimersByTime(700);
+  expectCircle(editor.getStrokes()[0], 39);
+});
+
+test.each([{ turns: 0.75 }, { turns: 2 }, { ry: 20 }])(
   "열린 호, 두 바퀴 획, 긴 타원은 보정하지 않는다: %j",
   (options) => {
     drawRound(options);

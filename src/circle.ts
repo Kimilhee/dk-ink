@@ -27,7 +27,7 @@ export function recognizeCircle(points: readonly Point[]): Circle | undefined {
   let travel = 0;
   for (let i = 0; i < points.length; i += 1) {
     const point = points[i];
-    if (Math.abs(Math.hypot(point.x - x, point.y - y) - radius) > radius * 0.25) return;
+    if (Math.abs(Math.hypot(point.x - x, point.y - y) - radius) > radius * 0.35) return;
     if (i === 0) continue;
     const before = points[i - 1];
     const angle = Math.atan2(
