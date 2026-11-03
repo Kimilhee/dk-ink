@@ -13,6 +13,11 @@ import type {
   StrokeStyle,
 } from "./types.ts";
 
+/** 남긴 최근 획을 다 쓴 획 층으로 한 번에 옮기는 수. */
+const RECENT_BATCH = 5;
+/** 펜을 뗀 채로 이만큼(ms) 지나면 남긴 최근 획을 모두 옮긴다. */
+const RECENT_IDLE_MS = 1000;
+
 const DEFAULT_STYLE: InkStyle = {
   color: "#1d4ed8",
   strokeWidth: 3,
@@ -85,7 +90,9 @@ export function createInkEditor(
   const dryingCanvas = options.drying === false ? undefined : createLayer(canvas);
   const dryingContext = dryingCanvas && requireContext(dryingCanvas, false);
   /** 앱 캔버스 아래에 겹치는 층. 크기·위치를 앱 캔버스에 맞춘다. */
-  const recentLimit = dryingCanvas ? 0 : Math.max(0, options.recentStrokes ?? 8);
+  const recentLimit = dryingCanvas ? 0 : Math.max(0, options.recentStrokes ?? 15);
+  /** 남긴 획이 `recentLimit`에 이르면 오래된 것부터 이만큼 한꺼번에 옮겨 깜빡이는 횟수를 줄인다. */
+  const recentBatch = Math.min(RECENT_BATCH, recentLimit);
   const layers = dryingCanvas ? [committedCanvas, dryingCanvas] : [committedCanvas];
 
   // 위치가 지정된 형제는 static 요소 위에 그려지므로, 앱 캔버스도 위치를 줘서 위에 오게 한다.
@@ -122,6 +129,8 @@ export function createInkEditor(
   let committedDirty = true;
   /** 다 쓴 획 층에 넣지 않고 앱 캔버스에 남겨 둔 최근 획 수(`strokes` 끝쪽, 진행 중인 획 제외). */
   let recentCount = 0;
+  /** 펜을 뗀 채로 `RECENT_IDLE_MS`가 지나면 남긴 획을 모두 옮기는 타이머. */
+  let recentIdleTimer: ReturnType<typeof setTimeout> | undefined;
   /**
    * 캔버스 크기(CSS 픽셀). 크기가 바뀌면 `ResizeObserver`가 `resize`를 부르므로 그때만 잰다.
    * 위치는 캐시하지 않는다 — 휠·프로그램 스크롤이나 레이아웃 이동은 획 도중에도 일어나고
@@ -252,6 +261,21 @@ export function createInkEditor(
     eraserCursor = point;
   }
 
+  /** 남겨 둔 최근 획 중 오래된 것부터 `count`개를 다 쓴 획 층으로 옮긴다. */
+  function settleRecent(count: number): void {
+    for (let i = 0; i < count && recentCount > 0; i += 1) {
+      const oldest = strokes[strokes.length - recentCount];
+      // 다 쓴 획 층을 통째로 다시 그릴 참이면 어차피 그 안에 들어간다.
+      if (oldest && !committedDirty) drawStrokes(committedContext, [oldest]);
+      recentCount -= 1;
+    }
+  }
+
+  function cancelRecentIdle(): void {
+    clearTimeout(recentIdleTimer);
+    recentIdleTimer = undefined;
+  }
+
   /** `strokes` 끝에서 앱 캔버스가 그리는 획 수: 남겨 둔 최근 획과 진행 중인 획. */
   function appStrokeCount(): number {
     return Math.min(strokes.length, recentCount + (current ? 1 : 0));
@@ -330,6 +354,7 @@ export function createInkEditor(
 
   function pointerDown(event: PointerEvent): void {
     if (activeTool) return;
+    cancelRecentIdle();
     activeTool = tool;
     activePointerId = event.pointerId;
     event.preventDefault();
@@ -387,17 +412,24 @@ export function createInkEditor(
     } else {
       appendPoint(event, bounds);
       // 끝난 획은 마르는 층으로 보낸다. 어차피 다 쓴 획 층을 통째로 다시 그릴 참이면 건너뛴다.
-      // 마르는 층이 없으면 앱 캔버스에 남겨 두고, 남긴 획이 많아지면 가장 오래된 것부터 옮긴다.
+      // 마르는 층이 없으면 앱 캔버스에 남겨 둔다. 옮기는 순간 깜빡일 수 있어 남긴 획이
+      // `recentLimit`에 이를 때 오래된 것부터 `recentBatch`개를 한꺼번에 옮긴다.
       if (drying) {
         if (current && !committedDirty) drying.add(current);
       } else if (current) {
         recentCount += 1;
-        while (recentCount > recentLimit) {
-          const oldest = strokes[strokes.length - recentCount];
-          if (oldest && !committedDirty) drawStrokes(committedContext, [oldest]);
-          recentCount -= 1;
-        }
+        if (recentCount >= recentLimit) settleRecent(recentBatch);
       }
+    }
+    // 펜을 멈췄을 때 남긴 획을 모두 옮긴다. 깜빡이더라도 쓰는 도중이 아니라 덜 거슬린다.
+    if (!drying && recentCount > 0) {
+      cancelRecentIdle();
+      recentIdleTimer = setTimeout(() => {
+        recentIdleTimer = undefined;
+        if (activeTool) return;
+        settleRecent(recentCount);
+        redrawNow();
+      }, RECENT_IDLE_MS);
     }
 
     const changed = erasing ? changedWhileErasing : true;
@@ -536,6 +568,7 @@ export function createInkEditor(
     resize,
     destroy() {
       endGesture();
+      cancelRecentIdle();
       cancelScheduledRedraw();
       drying?.dispose();
       observer.disconnect();

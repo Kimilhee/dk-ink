@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, expect, test } from "vite-plus/test";
+import { afterEach, beforeEach, expect, test, vi } from "vite-plus/test";
 import { createInkEditor, type InkEditor, type StrokeStyle } from "../src/index.ts";
 import {
   createFakeCanvas,
@@ -330,17 +330,41 @@ test("destroy 이후에는 입력을 받지 않는다", () => {
   expect(editor.getStrokes()).toHaveLength(0);
 });
 
-test("drying: false면 최근 획은 앱 캔버스에 남기고 그보다 오래된 획부터 다 쓴 획 층으로 옮긴다", () => {
+test("drying: false면 남긴 최근 획이 상한에 이를 때 오래된 5획을 한꺼번에 다 쓴 획 층으로 옮긴다", () => {
   editor.destroy();
   fake = createFakeCanvas();
-  editor = createInkEditor(fake.canvas, { drying: false, recentStrokes: 2 });
-  drawStroke(10);
-  drawStroke(50);
-  drawStroke(90);
+  editor = createInkEditor(fake.canvas, { drying: false, recentStrokes: 6 });
+  for (let i = 0; i < 5; i += 1) drawStroke(10 + i * 40);
 
-  // 펜 이동 한 번에 남겨 둔 최근 획 2개와 쓰는 중인 획 1개를 칠한다.
-  fake.emit("pointerdown", { x: 10, y: 130, pressure: 0.3 });
-  const before = fake.paintCount;
-  fake.emit("pointermove", { x: 20, y: 130, pressure: 0.3 });
-  expect(fake.paintCount - before).toBe(3);
+  // 펜 이동 한 번에 남겨 둔 최근 획 5개와 쓰는 중인 획 1개를 칠한다.
+  fake.emit("pointerdown", { x: 10, y: 300, pressure: 0.3 });
+  let before = fake.paintCount;
+  fake.emit("pointermove", { x: 20, y: 300, pressure: 0.3 });
+  expect(fake.paintCount - before).toBe(6);
+  fake.emit("pointerup", { x: 30, y: 300, pressure: 0.3 });
+
+  // 6번째 획에서 상한에 이르러 오래된 5획을 옮기고 1획만 남긴다.
+  fake.emit("pointerdown", { x: 10, y: 340, pressure: 0.3 });
+  before = fake.paintCount;
+  fake.emit("pointermove", { x: 20, y: 340, pressure: 0.3 });
+  expect(fake.paintCount - before).toBe(2);
+});
+
+test("drying: false면 펜을 뗀 채로 1초가 지나면 남긴 최근 획을 모두 옮긴다", () => {
+  vi.useFakeTimers();
+  try {
+    editor.destroy();
+    fake = createFakeCanvas();
+    editor = createInkEditor(fake.canvas, { drying: false });
+    drawStroke(10);
+    drawStroke(50);
+    vi.advanceTimersByTime(1000);
+
+    fake.emit("pointerdown", { x: 10, y: 130, pressure: 0.3 });
+    const before = fake.paintCount;
+    fake.emit("pointermove", { x: 20, y: 130, pressure: 0.3 });
+    expect(fake.paintCount - before).toBe(1);
+  } finally {
+    vi.useRealTimers();
+  }
 });
