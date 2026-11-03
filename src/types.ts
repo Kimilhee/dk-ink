@@ -81,4 +81,10 @@ export type InkEditorOptions = Partial<InkStyle> & {
   strokes?: readonly Stroke[];
   /** 획이 바뀔 때마다 호출된다. 그리는 중간에는 호출되지 않는다. */
   onChange?: (strokes: readonly Stroke[]) => void;
+  /**
+   * 막 끝난 획이 불투명에서 반투명으로 서서히 바뀌는 효과. 기본값은 `true`.
+   * `false`면 마르는 층을 만들지 않고 쓰는 중에도 `opacity` 그대로 그린다. 층마다 매 프레임
+   * 전체를 다시 합성하는 WebView에서는 층 하나와 마르는 동안의 프레임이 그대로 비용이 된다.
+   */
+  drying?: boolean;
 };

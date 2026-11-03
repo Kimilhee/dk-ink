@@ -82,8 +82,10 @@ export function createInkEditor(
   const context = requireContext(canvas);
   const committedCanvas = createLayer(canvas);
   const committedContext = requireContext(committedCanvas, false);
-  const dryingCanvas = createLayer(canvas);
-  const dryingContext = requireContext(dryingCanvas, false);
+  const dryingCanvas = options.drying === false ? undefined : createLayer(canvas);
+  const dryingContext = dryingCanvas && requireContext(dryingCanvas, false);
+  /** 앱 캔버스 아래에 겹치는 층. 크기·위치를 앱 캔버스에 맞춘다. */
+  const layers = dryingCanvas ? [committedCanvas, dryingCanvas] : [committedCanvas];
 
   // 위치가 지정된 형제는 static 요소 위에 그려지므로, 앱 캔버스도 위치를 줘서 위에 오게 한다.
   const previousPosition = canvas.style.getPropertyValue("position");
@@ -129,16 +131,18 @@ export function createInkEditor(
   /** 마르는 획 아래에 깔 배경색(`readBackgroundColor`). */
   let background = "#fff";
 
-  const drying = createDryingLayer({
-    context: dryingContext,
-    size: () => size,
-    background: () => background,
-    // 다 쓴 획 층을 통째로 다시 그릴 참이면 어차피 그 안에 들어간다.
-    settle: (stroke) => {
-      if (!committedDirty) drawStrokes(committedContext, [stroke]);
-    },
-    onWetChange: () => redraw(),
-  });
+  const drying =
+    dryingContext &&
+    createDryingLayer({
+      context: dryingContext,
+      size: () => size,
+      background: () => background,
+      // 다 쓴 획 층을 통째로 다시 그릴 참이면 어차피 그 안에 들어간다.
+      settle: (stroke) => {
+        if (!committedDirty) drawStrokes(committedContext, [stroke]);
+      },
+      onWetChange: () => redraw(),
+    });
 
   function cancelHold(): void {
     clearTimeout(holdTimer);
@@ -250,13 +254,17 @@ export function createInkEditor(
       // 진행 중인 획은 `strokes` 끝에 들어 있지만 아직 다 쓴 획이 아니다.
       renderStrokes(committedContext, current ? strokes.slice(0, -1) : strokes, size);
       committedDirty = false;
-      drying.reset();
+      drying?.reset();
     }
     context.clearRect(0, 0, size.width, size.height);
-    // 펜을 뗀 획은 마르기 시작할 때까지 여기에도 남긴다(`DryingLayer.wetStrokes` 참고).
-    for (const stroke of drying.wetStrokes()) drawInk(context, stroke, 1, background);
-    // 쓰는 중인 획은 불투명하게 보이게 그린다. 펜을 뗄 때 마르는 층으로 옮겨도 변하지 않는다.
-    if (current) drawInk(context, current, 1, background);
+    if (drying) {
+      // 펜을 뗀 획은 마르기 시작할 때까지 여기에도 남긴다(`DryingLayer.wetStrokes` 참고).
+      for (const stroke of drying.wetStrokes()) drawInk(context, stroke, 1, background);
+      // 쓰는 중인 획은 불투명하게 보이게 그린다. 펜을 뗄 때 마르는 층으로 옮겨도 변하지 않는다.
+      if (current) drawInk(context, current, 1, background);
+    } else if (current) {
+      drawStrokes(context, [current]);
+    }
     if (straightLineAnchor && current) drawStraightLineAnchor(straightLineAnchor, current.style);
     if (eraserCursor && style.showEraserCursor) {
       drawEraserCursor(context, eraserCursor, { ...style, eraserWidth: eraserDiameter });
@@ -371,7 +379,11 @@ export function createInkEditor(
     } else {
       appendPoint(event, bounds);
       // 끝난 획은 마르는 층으로 보낸다. 어차피 다 쓴 획 층을 통째로 다시 그릴 참이면 건너뛴다.
-      if (current && !committedDirty) drying.add(current);
+      // 마르는 층이 없으면 다 쓴 획 층에 바로 그린다.
+      if (current && !committedDirty) {
+        if (drying) drying.add(current);
+        else drawStrokes(committedContext, [current]);
+      }
     }
 
     const changed = erasing ? changedWhileErasing : true;
@@ -413,7 +425,7 @@ export function createInkEditor(
     const top = canvas.offsetTop;
     if (left === layerOffset.left && top === layerOffset.top) return;
     layerOffset = { left, top };
-    for (const layer of [committedCanvas, dryingCanvas]) {
+    for (const layer of layers) {
       layer.style.setProperty("left", `${left}px`);
       layer.style.setProperty("top", `${top}px`);
     }
@@ -426,7 +438,7 @@ export function createInkEditor(
     const ratio = window.devicePixelRatio || 1;
     canvas.width = Math.max(1, Math.floor(bounds.width * ratio));
     canvas.height = Math.max(1, Math.floor(bounds.height * ratio));
-    for (const layer of [committedCanvas, dryingCanvas]) {
+    for (const layer of layers) {
       layer.width = canvas.width;
       layer.height = canvas.height;
       layer.style.setProperty("width", `${size.width}px`);
@@ -434,7 +446,7 @@ export function createInkEditor(
     }
     alignLayers();
     // 캔버스 내부 이미지는 물리 픽셀, 좌표는 CSS 픽셀로 유지한다.
-    for (const target of [context, committedContext, dryingContext]) {
+    for (const target of [context, committedContext, ...(dryingContext ? [dryingContext] : [])]) {
       target.setTransform(ratio, 0, 0, ratio, 0, 0);
     }
     committedDirty = true;
@@ -511,13 +523,13 @@ export function createInkEditor(
     destroy() {
       endGesture();
       cancelScheduledRedraw();
-      drying.dispose();
+      drying?.dispose();
       observer.disconnect();
       // 다 쓴 획은 곧 떼어낼 아래 층에 있다. "그려진 내용은 지우지 않는다"는 약속을 지키려면
       // 남는 캔버스에 옮겨 그려야 한다. 젖은 획을 덮어 그리지 않도록 비우고 원래 모습으로 그린다.
       renderStrokes(context, strokes, size);
       committedCanvas.remove();
-      dryingCanvas.remove();
+      dryingCanvas?.remove();
       if (previousPosition) canvas.style.setProperty("position", previousPosition);
       else canvas.style.removeProperty("position");
       if (previousToolAttribute === undefined) delete canvas.dataset.tool;
