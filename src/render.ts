@@ -1,7 +1,13 @@
 import { drawOutlineStroke } from "./outline.ts";
 import type { InkStyle, Point, Stroke } from "./types.ts";
 
-/** 고정 굵기로 연속된 점들을 선으로 잇는다. */
+/**
+ * 고정 굵기로 연속된 점들을 곡선으로 잇는다.
+ *
+ * 필압 윤곽(`traceSide`)과 같은 방식으로, 점을 제어점 삼아 이웃 점과의 중점까지 2차 곡선을 긋는다.
+ * 경로가 늘 마지막 점까지 닿으므로 펜을 늦게 따라오지 않고, 시작점과 끝점도 입력 그대로다.
+ * 90°보다 크게 꺾이는 점은 곡선으로 깎지 않고 그 점을 지나게 해서 의도한 모서리를 살린다.
+ */
 export function drawStaticLineStroke(
   context: CanvasRenderingContext2D,
   points: readonly Point[],
@@ -9,10 +15,32 @@ export function drawStaticLineStroke(
 ): void {
   context.lineWidth = strokeWidth;
   context.beginPath();
-  context.moveTo(points[0].x, points[0].y);
-  for (let index = 1; index < points.length; index += 1) {
-    context.lineTo(points[index].x, points[index].y);
+  const first = points[0];
+  context.moveTo(first.x, first.y);
+  if (!points.some((point) => point.x !== first.x || point.y !== first.y)) {
+    // 제자리에서 찍은 획(점 하나, 또는 누른 점과 뗀 점이 같은 자리)은 길이가 0이라 브라우저가
+    // 칠하지 않는다. 아주 짧은 선을 두면 둥근 끝이 점이 된다.
+    context.lineTo(first.x + 0.01, first.y);
+    context.stroke();
+    return;
   }
+  for (let index = 1; index < points.length - 1; index += 1) {
+    const before = points[index - 1];
+    const point = points[index];
+    const next = points[index + 1];
+    const midX = (point.x + next.x) / 2;
+    const midY = (point.y + next.y) / 2;
+    const turnDot =
+      (point.x - before.x) * (next.x - point.x) + (point.y - before.y) * (next.y - point.y);
+    if (turnDot < 0) {
+      context.lineTo(point.x, point.y);
+      context.lineTo(midX, midY);
+    } else {
+      context.quadraticCurveTo(point.x, point.y, midX, midY);
+    }
+  }
+  const last = points[points.length - 1];
+  context.lineTo(last.x, last.y);
   context.stroke();
 }
 
