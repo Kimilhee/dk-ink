@@ -87,4 +87,10 @@ export type InkEditorOptions = Partial<InkStyle> & {
    * 전체를 다시 합성하는 WebView에서는 층 하나와 마르는 동안의 프레임이 그대로 비용이 된다.
    */
   drying?: boolean;
+  /**
+   * `drying: false`일 때 앱 캔버스에 남겨 둘 최근 획 수. 기본값은 8.
+   * 다 쓴 획 층으로 옮기는 순간 획이 깜빡일 수 있어, 지금 쓰는 글자의 획은 앞에 두고
+   * 이만큼 지난 획부터 옮긴다. 남긴 획은 펜 이벤트마다 다시 그리므로 너무 크게 잡지 않는다.
+   */
+  recentStrokes?: number;
 };

@@ -85,6 +85,7 @@ export function createInkEditor(
   const dryingCanvas = options.drying === false ? undefined : createLayer(canvas);
   const dryingContext = dryingCanvas && requireContext(dryingCanvas, false);
   /** 앱 캔버스 아래에 겹치는 층. 크기·위치를 앱 캔버스에 맞춘다. */
+  const recentLimit = dryingCanvas ? 0 : Math.max(0, options.recentStrokes ?? 8);
   const layers = dryingCanvas ? [committedCanvas, dryingCanvas] : [committedCanvas];
 
   // 위치가 지정된 형제는 static 요소 위에 그려지므로, 앱 캔버스도 위치를 줘서 위에 오게 한다.
@@ -119,6 +120,8 @@ export function createInkEditor(
   let redrawFrame: number | undefined;
   /** 다 쓴 획이 바뀌어(지우기·되돌리기·갈아끼우기·크기 변경) 다 쓴 획 층을 다시 그려야 한다. */
   let committedDirty = true;
+  /** 다 쓴 획 층에 넣지 않고 앱 캔버스에 남겨 둔 최근 획 수(`strokes` 끝쪽, 진행 중인 획 제외). */
+  let recentCount = 0;
   /**
    * 캔버스 크기(CSS 픽셀). 크기가 바뀌면 `ResizeObserver`가 `resize`를 부르므로 그때만 잰다.
    * 위치는 캐시하지 않는다 — 휠·프로그램 스크롤이나 레이아웃 이동은 획 도중에도 일어나고
@@ -249,10 +252,15 @@ export function createInkEditor(
     eraserCursor = point;
   }
 
+  /** `strokes` 끝에서 앱 캔버스가 그리는 획 수: 남겨 둔 최근 획과 진행 중인 획. */
+  function appStrokeCount(): number {
+    return Math.min(strokes.length, recentCount + (current ? 1 : 0));
+  }
+
   function redraw(): void {
     if (committedDirty) {
-      // 진행 중인 획은 `strokes` 끝에 들어 있지만 아직 다 쓴 획이 아니다.
-      renderStrokes(committedContext, current ? strokes.slice(0, -1) : strokes, size);
+      // 진행 중인 획과 남겨 둔 최근 획은 `strokes` 끝에 있고, 앱 캔버스가 그린다.
+      renderStrokes(committedContext, strokes.slice(0, strokes.length - appStrokeCount()), size);
       committedDirty = false;
       drying?.reset();
     }
@@ -262,8 +270,8 @@ export function createInkEditor(
       for (const stroke of drying.wetStrokes()) drawInk(context, stroke, 1, background);
       // 쓰는 중인 획은 불투명하게 보이게 그린다. 펜을 뗄 때 마르는 층으로 옮겨도 변하지 않는다.
       if (current) drawInk(context, current, 1, background);
-    } else if (current) {
-      drawStrokes(context, [current]);
+    } else {
+      drawStrokes(context, strokes.slice(strokes.length - appStrokeCount()));
     }
     if (straightLineAnchor && current) drawStraightLineAnchor(straightLineAnchor, current.style);
     if (eraserCursor && style.showEraserCursor) {
@@ -379,10 +387,16 @@ export function createInkEditor(
     } else {
       appendPoint(event, bounds);
       // 끝난 획은 마르는 층으로 보낸다. 어차피 다 쓴 획 층을 통째로 다시 그릴 참이면 건너뛴다.
-      // 마르는 층이 없으면 다 쓴 획 층에 바로 그린다.
-      if (current && !committedDirty) {
-        if (drying) drying.add(current);
-        else drawStrokes(committedContext, [current]);
+      // 마르는 층이 없으면 앱 캔버스에 남겨 두고, 남긴 획이 많아지면 가장 오래된 것부터 옮긴다.
+      if (drying) {
+        if (current && !committedDirty) drying.add(current);
+      } else if (current) {
+        recentCount += 1;
+        while (recentCount > recentLimit) {
+          const oldest = strokes[strokes.length - recentCount];
+          if (oldest && !committedDirty) drawStrokes(committedContext, [oldest]);
+          recentCount -= 1;
+        }
       }
     }
 
