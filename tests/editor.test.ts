@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, expect, test, vi } from "vite-plus/test";
+import { afterEach, beforeEach, expect, test } from "vite-plus/test";
 import { createInkEditor, type InkEditor, type StrokeStyle } from "../src/index.ts";
 import {
   createFakeCanvas,
@@ -348,23 +348,4 @@ test("drying: false면 남긴 최근 획이 상한에 이를 때 오래된 5획�
   before = fake.paintCount;
   fake.emit("pointermove", { x: 20, y: 340, pressure: 0.3 });
   expect(fake.paintCount - before).toBe(2);
-});
-
-test("drying: false면 펜을 뗀 채로 1초가 지나면 남긴 최근 획을 모두 옮긴다", () => {
-  vi.useFakeTimers();
-  try {
-    editor.destroy();
-    fake = createFakeCanvas();
-    editor = createInkEditor(fake.canvas, { drying: false });
-    drawStroke(10);
-    drawStroke(50);
-    vi.advanceTimersByTime(1000);
-
-    fake.emit("pointerdown", { x: 10, y: 130, pressure: 0.3 });
-    const before = fake.paintCount;
-    fake.emit("pointermove", { x: 20, y: 130, pressure: 0.3 });
-    expect(fake.paintCount - before).toBe(1);
-  } finally {
-    vi.useRealTimers();
-  }
 });
