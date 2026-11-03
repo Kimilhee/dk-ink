@@ -155,8 +155,25 @@
             </div>
           </div>
 
+          <div class="setting-row">
+            <span
+              class="setting-label"
+              title="원을 그리고 멈추면 정원으로 보정하고, 펜을 떼기 전까지 크기를 조절합니다"
+              >길게 눌러 원</span
+            >
+            <div
+              id="hold-to-circle-picker"
+              class="segmented-control"
+              role="group"
+              aria-label="길게 눌러 원"
+            >
+              <button type="button" data-hold-to-circle="off" aria-pressed="false">끔</button>
+              <button type="button" data-hold-to-circle="on" aria-pressed="true">켬</button>
+            </div>
+          </div>
+
           <label class="setting-row" for="straight-line-delay">
-            <span class="setting-label">직선 대기 시간</span>
+            <span class="setting-label">도형 대기 시간</span>
             <span class="range-control">
               <input
                 id="straight-line-delay"

@@ -11,6 +11,9 @@
   획이 두 조각으로 남는다.
 - **동적 지우개** — `dynamicEraser`를 켜면 지우개를 빠르게 문지를수록 지름이 커지고(20~180px)
   느리게 움직이면 작아진다. 켜면 `eraserWidth`는 쓰지 않는다.
+- **원을 길게 눌러 보정** — 원을 그리고 펜을 댄 채 잠시 멈추면 정원으로 보정한다.
+  펜을 떼기 전까지 중심에서 멀어지거나 가까워지면 크기를 조절하고, 떼면 확정한다.
+  `holdToCircle`로 켜거나 끄고, 대기 시간은 직선과 함께 `straightLineDelay`로 조절한다.
 - **되돌리기 / 다시 실행** — 획 묶음 스냅샷 스택.
 - **뭉친 이벤트 복원** — 저사양 기기는 포인터 이벤트를 뭉쳐 보낸다.
   `getCoalescedEvents()`까지 풀어서 궤적이 각지지 않게 한다.
@@ -90,6 +93,7 @@ editor.destroy();
 | `widthMode`                               | `"pressure"`                 |
 | `opacity`                                 | `0.7`                        |
 | `holdToStraightLine`                      | `true` (끝에서 멈추면 직선)  |
+| `holdToCircle`                            | `true` (끝에서 멈추면 원)    |
 | `straightLineDelay`                       | `700` (대기 시간, ms)        |
 | `eraserWidth`                             | `50`                         |
 | `dynamicEraser`                           | `false` (속도로 지름 결정)   |

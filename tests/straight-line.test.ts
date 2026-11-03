@@ -88,7 +88,7 @@ test("멈추지 않고 계속 움직이면 대기 시간이 다시 시작된다"
 });
 
 test("옵션을 끄면 끝에서 멈춰도 자유 필기로 그린다", () => {
-  editor.setStyle({ holdToStraightLine: false });
+  editor.setStyle({ holdToStraightLine: false, holdToCircle: false });
   drawNearlyStraight();
   expect(vi.getTimerCount()).toBe(0);
   vi.advanceTimersByTime(3000);

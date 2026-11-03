@@ -1,3 +1,4 @@
+import { circlePoints, recognizeCircle, type Circle } from "./circle.ts";
 import { createDynamicEraser } from "./dynamic-eraser.ts";
 import { eraseStrokes } from "./erase.ts";
 import { cloneStrokes, createInkHistory } from "./history.ts";
@@ -22,6 +23,7 @@ const DEFAULT_STYLE: InkStyle = {
   widthMode: "pressure",
   opacity: 0.7,
   holdToStraightLine: true,
+  holdToCircle: true,
   straightLineDelay: 700,
   eraserWidth: 50,
   dynamicEraser: false,
@@ -116,6 +118,7 @@ export function createInkEditor(
   let holdOrigin: Point | undefined;
   /** 직선의 시작점. 있으면 진행 중인 획은 이 점과 현재 위치만 잇는다. */
   let straightLineAnchor: InkPoint | undefined;
+  let circle: (Circle & { pointerRadius: number }) | undefined;
   let eraserCursor: Point | undefined;
   let previousEraserPoint: Point | undefined;
   let previousEraserDiameter = 0;
@@ -163,19 +166,27 @@ export function createInkEditor(
     holdOrigin = point;
     holdTimer = setTimeout(() => {
       holdTimer = undefined;
-      snapToStraightLine();
+      snapToShape();
     }, style.straightLineDelay);
   }
 
-  /**
-   * 획 끝에서 멈춘 펜을 직선으로 바꾼다. 쓰기 전에 펜을 대고 머뭇거리거나 글씨를 쓰다 멈춘
-   * 경우까지 직선이 되면 안 되므로, 충분히 길고 곧게 그은 획만 바꾼다.
-   */
-  function snapToStraightLine(): void {
-    if (!current || !isStraightEnough(current.points)) return;
-    const start = current.points[0];
-    straightLineAnchor = start;
-    current.points = [start, current.points[current.points.length - 1]];
+  /** 곧은 획과 거의 닫힌 원만 보정한다. 글씨나 열린 곡선은 그대로 둔다. */
+  function snapToShape(): void {
+    if (!current) return;
+    const end = current.points[current.points.length - 1];
+    const recognized = style.holdToCircle ? recognizeCircle(current.points) : undefined;
+    if (recognized) {
+      circle = {
+        ...recognized,
+        pointerRadius: Math.hypot(end.x - recognized.x, end.y - recognized.y),
+      };
+      current.points = circlePoints(circle, circle.radius, end);
+    } else if (style.holdToStraightLine && isStraightEnough(current.points)) {
+      straightLineAnchor = current.points[0];
+      current.points = [straightLineAnchor, end];
+    } else {
+      return;
+    }
     current.style.widthMode = "constant";
     redrawNow();
   }
@@ -184,6 +195,7 @@ export function createInkEditor(
   function endGesture(): void {
     cancelHold();
     straightLineAnchor = undefined;
+    circle = undefined;
     activeTool = undefined;
     activePointerId = undefined;
     current = undefined;
@@ -217,13 +229,20 @@ export function createInkEditor(
   function appendPoint(event: PointerEvent, bounds: { left: number; top: number }): void {
     if (!current) return;
     const point = timedPoint(event, bounds);
+    if (circle) {
+      // 보정 직후 펜과 원둘레가 조금 달라도 첫 움직임에서 크기가 튀지 않게 한다.
+      const radius =
+        circle.radius + Math.hypot(point.x - circle.x, point.y - circle.y) - circle.pointerRadius;
+      current.points = circlePoints(circle, Math.max(1, radius), point);
+      return;
+    }
     if (straightLineAnchor) {
       current.points = [straightLineAnchor, point];
       return;
     }
     current.points.push(point);
     if (
-      style.holdToStraightLine &&
+      (style.holdToStraightLine || style.holdToCircle) &&
       (!holdOrigin || Math.hypot(point.x - holdOrigin.x, point.y - holdOrigin.y) > 8)
     ) {
       restartHold(point);
@@ -288,14 +307,15 @@ export function createInkEditor(
     } else {
       drawStrokes(context, strokes.slice(strokes.length - appStrokeCount()));
     }
-    if (straightLineAnchor && current) drawStraightLineAnchor(straightLineAnchor, current.style);
+    const anchor = straightLineAnchor ?? circle;
+    if (anchor && current) drawShapeAnchor(anchor, current.style);
     if (eraserCursor && style.showEraserCursor) {
       drawEraserCursor(context, eraserCursor, { ...style, eraserWidth: eraserDiameter });
     }
   }
 
-  /** 직선 모드에서 고정된 시작점을 표시한다. 획 투명도와 무관하게 또렷해야 한다. */
-  function drawStraightLineAnchor(anchor: Point, strokeStyle: StrokeStyle): void {
+  /** 도형을 조절하는 동안 고정된 시작점이나 중심을 표시한다. 획 투명도와 무관하게 또렷해야 한다. */
+  function drawShapeAnchor(anchor: Point, strokeStyle: StrokeStyle): void {
     context.save();
     context.beginPath();
     context.arc(anchor.x, anchor.y, Math.max(6, strokeStyle.strokeWidth), 0, Math.PI * 2);

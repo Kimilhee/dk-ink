@@ -32,6 +32,7 @@ const SETTINGS_KEY = "dk-ink-playground-settings";
 type StoredSettings = {
   fingerDrawing?: unknown;
   holdToStraightLine?: unknown;
+  holdToCircle?: unknown;
   straightLineDelay?: unknown;
   toolSwitch?: unknown;
   penFollow?: unknown;
@@ -91,6 +92,7 @@ const editor = createInkEditor(canvas, {
       ? stored.widthMode
       : undefined,
   holdToStraightLine: stored.holdToStraightLine !== false,
+  holdToCircle: stored.holdToCircle !== false,
   straightLineDelay: Math.max(500, Math.min(1500, storedNumber(stored.straightLineDelay) ?? 700)),
   strokeWidth: storedNumber(stored.strokeWidth),
   eraserWidth: storedNumber(stored.eraserWidth),
@@ -173,6 +175,10 @@ pickable("finger-input-picker", "finger-input", {
 pickable("hold-to-straight-line-picker", "hold-to-straight-line", {
   apply: (value) => editor.setStyle({ holdToStraightLine: value === "on" }),
   current: () => (editor.getStyle().holdToStraightLine ? "on" : "off"),
+});
+pickable("hold-to-circle-picker", "hold-to-circle", {
+  apply: (value) => editor.setStyle({ holdToCircle: value === "on" }),
+  current: () => (editor.getStyle().holdToCircle ? "on" : "off"),
 });
 pickable("pen-follow-picker", "pen-follow", {
   apply: (value) => {
@@ -487,6 +493,7 @@ function saveSettings(): void {
       JSON.stringify({
         fingerDrawing: fingerDrawingEnabled,
         holdToStraightLine: style.holdToStraightLine,
+        holdToCircle: style.holdToCircle,
         straightLineDelay: style.straightLineDelay,
         toolSwitch: toolSwitchMode,
         penFollow: penFlip.enabled,
