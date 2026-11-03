@@ -3,14 +3,14 @@ import { drawOutlineStroke, pressureWidth } from "../src/outline.ts";
 import { renderStrokes } from "../src/render.ts";
 import type { InkPoint } from "../src/types.ts";
 
-test("필압이 0.8이면 최대 굵기에 닿는다", () => {
-  expect(pressureWidth(4, 0.8)).toBeCloseTo(4);
+test("필압이 0.7이면 최대 굵기에 닿는다", () => {
+  expect(pressureWidth(4, 0.7)).toBeCloseTo(4);
   expect(pressureWidth(4, 1)).toBeCloseTo(4);
 });
 
 test("필압이 낮을수록 얇아지고 0에서도 굵기가 남는다", () => {
-  expect(pressureWidth(4, 0.4)).toBeCloseTo(2.1);
-  expect(pressureWidth(4, 0)).toBeCloseTo(0.2);
+  expect(pressureWidth(4, 0.35)).toBeCloseTo(2.15);
+  expect(pressureWidth(4, 0)).toBeCloseTo(0.3);
 });
 
 test("필압을 보고하지 않는 입력은 중간 굵기로 그린다", () => {
@@ -30,7 +30,7 @@ test.each(["outline", "render"])("%s에서 필압에 따른 굵기와 둥근 양
   const canvasContext = context as unknown as CanvasRenderingContext2D;
   const points: InkPoint[] = [
     { x: 10, y: 20, t: 0, pressure: 0 },
-    { x: 30, y: 20, t: 1, pressure: 0.8 },
+    { x: 30, y: 20, t: 1, pressure: 0.7 },
   ];
 
   if (entry === "outline") {
@@ -43,14 +43,14 @@ test.each(["outline", "render"])("%s에서 필압에 따른 굵기와 둥근 양
     );
   }
 
-  expect(context.moveTo).toHaveBeenCalledWith(10, 20.1);
+  expect(context.moveTo).toHaveBeenCalledWith(10, 20.15);
   const [endCap, startCap] = context.arc.mock.calls;
   expect(endCap[0]).toBe(30);
   expect(endCap[1]).toBe(20);
-  expect(endCap[2]).toBeCloseTo(0.765);
+  expect(endCap[2]).toBeCloseTo(0.7975);
   expect(startCap[0]).toBe(10);
   expect(startCap[1]).toBe(20);
-  expect(startCap[2]).toBeCloseTo(0.1);
+  expect(startCap[2]).toBeCloseTo(0.15);
   expect(context.closePath).toHaveBeenCalledOnce();
   expect(context.fill).toHaveBeenCalledOnce();
 });
