@@ -349,3 +349,16 @@ test("drying: false면 남긴 최근 획이 상한에 이를 때 오래된 5획�
   fake.emit("pointermove", { x: 20, y: 340, pressure: 0.3 });
   expect(fake.paintCount - before).toBe(2);
 });
+
+test("보기 오프셋을 주면 획을 오프셋을 더한 좌표로 저장한다", () => {
+  editor.setViewOffset({ x: 0, y: 100 });
+  drawStroke();
+  expect(editor.getStrokes()[0].points.map((point) => point.y)).toEqual([110, 110, 110]);
+});
+
+test("획 도중에 오프셋이 바뀌면 다음 점부터 새 오프셋을 더한다", () => {
+  fake.emit("pointerdown", { x: 10, y: 10 });
+  editor.setViewOffset({ x: 0, y: 50 });
+  fake.emit("pointerup", { x: 10, y: 10 });
+  expect(editor.getStrokes()[0].points.map((point) => point.y)).toEqual([10, 60]);
+});

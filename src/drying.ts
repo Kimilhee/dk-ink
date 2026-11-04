@@ -27,8 +27,11 @@ export type DryingLayer = {
 
 export type DryingLayerOptions = {
   context: CanvasRenderingContext2D;
-  /** 층의 CSS 픽셀 크기와, 획 아래에 깔 배경색. 크기 변경 때 바뀌므로 그릴 때마다 읽는다. */
-  size(): { width: number; height: number };
+  /**
+   * 층에 보이는 영역(획 좌표, `x`·`y` 기본값 0)과, 획 아래에 깔 배경색. 크기·스크롤 위치가
+   * 바뀌므로 그릴 때마다 읽는다.
+   */
+  size(): { x?: number; y?: number; width: number; height: number };
   background(): string;
   /** 다 마른 획을 다 쓴 획 층으로 넘긴다. 이 층에서 빼는 것과 같은 프레임에 불린다. */
   settle(stroke: Stroke): void;
@@ -64,8 +67,8 @@ export function createDryingLayer(options: DryingLayerOptions): DryingLayer {
   function render(now: number): void {
     if (!stale && !entries.some((entry) => progress(entry.endedAt, now) > 0)) return;
     stale = false;
-    const { width, height } = options.size();
-    context.clearRect(0, 0, width, height);
+    const { x = 0, y = 0, width, height } = options.size();
+    context.clearRect(x, y, width, height);
     entries = entries.filter((entry) => {
       const dried = progress(entry.endedAt, now);
       if (dried < 1) {
@@ -111,8 +114,8 @@ export function createDryingLayer(options: DryingLayerOptions): DryingLayer {
     reset() {
       entries = [];
       wetCount = 0;
-      const { width, height } = options.size();
-      context.clearRect(0, 0, width, height);
+      const { x = 0, y = 0, width, height } = options.size();
+      context.clearRect(x, y, width, height);
     },
     dispose() {
       if (frame !== undefined) cancelAnimationFrame(frame);

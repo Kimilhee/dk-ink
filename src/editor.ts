@@ -57,6 +57,12 @@ export type InkEditor = {
   /** 캔버스 크기가 바뀌었을 때. ResizeObserver가 자동으로 부르므로 보통 필요 없다. */
   resize(): void;
   /**
+   * 획 좌표계를 캔버스에서 이만큼 옮겨 보여 준다. 캔버스는 화면에 고정해 두고 아래 내용만
+   * 스크롤할 때, 스크롤 위치를 넘기면 획이 내용을 따라 움직인다. 획은 이 오프셋을 더한
+   * 좌표(내용 기준)로 저장된다. 기본값은 (0, 0).
+   */
+  setViewOffset(offset: Point): void;
+  /**
    * 에디터를 떼어낸다: 리스너와 `ResizeObserver`를 해제하고, 되돌리기 이력을 비우고,
    * 캔버스에 걸었던 인라인 스타일과 `data-tool`을 **부착 이전 값으로 되돌린다.**
    *
@@ -141,12 +147,16 @@ export function createInkEditor(
   let layerOffset = { left: Number.NaN, top: Number.NaN };
   /** 마르는 획 아래에 깔 배경색(`readBackgroundColor`). */
   let background = "#fff";
+  /** `setViewOffset`으로 받은 값. 캔버스 왼쪽 위가 획 좌표계의 이 점이다. */
+  let viewOffset: Point = { x: 0, y: 0 };
+  /** 지금 보이는 영역(획 좌표). 층을 비울 때 쓴다. */
+  const visibleRect = () => ({ ...viewOffset, ...size });
 
   const drying =
     dryingContext &&
     createDryingLayer({
       context: dryingContext,
-      size: () => size,
+      size: visibleRect,
       background: () => background,
       // 다 쓴 획 층을 통째로 다시 그릴 참이면 어차피 그 안에 들어간다.
       settle: (stroke) => {
@@ -220,8 +230,8 @@ export function createInkEditor(
     // 몰려 들어오므로 핸들러 실행 시각을 찍으면 그 안의 점들이 전부 같은 시각이 되고,
     // 뭉친 것을 푼 의미가 사라진다. `timeStamp`는 점마다 실제로 샘플된 시각이다.
     return {
-      x: event.clientX - bounds.left,
-      y: event.clientY - bounds.top,
+      x: event.clientX - bounds.left + viewOffset.x,
+      y: event.clientY - bounds.top + viewOffset.y,
       t: event.timeStamp,
       pressure: event.pressure,
     };
@@ -294,11 +304,15 @@ export function createInkEditor(
   function redraw(): void {
     if (committedDirty) {
       // 진행 중인 획과 남겨 둔 최근 획은 `strokes` 끝에 있고, 앱 캔버스가 그린다.
-      renderStrokes(committedContext, strokes.slice(0, strokes.length - appStrokeCount()), size);
+      renderStrokes(
+        committedContext,
+        strokes.slice(0, strokes.length - appStrokeCount()),
+        visibleRect(),
+      );
       committedDirty = false;
       drying?.reset();
     }
-    context.clearRect(0, 0, size.width, size.height);
+    context.clearRect(viewOffset.x, viewOffset.y, size.width, size.height);
     if (drying) {
       // 펜을 뗀 획은 마르기 시작할 때까지 여기에도 남긴다(`DryingLayer.wetStrokes` 참고).
       for (const stroke of drying.wetStrokes()) drawInk(context, stroke, 1, background);
@@ -491,12 +505,17 @@ export function createInkEditor(
       layer.style.setProperty("height", `${size.height}px`);
     }
     alignLayers();
-    // 캔버스 내부 이미지는 물리 픽셀, 좌표는 CSS 픽셀로 유지한다.
-    for (const target of [context, committedContext, ...(dryingContext ? [dryingContext] : [])]) {
-      target.setTransform(ratio, 0, 0, ratio, 0, 0);
-    }
+    applyTransform();
     committedDirty = true;
     redraw();
+  }
+
+  /** 캔버스 내부 이미지는 물리 픽셀, 좌표는 CSS 픽셀(획 좌표)로 유지한다. */
+  function applyTransform(): void {
+    const ratio = window.devicePixelRatio || 1;
+    for (const target of [context, committedContext, ...(dryingContext ? [dryingContext] : [])]) {
+      target.setTransform(ratio, 0, 0, ratio, -viewOffset.x * ratio, -viewOffset.y * ratio);
+    }
   }
 
   function applyTool(): void {
@@ -566,6 +585,14 @@ export function createInkEditor(
       replaceStrokes([]);
     },
     resize,
+    setViewOffset(next) {
+      if (next.x === viewOffset.x && next.y === viewOffset.y) return;
+      // 획 도중에도 받는다. 이미 찍은 점은 획 좌표라 그대로 두고, 다음 점부터 새 오프셋을 더한다.
+      viewOffset = { x: next.x, y: next.y };
+      applyTransform();
+      committedDirty = true;
+      redrawNow();
+    },
     destroy() {
       endGesture();
       cancelScheduledRedraw();
@@ -573,7 +600,7 @@ export function createInkEditor(
       observer.disconnect();
       // 다 쓴 획은 곧 떼어낼 아래 층에 있다. "그려진 내용은 지우지 않는다"는 약속을 지키려면
       // 남는 캔버스에 옮겨 그려야 한다. 젖은 획을 덮어 그리지 않도록 비우고 원래 모습으로 그린다.
-      renderStrokes(context, strokes, size);
+      renderStrokes(context, strokes, visibleRect());
       committedCanvas.remove();
       dryingCanvas?.remove();
       if (previousPosition) canvas.style.setProperty("position", previousPosition);

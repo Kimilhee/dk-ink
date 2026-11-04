@@ -44,13 +44,13 @@ export function drawStaticLineStroke(
   context.stroke();
 }
 
-/** 캔버스를 비우고 획 전체를 다시 그린다. */
+/** 캔버스를 비우고 획 전체를 다시 그린다. `x`·`y`는 비울 영역의 왼쪽 위(기본값 0)다. */
 export function renderStrokes(
   context: CanvasRenderingContext2D,
   strokes: readonly Stroke[],
-  size: { width: number; height: number },
+  size: { x?: number; y?: number; width: number; height: number },
 ): void {
-  context.clearRect(0, 0, size.width, size.height);
+  context.clearRect(size.x ?? 0, size.y ?? 0, size.width, size.height);
   drawStrokes(context, strokes);
 }
 
