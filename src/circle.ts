@@ -6,31 +6,29 @@ export type Circle = Point & { radius: number };
 export function recognizeCircle(points: readonly Point[]): Circle | undefined {
   if (points.length < 12) return;
   const samples = resample(points);
-  const whole = fitCircle(points);
-  // 통째로 맞아도 곧은 꼬리 때문에 매끄럽지 않을 수 있으니, 그때는 꼬리를 잘라 다시 본다.
-  if (whole && isSmooth(samples)) return whole.circle;
   const maxTrim = Math.floor((samples.length - 1) * 0.25);
   let best: Circle | undefined;
   let bestError = Infinity;
-  for (let trim = 1; trim <= maxTrim; trim += 1) {
+  // 꼬리를 자르지 않은 후보(trim 0)부터 본다. 통째로 맞으면 꼬리를 자른 후보와 견주지 않는다.
+  for (let trim = 0; trim <= maxTrim; trim += 1) {
     for (let start = 0; start <= trim; start += 1) {
       const candidate = samples.slice(start, samples.length - (trim - start));
       const fit = fitCircle(candidate);
-      if (!fit || !isSmooth(candidate)) continue;
+      if (!fit) continue;
       // 비슷하게 맞으면 꼬리를 덜 잘라낸 후보를 고른다.
       const error = fit.error + (trim / samples.length) * 0.01;
-      if (error < bestError) {
+      if (error < bestError && isSmooth(candidate)) {
         best = fit.circle;
         bestError = error;
       }
     }
+    if (trim === 0 && best) break;
   }
   return best;
 }
 
 /** 최소 약 300도를 돌고 시작점 근처까지 돌아왔는지 확인한다. */
 function fitCircle(points: readonly Point[]): { circle: Circle; error: number } | undefined {
-  if (points.length < 12) return;
   let minX = Infinity;
   let minY = Infinity;
   let maxX = -Infinity;
@@ -63,8 +61,6 @@ function fitCircle(points: readonly Point[]): { circle: Circle; error: number } 
       (before.x - x) * (point.y - y) - (before.y - y) * (point.x - x),
       (before.x - x) * (point.x - x) + (before.y - y) * (point.y - y),
     );
-    // 점이 너무 드물면 원과 다각형을 구분할 수 없다.
-    if (Math.abs(angle) > Math.PI / 3) return;
     sweep += angle;
     travel += Math.abs(angle);
   }

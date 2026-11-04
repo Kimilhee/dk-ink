@@ -143,6 +143,28 @@ test.each([
   expect(editor.getStrokes()[0].style.widthMode).toBe("pressure");
 });
 
+test.each([3, 4, 5, 6])("점을 드물게 찍어 그린 %d각형은 원으로 보정하지 않는다", (sides) => {
+  // 변마다 점이 몇 개뿐이어도, 꼭짓점이 원 위에 있으면 둘레의 점은 원에서 크게 벗어나지 않는다.
+  const perEdge = Math.ceil(12 / sides);
+  const corners = Array.from({ length: sides + 1 }, (_, i) => {
+    const angle = -Math.PI / 2 + (i / sides) * Math.PI * 2;
+    return { x: 150 + 50 * Math.cos(angle), y: 100 + 50 * Math.sin(angle) };
+  });
+  fake.emit("pointerdown", corners[0]);
+  for (let edge = 0; edge < sides; edge += 1) {
+    for (let step = 1; step <= perEdge; step += 1) {
+      const start = corners[edge];
+      const end = corners[edge + 1];
+      fake.emit("pointermove", {
+        x: start.x + ((end.x - start.x) * step) / perEdge,
+        y: start.y + ((end.y - start.y) * step) / perEdge,
+      });
+    }
+  }
+  vi.advanceTimersByTime(2000);
+  expect(editor.getStrokes()[0].style.widthMode).toBe("pressure");
+});
+
 test("원 보정을 꺼도 직선 보정은 유지한다", () => {
   editor.setStyle({ holdToCircle: false });
   drawRound();
