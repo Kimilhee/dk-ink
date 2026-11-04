@@ -10,7 +10,8 @@ const dumpOutput = element<HTMLPreElement>("dump-output");
 const toolbar = element<HTMLElement>("tool-picker");
 const dragHandle = element<HTMLButtonElement>("toolbar-drag-handle");
 const debugPanel = element<HTMLDetailsElement>("debug-panel");
-const toolToggle = element<HTMLButtonElement>("tool-toggle");
+const penTool = element<HTMLButtonElement>("pen-tool");
+const eraserTool = element<HTMLButtonElement>("eraser-tool");
 const lineTool = element<HTMLButtonElement>("line-tool");
 const settingsPanel = element<HTMLElement>("settings-panel");
 const settingsToggle = element<HTMLButtonElement>("settings-toggle");
@@ -107,7 +108,7 @@ const editor = createInkEditor(canvas, {
 const penFlip = attachPenFlip(editor, stage, syncButtons);
 penFlip.enabled = stored.penFollow !== false;
 
-// 펜과 지우개는 버튼 하나를 번갈아 써서 바꾼다. "누르고 있는 동안만 지우개" 같은 순간
+// 펜과 지우개는 각자의 버튼으로 고른다. "누르고 있는 동안만 지우개" 같은 순간
 // 전환을 여러 방식으로 시도했지만 이 기기에서는 어느 것도 성립하지 않았다 — 경위는
 // docs/prd/eraser-interaction.md 참고.
 //
@@ -118,14 +119,10 @@ penFlip.enabled = stored.penFollow !== false;
 // 손가락 탭은 받아야 한다.
 let toolSwitchMode: "click" | "hover" = stored.toolSwitch === "hover" ? "hover" : "click";
 
-function toggleTool(): void {
-  // 연필을 뒤집은 중에 도구 버튼을 누르면 영구 지우개로 넘어가지 않고 펜으로 돌아온다.
-  if (penFlip.flipped) {
-    penFlip.unflip();
-    return;
-  }
-  // 직선 도구를 쓰던 중이면 이 버튼이 고른 도구(펜)로 돌아오기만 한다.
-  editor.tool = editor.tool === "pen" ? "eraser" : "pen";
+// 연필을 뒤집어 쓰던 작은 지우개는 먼저 풀어서 툴바 지우개의 크기로 되돌린다.
+function selectTool(tool: "pen" | "eraser"): void {
+  if (penFlip.flipped) penFlip.unflip();
+  editor.tool = tool;
   syncButtons();
 }
 
@@ -136,11 +133,12 @@ function toggleLineTool(): void {
   syncButtons();
 }
 
-// 도구를 지정하는 대신 뒤집는 동작이라 멱등이 아니다. 같은 손가락 입력이 `pointerdown`과
+// 직선 버튼은 도구를 지정하는 대신 뒤집는 동작이라 멱등이 아니다. 같은 손가락 입력이 `pointerdown`과
 // `touchstart` 양쪽으로 들어오면 두 번 뒤집혀 제자리로 돌아오므로, 중복 호출을 걸러주는
 // `activateOnPress`로 배선해야 한다.
 const hoverSwitches = [
-  { button: toolToggle, toggle: toggleTool, inside: false },
+  { button: penTool, toggle: () => selectTool("pen"), inside: false },
+  { button: eraserTool, toggle: () => selectTool("eraser"), inside: false },
   { button: lineTool, toggle: toggleLineTool, inside: false },
 ];
 for (const { button, toggle } of hoverSwitches) {
@@ -341,13 +339,9 @@ setStatus("획 0개");
 function syncButtons(): void {
   const style = editor.getStyle();
   const erasing = editor.tool === "eraser";
-  toolToggle.dataset.tool = editor.tool;
-  toolToggle.setAttribute(
-    "aria-label",
-    `${erasing ? "지우개" : "펜"} 사용 중. 누르면 ${erasing ? "펜" : "지우개"}으로 바뀝니다`,
-  );
-  // 선택된 도구의 버튼에 표시가 들어온다. 펜/지우개 버튼은 둘 중 어느 쪽이든 켜진다.
-  toolToggle.setAttribute("aria-pressed", String(editor.tool !== "line"));
+  // 선택된 도구의 버튼에 표시가 들어온다. 따라다니는 연필을 뒤집어 지울 때도 지우개가 켜진다.
+  penTool.setAttribute("aria-pressed", String(editor.tool === "pen"));
+  eraserTool.setAttribute("aria-pressed", String(erasing));
   lineTool.setAttribute("aria-pressed", String(editor.tool === "line"));
   for (const sync of pickerSyncs) sync();
   element<HTMLInputElement>("straight-line-delay").value = String(style.straightLineDelay / 1000);
