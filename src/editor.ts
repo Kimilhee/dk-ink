@@ -17,6 +17,9 @@ import type {
 /** 남긴 최근 획을 다 쓴 획 층으로 한 번에 옮기는 수. */
 const RECENT_BATCH = 5;
 
+/** 필압 모드에서 길게 눌러 보정한 직선·원의 굵기 비율. */
+const SNAPPED_WIDTH_RATIO = 0.7;
+
 const DEFAULT_STYLE: InkStyle = {
   color: "#1d4ed8",
   strokeWidth: 3,
@@ -198,10 +201,8 @@ export function createInkEditor(
     } else {
       return;
     }
-    // 필압 글씨는 최대 굵기보다 가늘게 써지므로, 보정한 도형은 한 단계(1px) 가늘게 맞춘다.
-    if (current.style.widthMode === "pressure") {
-      current.style.strokeWidth = Math.max(1, current.style.strokeWidth - 1);
-    }
+    // 필압 글씨는 최대 굵기보다 가늘게 써지므로, 보정한 도형은 최대 굵기의 70%로 맞춘다.
+    if (current.style.widthMode === "pressure") current.style.strokeWidth *= SNAPPED_WIDTH_RATIO;
     current.style.widthMode = "constant";
     redrawNow();
   }

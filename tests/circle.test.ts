@@ -35,7 +35,7 @@ function drawRound(
 
 function expectCircle(stroke: Stroke, radius: number): void {
   expect(stroke.style.widthMode).toBe("constant");
-  expect(stroke.style.strokeWidth).toBe(2);
+  expect(stroke.style.strokeWidth).toBeCloseTo(2.1);
   expect(stroke.points[0]).toEqual(stroke.points[stroke.points.length - 1]);
   for (const point of stroke.points) {
     expect(Math.hypot(point.x - 150, point.y - 100)).toBeCloseTo(radius, 5);

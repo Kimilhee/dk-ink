@@ -47,8 +47,8 @@ test("곧게 긋고 끝에서 0.7초 멈추면 시작점과 끝점을 잇는 직
     { x: 140, y: 70 },
   ]);
   expect(stroke.style.widthMode).toBe("constant");
-  // 필압 모드의 기본 굵기 3보다 한 단계 가늘다.
-  expect(stroke.style.strokeWidth).toBe(2);
+  // 필압 모드의 기본 굵기 3의 70%다.
+  expect(stroke.style.strokeWidth).toBeCloseTo(2.1);
   editor.undo();
   expect(editor.getStrokes()).toEqual([]);
   editor.redo();
