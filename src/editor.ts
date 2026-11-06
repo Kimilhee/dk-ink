@@ -198,6 +198,10 @@ export function createInkEditor(
     } else {
       return;
     }
+    // 필압 글씨는 최대 굵기보다 가늘게 써지므로, 보정한 도형은 한 단계(1px) 가늘게 맞춘다.
+    if (current.style.widthMode === "pressure") {
+      current.style.strokeWidth = Math.max(1, current.style.strokeWidth - 1);
+    }
     current.style.widthMode = "constant";
     redrawNow();
   }

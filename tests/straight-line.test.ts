@@ -47,6 +47,8 @@ test("곧게 긋고 끝에서 0.7초 멈추면 시작점과 끝점을 잇는 직
     { x: 140, y: 70 },
   ]);
   expect(stroke.style.widthMode).toBe("constant");
+  // 필압 모드의 기본 굵기 3보다 한 단계 가늘다.
+  expect(stroke.style.strokeWidth).toBe(2);
   editor.undo();
   expect(editor.getStrokes()).toEqual([]);
   editor.redo();
@@ -85,6 +87,14 @@ test("멈추지 않고 계속 움직이면 대기 시간이 다시 시작된다"
     { x: 10, y: 20 },
     { x: 130, y: 20 },
   ]);
+});
+
+test("고정두께 모드에서는 직선으로 바꿔도 굵기를 그대로 둔다", () => {
+  editor.setStyle({ widthMode: "constant" });
+  drawNearlyStraight();
+  vi.advanceTimersByTime(700);
+  fake.emit("pointerup", { x: 100, y: 21 });
+  expect(editor.getStrokes()[0].style.strokeWidth).toBe(3);
 });
 
 test("옵션을 끄면 끝에서 멈춰도 자유 필기로 그린다", () => {
