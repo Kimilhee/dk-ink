@@ -321,13 +321,20 @@ test("destroy 이후에는 입력을 받지 않는다", () => {
   expect(editor.getStrokes()).toHaveLength(0);
 });
 
-test("펜을 떼면 획을 바로 다 쓴 획 층으로 옮겨 다음 획을 쓸 때 다시 그리지 않는다", () => {
-  drawStroke(10);
-  fake.emit("pointerdown", { x: 10, y: 100, pressure: 0.3 });
+test("펜을 떼도 획을 앱 캔버스에 남기고, 250점에 이르면 오래된 획부터 옮겨 50점 안팎만 남긴다", () => {
+  // 점 27개짜리 획(누름 1 + 이동 25 + 뗌 1)을 10개 쓴다. 10번째 획을 쓰다 250점에 이르면
+  // 오래된 획부터 옮겨 9번째 획과 10번째 획만 남는다.
+  for (let n = 0; n < 10; n += 1) {
+    const y = 10 + n * 15;
+    fake.emit("pointerdown", { x: 10, y, pressure: 0.3 });
+    for (let i = 1; i <= 25; i += 1) fake.emit("pointermove", { x: 10 + i * 4, y, pressure: 0.3 });
+    fake.emit("pointerup", { x: 120, y, pressure: 0.3 });
+  }
+  fake.emit("pointerdown", { x: 10, y: 190, pressure: 0.3 });
   const before = fake.paintCount;
-  fake.emit("pointermove", { x: 20, y: 100, pressure: 0.3 });
+  fake.emit("pointermove", { x: 20, y: 190, pressure: 0.3 });
   globals.flushFrames();
-  expect(fake.paintCount - before).toBe(1);
+  expect(fake.paintCount - before).toBe(3);
 });
 
 test("펜 이동이 한 프레임에 여러 번 와도 그리기는 다음 프레임에 한 번만 한다", () => {
@@ -339,7 +346,7 @@ test("펜 이동이 한 프레임에 여러 번 와도 그리기는 다음 프�
   expect(fake.renderCount - before).toBe(1);
 });
 
-test("쓰는 중인 획이 500점을 넘으면 앞부분을 다 쓴 획 층으로 옮기고 뒷부분만 다시 그린다", () => {
+test("쓰는 중인 획이 250점에 이르면 앞부분을 다 쓴 획 층으로 옮기고 뒷부분만 다시 그린다", () => {
   fake.emit("pointerdown", { x: 10, y: 10, pressure: 0.3 });
   for (let i = 1; i <= 1200; i += 1) {
     fake.emit("pointermove", {
@@ -352,18 +359,18 @@ test("쓰는 중인 획이 500점을 넘으면 앞부분을 다 쓴 획 층으�
   fake.emit("pointermove", { x: 50, y: 150, pressure: 0.3 });
   globals.flushFrames();
   // 필압 윤곽은 양쪽 외곽선을 따로 그으므로 점 하나에 조각이 둘이다.
-  expect(fake.segmentCount - before).toBeLessThan(2 * 510);
+  expect(fake.segmentCount - before).toBeLessThan(2 * 260);
   fake.emit("pointerup", { x: 60, y: 150, pressure: 0.3 });
 
   // 화면에서만 나눠 그릴 뿐 데이터는 한 획이다.
   expect(editor.getStrokes()).toHaveLength(1);
   expect(editor.getStrokes()[0].points).toHaveLength(1203);
-  // 뗀 획은 이미 다 쓴 획 층에 있으므로 다음 획을 쓸 때 다시 그리지 않는다.
+  // 뗀 획의 뒷부분은 앱 캔버스에 남아 다음 획과 함께 그린다.
   fake.emit("pointerdown", { x: 10, y: 180, pressure: 0.3 });
   const paints = fake.paintCount;
   fake.emit("pointermove", { x: 20, y: 180, pressure: 0.3 });
   globals.flushFrames();
-  expect(fake.paintCount - paints).toBe(1);
+  expect(fake.paintCount - paints).toBe(2);
 });
 
 test("보기 오프셋을 주면 획을 오프셋을 더한 좌표로 저장한다", () => {

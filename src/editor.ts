@@ -14,10 +14,13 @@ import type {
 } from "./types.ts";
 
 /**
- * 쓰는 중인 획을 앱 캔버스에서 다시 그리는 점 수의 상한. 넘으면 그때까지 그린 부분을 다 쓴 획 층으로
- * 옮긴다. P580에서 500점까지는 프레임이 밀리지 않았고, 1000점에서는 느린 프레임이 50ms였다.
+ * 앱 캔버스에 남은 점이 이만큼 쌓이면 오래된 것부터 다 쓴 획 층으로 옮긴다. 앱 캔버스는 프레임마다
+ * 남은 획을 전부 다시 그리므로, P580에서 프레임이 밀리지 않았던 500점보다 작게 잡는다.
  */
-const LIVE_POINT_LIMIT = 500;
+const APP_POINT_LIMIT = 250;
+
+/** 옮긴 뒤 앱 캔버스에 남기는 점 수. 쓰는 중인 획의 끝부분이 이만큼 남는다. */
+const APP_POINT_KEEP = 50;
 
 /** 필압 모드에서 길게 눌러 보정한 직선·원의 굵기 비율. */
 const SNAPPED_WIDTH_RATIO = 0.7;
@@ -91,10 +94,11 @@ export function createInkEditor(
   /*
    * 화면은 두 층이다. 아래부터:
    *   1. 다 쓴 획 층(committed) — 다 쓴 획을 한 장의 그림으로 보관한다.
-   *   2. 앱 캔버스(context)      — 쓰는 중인 획만 그린다. 입력을 받는다.
+   *   2. 앱 캔버스(context)      — 쓰는 중인 획과 최근 획을 그린다. 입력을 받는다.
    * 펜 이벤트마다 다 쓴 획을 다시 그리거나 복사하지 않고, 층을 합치는 일은 브라우저 합성기가 맡는다.
-   * 펜을 떼면 획을 바로 다 쓴 획 층으로 옮긴다. 두 층 모두 일반 캔버스라 같은 프레임에 함께 바뀌어
-   * 깜빡이지 않는다.
+   * 펜을 떼도 획을 바로 옮기지 않고, 앱 캔버스의 점이 `APP_POINT_LIMIT`에 이를 때 한꺼번에 옮긴다.
+   * 앱이 저지연 캔버스를 켜면 두 층이 화면에 나가는 시점이 달라 옮기는 순간 깜빡이므로, 옮기는
+   * 횟수를 줄이기 위해서다. 두 층 모두 일반 캔버스(기본)면 같은 프레임에 함께 바뀌어 깜빡이지 않는다.
    */
   const context = requireContext(canvas);
   const committedCanvas = createLayer(canvas);
@@ -134,10 +138,11 @@ export function createInkEditor(
   /** 다 쓴 획이 바뀌어(지우기·되돌리기·갈아끼우기·크기 변경) 다 쓴 획 층을 다시 그려야 한다. */
   let committedDirty = true;
   /**
-   * 쓰는 중인 획에서 앱 캔버스가 그리기 시작하는 점의 위치. 그 앞은 이미 다 쓴 획 층에 그렸다.
-   * 0이면 획 전체를 앱 캔버스가 그린다.
+   * 앱 캔버스가 그리는 획은 `strokes[appStart]`부터 끝까지다. 그 앞은 다 쓴 획 층에 있다.
+   * 첫 획은 `appStartPoint`번째 점부터 그린다. 0이 아니면 그 앞부분을 이미 옮긴 것이다.
    */
-  let bakedIndex = 0;
+  let appStart = 0;
+  let appStartPoint = 0;
   /**
    * 캔버스 크기(CSS 픽셀). 크기가 바뀌면 `ResizeObserver`가 `resize`를 부르므로 그때만 잰다.
    * 위치는 캐시하지 않는다 — 휠·프로그램 스크롤이나 레이아웃 이동은 획 도중에도 일어나고
@@ -189,10 +194,7 @@ export function createInkEditor(
     if (current.style.widthMode === "pressure") current.style.strokeWidth *= SNAPPED_WIDTH_RATIO;
     current.style.widthMode = "constant";
     // 이미 옮긴 앞부분은 보정 전 모양이므로 다 쓴 획 층을 다시 그려 지운다.
-    if (bakedIndex > 0) {
-      bakedIndex = 0;
-      committedDirty = true;
-    }
+    if (appStartPoint > 0 && strokes[appStart] === current) committedDirty = true;
     redrawNow();
   }
 
@@ -204,7 +206,6 @@ export function createInkEditor(
     activeTool = undefined;
     activePointerId = undefined;
     current = undefined;
-    bakedIndex = 0;
     previousEraserPoint = undefined;
     dynamicEraser.reset();
     previousEraserDiameter = 0;
@@ -281,33 +282,52 @@ export function createInkEditor(
     eraserCursor = point;
   }
 
-  /** 쓰는 중인 획에서 `bakedIndex`부터의 뒷부분. 앞부분과 한 점이 겹쳐야 이음매가 끊기지 않는다. */
-  function liveTail(stroke: Stroke): Stroke {
-    return bakedIndex > 0 ? { ...stroke, points: stroke.points.slice(bakedIndex) } : stroke;
+  /** 앱 캔버스가 그리는 획. 첫 획은 이미 옮긴 앞부분을 뺀다. 앞부분과 한 점이 겹쳐야 이음매가 끊기지 않는다. */
+  function appStrokes(): Stroke[] {
+    const list = strokes.slice(appStart);
+    if (appStartPoint > 0 && list[0]) {
+      list[0] = { ...list[0], points: list[0].points.slice(appStartPoint) };
+    }
+    return list;
   }
 
   /**
-   * 쓰는 중인 획이 `LIVE_POINT_LIMIT`점을 넘으면 지금까지 그린 부분을 다 쓴 획 층으로 옮긴다.
-   * 펜 이벤트마다 획 전체를 다시 그리면 획이 길어질수록 화면이 밀리기 때문이다.
-   * 데이터는 한 획 그대로 두고 화면에서만 나눠 그린다.
+   * 앱 캔버스의 점이 `APP_POINT_LIMIT`에 이르면 오래된 것부터 다 쓴 획 층으로 옮겨 `APP_POINT_KEEP`점
+   * 안팎만 남긴다. 다 쓴 획은 통째로 옮기고, 쓰는 중인 획만 끝부분을 남기고 잘라 옮긴다. 데이터는
+   * 한 획 그대로 두고 화면에서만 나눠 그린다.
    */
-  function bakeLongStroke(): void {
-    if (!current || committedDirty) return;
-    if (current.points.length - bakedIndex <= LIVE_POINT_LIMIT) return;
-    drawStrokes(committedContext, [liveTail(current)]);
-    bakedIndex = current.points.length - 1;
+  function settleAppStrokes(): void {
+    if (committedDirty) return;
+    let total = appStrokes().reduce((sum, stroke) => sum + stroke.points.length, 0);
+    if (total < APP_POINT_LIMIT) return;
+    while (total > APP_POINT_KEEP && appStart < strokes.length) {
+      const stroke = strokes[appStart];
+      if (stroke === current) {
+        const cut = stroke.points.length - APP_POINT_KEEP;
+        if (cut <= appStartPoint) return;
+        drawStrokes(committedContext, [
+          { ...stroke, points: stroke.points.slice(appStartPoint, cut + 1) },
+        ]);
+        appStartPoint = cut;
+        return;
+      }
+      drawStrokes(committedContext, [appStrokes()[0]]);
+      total -= stroke.points.length - appStartPoint;
+      appStart += 1;
+      appStartPoint = 0;
+    }
   }
 
   function redraw(): void {
     if (committedDirty) {
-      // 쓰는 중인 획은 `strokes` 끝에 있고, 앱 캔버스가 그린다.
+      // 다 쓴 획을 모두 넣는다. 쓰는 중인 획은 `strokes` 끝에 있고, 앱 캔버스가 처음부터 다시 그린다.
       renderStrokes(committedContext, current ? strokes.slice(0, -1) : strokes, visibleRect());
       committedDirty = false;
-      // 쓰는 중인 획은 위에서 빠졌으므로 옮겨 둔 앞부분도 지워졌다. 다시 앱 캔버스가 전부 그린다.
-      bakedIndex = 0;
+      appStart = current ? strokes.length - 1 : strokes.length;
+      appStartPoint = 0;
     }
     context.clearRect(viewOffset.x, viewOffset.y, size.width, size.height);
-    if (current) drawStrokes(context, [liveTail(current)]);
+    drawStrokes(context, appStrokes());
     const anchor = straightLineAnchor ?? circle;
     if (anchor && current) drawShapeAnchor(anchor, current.style);
     if (eraserCursor && style.showEraserCursor) {
@@ -404,7 +424,7 @@ export function createInkEditor(
       // 예측 점(`getPredictedEvents()`)은 쓰지 않는다. 방향을 꺾을 때 선이 펜이 가지 않은
       // 곳까지 순간적으로 삐져나갔다 되돌아오는 게 P580에서 1개만 써도 사라지지 않았다.
       for (const sample of events) appendPoint(sample, bounds);
-      if (!circle && !straightLineAnchor) bakeLongStroke();
+      if (!circle && !straightLineAnchor) settleAppStrokes();
       // 이벤트마다 그리지 않고 프레임에 한 번만 그린다. P580 Chrome은 펜 이벤트를 프레임에 묶지
       // 않고 점마다 보내서(초당 약 250번), 이벤트마다 그리면 칠하는 작업이 밀려 화면 갱신이 몇 초씩
       // 늦어졌다. 한 프레임 안에서 여러 번 그려도 화면에는 마지막 결과만 나간다.
@@ -421,10 +441,8 @@ export function createInkEditor(
     if (erasing) {
       eraseTo(timedPoint(event, bounds));
     } else {
+      // 끝난 획은 앱 캔버스에 남겨 둔다. 옮기는 일은 다음 획을 쓰다 점이 쌓일 때 한꺼번에 한다.
       appendPoint(event, bounds);
-      // 끝난 획을 다 쓴 획 층으로 옮긴다. 앞부분을 이미 옮겼다면 남은 뒷부분만 옮긴다.
-      // 다 쓴 획 층을 통째로 다시 그릴 참이면 어차피 그 안에 들어간다.
-      if (current && !committedDirty) drawStrokes(committedContext, [liveTail(current)]);
     }
 
     const changed = erasing ? changedWhileErasing : true;
