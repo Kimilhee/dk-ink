@@ -2,8 +2,7 @@ import { circlePoints, recognizeCircle } from "./circle.ts";
 import { createDynamicEraser } from "./dynamic-eraser.ts";
 import { eraseStrokes } from "./erase.ts";
 import { cloneStrokes, createInkHistory } from "./history.ts";
-import { createDryingLayer } from "./drying.ts";
-import { drawEraserCursor, drawInk, drawStrokes, renderStrokes } from "./render.ts";
+import { drawEraserCursor, drawStrokes, renderStrokes } from "./render.ts";
 import type {
   InkEditorOptions,
   InkPoint,
@@ -24,7 +23,7 @@ const DEFAULT_STYLE: InkStyle = {
   color: "#1d4ed8",
   strokeWidth: 3,
   widthMode: "pressure",
-  opacity: 0.7,
+  opacity: 0.8,
   holdToStraightLine: true,
   holdToCircle: true,
   straightLineDelay: 700,
@@ -87,22 +86,17 @@ export function createInkEditor(
   options: InkEditorOptions = {},
 ): InkEditor {
   /*
-   * 화면은 세 층이다. 아래부터:
+   * 화면은 두 층이다. 아래부터:
    *   1. 다 쓴 획 층(committed) — 다 쓴 획을 한 장의 그림으로 보관한다.
-   *   2. 마르는 층(drying)       — 막 끝난 획이 불투명에서 반투명으로 서서히 바뀐다.
-   *   3. 앱 캔버스(context)      — 진행 중인 획만 그린다. 입력을 받고, desynchronized라 지연이 짧다.
+   *   2. 앱 캔버스(context)      — 진행 중인 획과 최근 획을 그린다. 입력을 받고, desynchronized라 지연이 짧다.
    * 펜 이벤트마다 다 쓴 획을 다시 그리거나 복사하지 않고, 층을 합치는 일은 브라우저 합성기가 맡는다.
    */
   const context = requireContext(canvas);
   const committedCanvas = createLayer(canvas);
   const committedContext = requireContext(committedCanvas, false);
-  const dryingCanvas = options.drying === false ? undefined : createLayer(canvas);
-  const dryingContext = dryingCanvas && requireContext(dryingCanvas, false);
-  /** 앱 캔버스 아래에 겹치는 층. 크기·위치를 앱 캔버스에 맞춘다. */
-  const recentLimit = dryingCanvas ? 0 : Math.max(0, options.recentStrokes ?? 15);
+  const recentLimit = Math.max(0, options.recentStrokes ?? 15);
   /** 남긴 획이 `recentLimit`에 이르면 오래된 것부터 이만큼 한꺼번에 옮겨 깜빡이는 횟수를 줄인다. */
   const recentBatch = Math.min(RECENT_BATCH, recentLimit);
-  const layers = dryingCanvas ? [committedCanvas, dryingCanvas] : [committedCanvas];
 
   // 위치가 지정된 형제는 static 요소 위에 그려지므로, 앱 캔버스도 위치를 줘서 위에 오게 한다.
   const previousPosition = canvas.style.getPropertyValue("position");
@@ -148,25 +142,10 @@ export function createInkEditor(
   let size = { width: 0, height: 0 };
   /** 아래 층에 마지막으로 준 위치(`alignLayers`). */
   let layerOffset = { left: Number.NaN, top: Number.NaN };
-  /** 마르는 획 아래에 깔 배경색(`readBackgroundColor`). */
-  let background = "#fff";
   /** `setViewOffset`으로 받은 값. 캔버스 왼쪽 위가 획 좌표계의 이 점이다. */
   let viewOffset: Point = { x: 0, y: 0 };
   /** 지금 보이는 영역(획 좌표). 층을 비울 때 쓴다. */
   const visibleRect = () => ({ ...viewOffset, ...size });
-
-  const drying =
-    dryingContext &&
-    createDryingLayer({
-      context: dryingContext,
-      size: visibleRect,
-      background: () => background,
-      // 다 쓴 획 층을 통째로 다시 그릴 참이면 어차피 그 안에 들어간다.
-      settle: (stroke) => {
-        if (!committedDirty) drawStrokes(committedContext, [stroke]);
-      },
-      onWetChange: () => redraw(),
-    });
 
   function cancelHold(): void {
     clearTimeout(holdTimer);
@@ -315,17 +294,9 @@ export function createInkEditor(
         visibleRect(),
       );
       committedDirty = false;
-      drying?.reset();
     }
     context.clearRect(viewOffset.x, viewOffset.y, size.width, size.height);
-    if (drying) {
-      // 펜을 뗀 획은 마르기 시작할 때까지 여기에도 남긴다(`DryingLayer.wetStrokes` 참고).
-      for (const stroke of drying.wetStrokes()) drawInk(context, stroke, 1, background);
-      // 쓰는 중인 획은 불투명하게 보이게 그린다. 펜을 뗄 때 마르는 층으로 옮겨도 변하지 않는다.
-      if (current) drawInk(context, current, 1, background);
-    } else {
-      drawStrokes(context, strokes.slice(strokes.length - appStrokeCount()));
-    }
+    drawStrokes(context, strokes.slice(strokes.length - appStrokeCount()));
     const anchor = straightLineAnchor ?? circle;
     if (anchor && current) drawShapeAnchor(anchor, current.style);
     if (eraserCursor && style.showEraserCursor) {
@@ -440,12 +411,9 @@ export function createInkEditor(
       eraseTo(timedPoint(event, bounds));
     } else {
       appendPoint(event, bounds);
-      // 끝난 획은 마르는 층으로 보낸다. 어차피 다 쓴 획 층을 통째로 다시 그릴 참이면 건너뛴다.
-      // 마르는 층이 없으면 앱 캔버스에 남겨 둔다. 옮기는 순간 깜빡일 수 있어 남긴 획이
+      // 끝난 획은 앱 캔버스에 남겨 둔다. 옮기는 순간 깜빡일 수 있어 남긴 획이
       // `recentLimit`에 이를 때 오래된 것부터 `recentBatch`개를 한꺼번에 옮긴다.
-      if (drying) {
-        if (current && !committedDirty) drying.add(current);
-      } else if (current) {
+      if (current) {
         recentCount += 1;
         if (recentCount >= recentLimit) settleRecent(recentBatch);
       }
@@ -456,19 +424,6 @@ export function createInkEditor(
     cancelScheduledRedraw();
     redraw();
     if (changed) onChange?.(strokes);
-  }
-
-  /**
-   * 캔버스 뒤에 보이는 배경색. 투명하지 않은 배경을 가진 가장 가까운 조상의 색이다.
-   * 필기 중 스타일을 읽으면 강제 재계산이 생기므로 `resize`에서만 잰다.
-   */
-  function readBackgroundColor(): string {
-    const view = canvas.ownerDocument.defaultView;
-    for (let node = canvas.parentElement; node && view; node = node.parentElement) {
-      const color = view.getComputedStyle(node).backgroundColor;
-      if (color && color !== "transparent" && !color.endsWith(", 0)")) return color;
-    }
-    return "#fff";
   }
 
   function replaceStrokes(next: Stroke[]): void {
@@ -490,25 +445,20 @@ export function createInkEditor(
     const top = canvas.offsetTop;
     if (left === layerOffset.left && top === layerOffset.top) return;
     layerOffset = { left, top };
-    for (const layer of layers) {
-      layer.style.setProperty("left", `${left}px`);
-      layer.style.setProperty("top", `${top}px`);
-    }
+    committedCanvas.style.setProperty("left", `${left}px`);
+    committedCanvas.style.setProperty("top", `${top}px`);
   }
 
   function resize(): void {
     const bounds = canvas.getBoundingClientRect();
     size = { width: bounds.width, height: bounds.height };
-    background = readBackgroundColor();
     const ratio = window.devicePixelRatio || 1;
     canvas.width = Math.max(1, Math.floor(bounds.width * ratio));
     canvas.height = Math.max(1, Math.floor(bounds.height * ratio));
-    for (const layer of layers) {
-      layer.width = canvas.width;
-      layer.height = canvas.height;
-      layer.style.setProperty("width", `${size.width}px`);
-      layer.style.setProperty("height", `${size.height}px`);
-    }
+    committedCanvas.width = canvas.width;
+    committedCanvas.height = canvas.height;
+    committedCanvas.style.setProperty("width", `${size.width}px`);
+    committedCanvas.style.setProperty("height", `${size.height}px`);
     alignLayers();
     applyTransform();
     committedDirty = true;
@@ -518,7 +468,7 @@ export function createInkEditor(
   /** 캔버스 내부 이미지는 물리 픽셀, 좌표는 CSS 픽셀(획 좌표)로 유지한다. */
   function applyTransform(): void {
     const ratio = window.devicePixelRatio || 1;
-    for (const target of [context, committedContext, ...(dryingContext ? [dryingContext] : [])]) {
+    for (const target of [context, committedContext]) {
       target.setTransform(ratio, 0, 0, ratio, -viewOffset.x * ratio, -viewOffset.y * ratio);
     }
   }
@@ -601,13 +551,11 @@ export function createInkEditor(
     destroy() {
       endGesture();
       cancelScheduledRedraw();
-      drying?.dispose();
       observer.disconnect();
       // 다 쓴 획은 곧 떼어낼 아래 층에 있다. "그려진 내용은 지우지 않는다"는 약속을 지키려면
-      // 남는 캔버스에 옮겨 그려야 한다. 젖은 획을 덮어 그리지 않도록 비우고 원래 모습으로 그린다.
+      // 남는 캔버스에 옮겨 그려야 한다.
       renderStrokes(context, strokes, visibleRect());
       committedCanvas.remove();
-      dryingCanvas?.remove();
       if (previousPosition) canvas.style.setProperty("position", previousPosition);
       else canvas.style.removeProperty("position");
       if (previousToolAttribute === undefined) delete canvas.dataset.tool;
@@ -659,8 +607,7 @@ function createLayer(canvas: HTMLCanvasElement): HTMLCanvasElement {
  *
  * `desynchronized: true`로 브라우저 합성 경로를 가능한 한 건너뛰어 펜 입력 지연을 줄인다.
  * 지원하지 않는 환경에서는 브라우저가 이 힌트를 무시하고 일반 컨텍스트로 동작한다.
- * 아래 층(다 쓴 획·마르는 층)은 `false`로 받는다. 둘이 같은 합성 경로를 타야 다 마른 획을
- * 옮길 때 두 층이 같은 프레임에 함께 바뀐다. 진행 중인 획만 그리는 앱 캔버스만 저지연이면 된다.
+ * 다 쓴 획 층은 `false`로 받는다. 진행 중인 획을 그리는 앱 캔버스만 저지연이면 된다.
  */
 function requireContext(
   canvas: HTMLCanvasElement,

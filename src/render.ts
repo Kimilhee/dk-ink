@@ -80,36 +80,6 @@ export function drawStrokes(context: CanvasRenderingContext2D, strokes: readonly
   context.globalAlpha = previousAlpha;
 }
 
-/**
- * 획 모양대로 배경색을 `underlay`만큼 깔고 그 위에 획을 칠한다.
- *
- * `underlay`가 1이면 아래가 가려져, 바탕 위에 반투명으로 칠한 것과 같은 색의 **불투명** 획이 된다.
- * 불투명 획은 두 층에 겹쳐 그려져도 진해지지 않으므로 층을 옮기는 동안 쓴다. 0이면 원래 반투명
- * 획이고, 그 사이 값은 아래의 교차점·문항 글자가 서서히 비쳐 나오는 "마르는 중"이다.
- */
-export function drawInk(
-  context: CanvasRenderingContext2D,
-  stroke: Stroke,
-  underlay: number,
-  background: string,
-): void {
-  const { style } = stroke;
-  if (underlay <= 0 || style.opacity >= 1 || stroke.points.length === 0) {
-    drawStrokes(context, [stroke]);
-    return;
-  }
-  drawStrokes(context, [{ ...stroke, style: { ...style, color: background, opacity: underlay } }]);
-  // 칠한 뒤에도 캔버스는 마지막 경로를 기억하므로, 같은 모양을 잉크색으로 한 번 더 칠한다.
-  // 획을 두 번 그리면 필압 윤곽 계산도 두 번이 되는데, 쓰는 중인 획은 펜 이벤트마다 여기를 지난다.
-  const previousAlpha = context.globalAlpha;
-  context.globalAlpha = style.opacity;
-  context.fillStyle = style.color;
-  context.strokeStyle = style.color;
-  if (style.widthMode === "pressure") context.fill();
-  else context.stroke();
-  context.globalAlpha = previousAlpha;
-}
-
 /** 지우개가 어디를 지울지 보여주는 점선 원. */
 export function drawEraserCursor(
   context: CanvasRenderingContext2D,

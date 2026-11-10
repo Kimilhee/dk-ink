@@ -57,13 +57,13 @@ export function createFakeCanvas(
       paintCount += 1;
     },
   });
-  // 에디터가 만드는 층 캔버스. 첫 번째가 다 쓴 획 층, 그다음이 마르는 층이다.
+  // 에디터가 만드는 다 쓴 획 층 캔버스.
   const committedContext = createFakeContext({
     clearRect() {
       committedRenderCount += 1;
     },
   });
-  const layerContexts = [committedContext, createFakeContext({})];
+  const layerContexts = [committedContext];
   const layers: HTMLCanvasElement[] = [];
 
   const canvas = {

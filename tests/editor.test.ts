@@ -330,10 +330,10 @@ test("destroy 이후에는 입력을 받지 않는다", () => {
   expect(editor.getStrokes()).toHaveLength(0);
 });
 
-test("drying: false면 남긴 최근 획이 상한에 이를 때 오래된 5획을 한꺼번에 다 쓴 획 층으로 옮긴다", () => {
+test("남긴 최근 획이 상한에 이를 때 오래된 5획을 한꺼번에 다 쓴 획 층으로 옮긴다", () => {
   editor.destroy();
   fake = createFakeCanvas();
-  editor = createInkEditor(fake.canvas, { drying: false, recentStrokes: 6 });
+  editor = createInkEditor(fake.canvas, { recentStrokes: 6 });
   for (let i = 0; i < 5; i += 1) drawStroke(10 + i * 40);
 
   // 펜 이동 한 번에 남겨 둔 최근 획 5개와 쓰는 중인 획 1개를 칠한다.

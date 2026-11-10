@@ -65,7 +65,7 @@ test("붙였다 떼기를 반복해도 캔버스가 더럽혀지지 않는다", 
   expect(fake.canvas.dataset.tool).toBeUndefined();
 });
 
-test("drying: false면 마르는 층 없이 다 쓴 획 층 하나만 붙인다", () => {
-  editor = createInkEditor(fake.canvas, { drying: false });
+test("캔버스 아래에 다 쓴 획 층 하나만 붙인다", () => {
+  editor = createInkEditor(fake.canvas);
   expect(fake.layers).toHaveLength(1);
 });
