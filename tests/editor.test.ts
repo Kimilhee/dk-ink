@@ -219,15 +219,6 @@ test("아무것도 지우지 않은 지우개 동작은 되돌리기·다시 실
   expect(changes).toEqual([1, 0, 1]);
 });
 
-test("펜은 프레임을 기다리지 않고 이동할 때마다 바로 그린다", () => {
-  fake.emit("pointerdown", { x: 0, y: 0 });
-  const before = fake.renderCount;
-  fake.emit("pointermove", { x: 10, y: 0 });
-  expect(fake.renderCount).toBe(before + 1);
-  fake.emit("pointermove", { x: 20, y: 0 });
-  expect(fake.renderCount).toBe(before + 2);
-});
-
 test("펜으로 쓰는 동안에는 다 쓴 획 층을 다시 그리지 않는다", () => {
   drawStroke(10);
   drawStroke(50);
@@ -340,6 +331,7 @@ test("남긴 최근 획이 상한에 이를 때 오래된 5획을 한꺼번에 �
   fake.emit("pointerdown", { x: 10, y: 300, pressure: 0.3 });
   let before = fake.paintCount;
   fake.emit("pointermove", { x: 20, y: 300, pressure: 0.3 });
+  globals.flushFrames();
   expect(fake.paintCount - before).toBe(6);
   fake.emit("pointerup", { x: 30, y: 300, pressure: 0.3 });
 
@@ -347,6 +339,7 @@ test("남긴 최근 획이 상한에 이를 때 오래된 5획을 한꺼번에 �
   fake.emit("pointerdown", { x: 10, y: 340, pressure: 0.3 });
   before = fake.paintCount;
   fake.emit("pointermove", { x: 20, y: 340, pressure: 0.3 });
+  globals.flushFrames();
   expect(fake.paintCount - before).toBe(2);
 });
 
@@ -361,7 +354,17 @@ test("남긴 획의 총 점 수가 상한을 넘으면 획 수가 적어도 다 
   fake.emit("pointerdown", { x: 10, y: 300, pressure: 0.3 });
   const before = fake.paintCount;
   fake.emit("pointermove", { x: 20, y: 300, pressure: 0.3 });
+  globals.flushFrames();
   expect(fake.paintCount - before).toBe(1);
+});
+
+test("펜 이동이 한 프레임에 여러 번 와도 그리기는 다음 프레임에 한 번만 한다", () => {
+  fake.emit("pointerdown", { x: 10, y: 10, pressure: 0.3 });
+  const before = fake.renderCount;
+  for (let i = 1; i <= 4; i += 1) fake.emit("pointermove", { x: 10 + i * 5, y: 10, pressure: 0.3 });
+  expect(fake.renderCount - before).toBe(0);
+  globals.flushFrames();
+  expect(fake.renderCount - before).toBe(1);
 });
 
 test("쓰는 중인 획이 500점을 넘으면 앞부분을 다 쓴 획 층으로 옮기고 뒷부분만 다시 그린다", () => {
@@ -375,6 +378,7 @@ test("쓰는 중인 획이 500점을 넘으면 앞부분을 다 쓴 획 층으�
   }
   const before = fake.segmentCount;
   fake.emit("pointermove", { x: 50, y: 150, pressure: 0.3 });
+  globals.flushFrames();
   // 필압 윤곽은 양쪽 외곽선을 따로 그으므로 점 하나에 조각이 둘이다.
   expect(fake.segmentCount - before).toBeLessThan(2 * 510);
   fake.emit("pointerup", { x: 60, y: 150, pressure: 0.3 });
@@ -386,6 +390,7 @@ test("쓰는 중인 획이 500점을 넘으면 앞부분을 다 쓴 획 층으�
   fake.emit("pointerdown", { x: 10, y: 180, pressure: 0.3 });
   const paints = fake.paintCount;
   fake.emit("pointermove", { x: 20, y: 180, pressure: 0.3 });
+  globals.flushFrames();
   expect(fake.paintCount - paints).toBe(1);
 });
 

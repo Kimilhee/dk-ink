@@ -382,11 +382,7 @@ export function createInkEditor(
     redrawFrame = undefined;
   }
 
-  /**
-   * 펜은 다음 프레임을 기다리지 않고 바로 그린다. `desynchronized` 캔버스는 그린 즉시 화면에
-   * 나갈 수 있어 rAF를 기다리면 최대 한 프레임을 버린다. 지우개는 지울 때마다 다 쓴 획을 전부
-   * 다시 그려야 해 이벤트마다 그리면 오히려 무거우므로 `scheduleRedraw`로 프레임에 모은다.
-   */
+  /** 예약된 그리기를 취소하고 바로 그린다. 획을 시작하거나 끝낼 때처럼 한 번뿐인 변화에 쓴다. */
   function redrawNow(): void {
     cancelScheduledRedraw();
     redraw();
@@ -452,7 +448,10 @@ export function createInkEditor(
       // 곳까지 순간적으로 삐져나갔다 되돌아오는 게 P580에서 1개만 써도 사라지지 않았다.
       for (const sample of events) appendPoint(sample, bounds);
       if (!circle && !straightLineAnchor) bakeLongStroke();
-      redrawNow();
+      // 이벤트마다 그리지 않고 프레임에 한 번만 그린다. P580 Chrome은 펜 이벤트를 프레임에 묶지
+      // 않고 점마다 보내서(초당 약 250번), 이벤트마다 그리면 칠하는 작업이 밀려 화면 갱신이 몇 초씩
+      // 늦어졌다. 한 프레임 안에서 여러 번 그려도 화면에는 마지막 결과만 나간다.
+      scheduleRedraw();
     }
   }
 
