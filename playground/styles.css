@@ -35,6 +35,17 @@ h1 {
   font-weight: 500;
   vertical-align: middle;
 }
+/* 비교 실험용이라 제목 옆에 작게 둔다. */
+.desync-toggle {
+  margin-right: auto;
+  padding: 2px 8px;
+  font-size: 12px;
+  color: #55637a;
+}
+.desync-toggle[aria-pressed="true"] {
+  border-color: #b45309;
+  color: #b45309;
+}
 output#status {
   font-variant-numeric: tabular-nums;
   color: #55637a;

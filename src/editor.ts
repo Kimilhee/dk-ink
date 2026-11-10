@@ -13,12 +13,6 @@ import type {
   StrokeStyle,
 } from "./types.ts";
 
-/** 남긴 최근 획을 다 쓴 획 층으로 한 번에 옮기는 수. */
-const RECENT_BATCH = 5;
-
-/** 앱 캔버스에 남겨 둘 획의 총 점 수 상한. 남긴 획은 펜 이벤트마다 다시 그리므로 아주 긴 획은 바로 옮긴다. */
-const RECENT_POINT_LIMIT = 3000;
-
 /**
  * 쓰는 중인 획을 앱 캔버스에서 다시 그리는 점 수의 상한. 넘으면 그때까지 그린 부분을 다 쓴 획 층으로
  * 옮긴다. P580에서 500점까지는 프레임이 밀리지 않았고, 1000점에서는 느린 프레임이 50ms였다.
@@ -97,15 +91,14 @@ export function createInkEditor(
   /*
    * 화면은 두 층이다. 아래부터:
    *   1. 다 쓴 획 층(committed) — 다 쓴 획을 한 장의 그림으로 보관한다.
-   *   2. 앱 캔버스(context)      — 진행 중인 획과 최근 획을 그린다. 입력을 받고, desynchronized라 지연이 짧다.
+   *   2. 앱 캔버스(context)      — 쓰는 중인 획만 그린다. 입력을 받는다.
    * 펜 이벤트마다 다 쓴 획을 다시 그리거나 복사하지 않고, 층을 합치는 일은 브라우저 합성기가 맡는다.
+   * 펜을 떼면 획을 바로 다 쓴 획 층으로 옮긴다. 두 층 모두 일반 캔버스라 같은 프레임에 함께 바뀌어
+   * 깜빡이지 않는다.
    */
   const context = requireContext(canvas);
   const committedCanvas = createLayer(canvas);
-  const committedContext = requireContext(committedCanvas, false);
-  const recentLimit = Math.max(0, options.recentStrokes ?? 15);
-  /** 남긴 획이 `recentLimit`에 이르면 오래된 것부터 이만큼 한꺼번에 옮겨 깜빡이는 횟수를 줄인다. */
-  const recentBatch = Math.min(RECENT_BATCH, recentLimit);
+  const committedContext = requireContext(committedCanvas);
 
   // 위치가 지정된 형제는 static 요소 위에 그려지므로, 앱 캔버스도 위치를 줘서 위에 오게 한다.
   const previousPosition = canvas.style.getPropertyValue("position");
@@ -145,8 +138,6 @@ export function createInkEditor(
    * 0이면 획 전체를 앱 캔버스가 그린다.
    */
   let bakedIndex = 0;
-  /** 다 쓴 획 층에 넣지 않고 앱 캔버스에 남겨 둔 최근 획 수(`strokes` 끝쪽, 진행 중인 획 제외). */
-  let recentCount = 0;
   /**
    * 캔버스 크기(CSS 픽셀). 크기가 바뀌면 `ResizeObserver`가 `resize`를 부르므로 그때만 잰다.
    * 위치는 캐시하지 않는다 — 휠·프로그램 스크롤이나 레이아웃 이동은 획 도중에도 일어나고
@@ -290,27 +281,6 @@ export function createInkEditor(
     eraserCursor = point;
   }
 
-  /** 남겨 둔 최근 획 중 오래된 것부터 `count`개를 다 쓴 획 층으로 옮긴다. */
-  function settleRecent(count: number): void {
-    for (let i = 0; i < count && recentCount > 0; i += 1) {
-      const oldest = strokes[strokes.length - recentCount];
-      // 다 쓴 획 층을 통째로 다시 그릴 참이면 어차피 그 안에 들어간다.
-      if (oldest && !committedDirty) drawStrokes(committedContext, [oldest]);
-      recentCount -= 1;
-    }
-  }
-
-  /** 남겨 둔 최근 획의 총 점 수가 상한을 넘지 않을 때까지 오래된 획부터 옮긴다. */
-  function settleExcessPoints(): void {
-    const recent = strokes.slice(strokes.length - Math.min(recentCount, strokes.length));
-    let total = recent.reduce((sum, stroke) => sum + stroke.points.length, 0);
-    for (const stroke of recent) {
-      if (total <= RECENT_POINT_LIMIT) break;
-      total -= stroke.points.length;
-      settleRecent(1);
-    }
-  }
-
   /** 쓰는 중인 획에서 `bakedIndex`부터의 뒷부분. 앞부분과 한 점이 겹쳐야 이음매가 끊기지 않는다. */
   function liveTail(stroke: Stroke): Stroke {
     return bakedIndex > 0 ? { ...stroke, points: stroke.points.slice(bakedIndex) } : stroke;
@@ -324,33 +294,20 @@ export function createInkEditor(
   function bakeLongStroke(): void {
     if (!current || committedDirty) return;
     if (current.points.length - bakedIndex <= LIVE_POINT_LIMIT) return;
-    // 남겨 둔 최근 획을 먼저 옮겨야 그보다 나중에 쓴 이 획이 위에 겹친다.
-    if (bakedIndex === 0) settleRecent(recentCount);
     drawStrokes(committedContext, [liveTail(current)]);
     bakedIndex = current.points.length - 1;
   }
 
-  /** `strokes` 끝에서 앱 캔버스가 그리는 획 수: 남겨 둔 최근 획과 진행 중인 획. */
-  function appStrokeCount(): number {
-    return Math.min(strokes.length, recentCount + (current ? 1 : 0));
-  }
-
   function redraw(): void {
     if (committedDirty) {
-      // 진행 중인 획과 남겨 둔 최근 획은 `strokes` 끝에 있고, 앱 캔버스가 그린다.
-      renderStrokes(
-        committedContext,
-        strokes.slice(0, strokes.length - appStrokeCount()),
-        visibleRect(),
-      );
+      // 쓰는 중인 획은 `strokes` 끝에 있고, 앱 캔버스가 그린다.
+      renderStrokes(committedContext, current ? strokes.slice(0, -1) : strokes, visibleRect());
       committedDirty = false;
       // 쓰는 중인 획은 위에서 빠졌으므로 옮겨 둔 앞부분도 지워졌다. 다시 앱 캔버스가 전부 그린다.
       bakedIndex = 0;
     }
     context.clearRect(viewOffset.x, viewOffset.y, size.width, size.height);
-    const appStrokes = strokes.slice(strokes.length - appStrokeCount());
-    if (current) appStrokes[appStrokes.length - 1] = liveTail(current);
-    drawStrokes(context, appStrokes);
+    if (current) drawStrokes(context, [liveTail(current)]);
     const anchor = straightLineAnchor ?? circle;
     if (anchor && current) drawShapeAnchor(anchor, current.style);
     if (eraserCursor && style.showEraserCursor) {
@@ -465,16 +422,9 @@ export function createInkEditor(
       eraseTo(timedPoint(event, bounds));
     } else {
       appendPoint(event, bounds);
-      // 끝난 획은 앱 캔버스에 남겨 둔다. 옮기는 순간 깜빡일 수 있어 남긴 획이
-      // `recentLimit`에 이를 때 오래된 것부터 `recentBatch`개를 한꺼번에 옮긴다.
-      if (current && bakedIndex > 0) {
-        // 앞부분은 이미 다 쓴 획 층에 있으므로 남은 뒷부분만 마저 옮긴다.
-        drawStrokes(committedContext, [liveTail(current)]);
-      } else if (current) {
-        recentCount += 1;
-        if (recentCount >= recentLimit) settleRecent(recentBatch);
-        settleExcessPoints();
-      }
+      // 끝난 획을 다 쓴 획 층으로 옮긴다. 앞부분을 이미 옮겼다면 남은 뒷부분만 옮긴다.
+      // 다 쓴 획 층을 통째로 다시 그릴 참이면 어차피 그 안에 들어간다.
+      if (current && !committedDirty) drawStrokes(committedContext, [liveTail(current)]);
     }
 
     const changed = erasing ? changedWhileErasing : true;
@@ -663,15 +613,12 @@ function createLayer(canvas: HTMLCanvasElement): HTMLCanvasElement {
 /**
  * 2D 컨텍스트를 얻는다.
  *
- * `desynchronized: true`로 브라우저 합성 경로를 가능한 한 건너뛰어 펜 입력 지연을 줄인다.
- * 지원하지 않는 환경에서는 브라우저가 이 힌트를 무시하고 일반 컨텍스트로 동작한다.
- * 다 쓴 획 층은 `false`로 받는다. 진행 중인 획을 그리는 앱 캔버스만 저지연이면 된다.
+ * 저지연 캔버스(`desynchronized: true`)는 쓰지 않는다. 앱 캔버스만 저지연이면 두 층이 화면에
+ * 나가는 시점이 달라 획을 옮길 때 깜빡이고, P580에서는 지연이 줄지도 않았다. 앱이 에디터보다
+ * 먼저 `getContext`로 컨텍스트를 만들어 두면 브라우저가 그 컨텍스트를 그대로 돌려준다.
  */
-function requireContext(
-  canvas: HTMLCanvasElement,
-  desynchronized = true,
-): CanvasRenderingContext2D {
-  const context = canvas.getContext("2d", { desynchronized });
+function requireContext(canvas: HTMLCanvasElement): CanvasRenderingContext2D {
+  const context = canvas.getContext("2d");
   if (!context) throw new Error("Canvas 2D context is unavailable");
   return context;
 }

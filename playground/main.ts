@@ -76,11 +76,20 @@ canvas.addEventListener("pointerdown", (event) => {
   event.preventDefault();
 });
 
-// 비교 실험: `?desync=off`이면 저지연 캔버스를 끈다. 에디터보다 먼저 컨텍스트를 만들어 두면
-// 에디터의 `getContext`가 이 컨텍스트를 그대로 돌려받는다.
-if (new URLSearchParams(location.search).get("desync") === "off") {
-  canvas.getContext("2d", { desynchronized: false });
-}
+// 비교 실험: `?desync=on`이면 저지연 캔버스를 켠다. 에디터보다 먼저 컨텍스트를 만들어 두면
+// 에디터의 `getContext`가 이 컨텍스트를 그대로 돌려받는다. 컨텍스트는 한 번 만들면 바꿀 수 없어서
+// 토글은 주소를 바꿔 페이지를 다시 연다.
+const desyncOn = new URLSearchParams(location.search).get("desync") === "on";
+if (desyncOn) canvas.getContext("2d", { desynchronized: true });
+const desyncToggle = element<HTMLButtonElement>("desync-toggle");
+desyncToggle.setAttribute("aria-pressed", String(desyncOn));
+desyncToggle.textContent = desyncOn ? "저지연 캔버스 켬" : "저지연 캔버스 끔";
+activateOnPress("desync-toggle", () => {
+  const url = new URL(location.href);
+  if (desyncOn) url.searchParams.delete("desync");
+  else url.searchParams.set("desync", "on");
+  location.assign(url);
+});
 
 const editor = createInkEditor(canvas, {
   // 저장된 색이 지금 견본에 없으면(예전 색) 첫 견본 색으로 시작한다.

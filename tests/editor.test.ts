@@ -321,39 +321,11 @@ test("destroy 이후에는 입력을 받지 않는다", () => {
   expect(editor.getStrokes()).toHaveLength(0);
 });
 
-test("남긴 최근 획이 상한에 이를 때 오래된 5획을 한꺼번에 다 쓴 획 층으로 옮긴다", () => {
-  editor.destroy();
-  fake = createFakeCanvas();
-  editor = createInkEditor(fake.canvas, { recentStrokes: 6 });
-  for (let i = 0; i < 5; i += 1) drawStroke(10 + i * 40);
-
-  // 펜 이동 한 번에 남겨 둔 최근 획 5개와 쓰는 중인 획 1개를 칠한다.
-  fake.emit("pointerdown", { x: 10, y: 300, pressure: 0.3 });
-  let before = fake.paintCount;
-  fake.emit("pointermove", { x: 20, y: 300, pressure: 0.3 });
-  globals.flushFrames();
-  expect(fake.paintCount - before).toBe(6);
-  fake.emit("pointerup", { x: 30, y: 300, pressure: 0.3 });
-
-  // 6번째 획에서 상한에 이르러 오래된 5획을 옮기고 1획만 남긴다.
-  fake.emit("pointerdown", { x: 10, y: 340, pressure: 0.3 });
-  before = fake.paintCount;
-  fake.emit("pointermove", { x: 20, y: 340, pressure: 0.3 });
-  globals.flushFrames();
-  expect(fake.paintCount - before).toBe(2);
-});
-
-test("남긴 획의 총 점 수가 상한을 넘으면 획 수가 적어도 다 쓴 획 층으로 옮긴다", () => {
-  fake.emit("pointerdown", { x: 10, y: 10, pressure: 0.3 });
-  for (let i = 0; i < 3000; i += 1) {
-    fake.emit("pointermove", { x: 10 + (i % 200), y: 10 + (i % 150), pressure: 0.3 });
-  }
-  fake.emit("pointerup", { x: 10, y: 10, pressure: 0.3 });
-
-  // 긴 획은 옮겨졌으므로 펜 이동 한 번에 쓰는 중인 획 1개만 칠한다.
-  fake.emit("pointerdown", { x: 10, y: 300, pressure: 0.3 });
+test("펜을 떼면 획을 바로 다 쓴 획 층으로 옮겨 다음 획을 쓸 때 다시 그리지 않는다", () => {
+  drawStroke(10);
+  fake.emit("pointerdown", { x: 10, y: 100, pressure: 0.3 });
   const before = fake.paintCount;
-  fake.emit("pointermove", { x: 20, y: 300, pressure: 0.3 });
+  fake.emit("pointermove", { x: 20, y: 100, pressure: 0.3 });
   globals.flushFrames();
   expect(fake.paintCount - before).toBe(1);
 });
