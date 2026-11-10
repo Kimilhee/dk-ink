@@ -179,6 +179,7 @@ function createFakeContext(overrides: Record<string, () => void>): CanvasRenderi
   ];
   const target: Record<string, unknown> = {};
   for (const name of methods) target[name] = overrides[name] ?? (() => {});
+  target.getContextAttributes = () => ({ desynchronized: false });
   return target as unknown as CanvasRenderingContext2D;
 }
 

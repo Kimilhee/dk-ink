@@ -102,7 +102,9 @@ export function createInkEditor(
    */
   const context = requireContext(canvas);
   const committedCanvas = createLayer(canvas);
-  const committedContext = requireContext(committedCanvas);
+  // 앱 캔버스가 저지연이면 다 쓴 획 층도 저지연으로 맞춰, 두 층이 같은 시점에 화면에 나가게 한다.
+  const desynchronized = context.getContextAttributes().desynchronized === true;
+  const committedContext = requireContext(committedCanvas, { desynchronized });
 
   // 위치가 지정된 형제는 static 요소 위에 그려지므로, 앱 캔버스도 위치를 줘서 위에 오게 한다.
   const previousPosition = canvas.style.getPropertyValue("position");
@@ -631,12 +633,16 @@ function createLayer(canvas: HTMLCanvasElement): HTMLCanvasElement {
 /**
  * 2D 컨텍스트를 얻는다.
  *
- * 저지연 캔버스(`desynchronized: true`)는 쓰지 않는다. 앱 캔버스만 저지연이면 두 층이 화면에
- * 나가는 시점이 달라 획을 옮길 때 깜빡이고, P580에서는 지연이 줄지도 않았다. 앱이 에디터보다
+ * 에디터가 앱 캔버스를 저지연(`desynchronized: true`)으로 만들지는 않는다. 앱이 에디터보다
  * 먼저 `getContext`로 컨텍스트를 만들어 두면 브라우저가 그 컨텍스트를 그대로 돌려준다.
+ * 층은 앱 캔버스의 `desynchronized` 값을 따라 만든다. 앱 캔버스만 저지연이면 두 층이 화면에
+ * 나가는 시점이 달라 획을 옮길 때 깜빡이기 때문이다.
  */
-function requireContext(canvas: HTMLCanvasElement): CanvasRenderingContext2D {
-  const context = canvas.getContext("2d");
+function requireContext(
+  canvas: HTMLCanvasElement,
+  attributes?: CanvasRenderingContext2DSettings,
+): CanvasRenderingContext2D {
+  const context = canvas.getContext("2d", attributes);
   if (!context) throw new Error("Canvas 2D context is unavailable");
   return context;
 }
