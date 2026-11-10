@@ -14,6 +14,8 @@ export type FakeCanvas = {
   readonly cursorDrawCount: number;
   /** 앱 캔버스에 칠한(fill·stroke) 횟수. */
   readonly paintCount: number;
+  /** 앱 캔버스에 그은 경로 조각(lineTo·quadraticCurveTo) 수. 다시 그리는 획이 얼마나 긴지 본다. */
+  readonly segmentCount: number;
   /** 에디터가 붙인 층 캔버스. 첫 번째가 다 쓴 획 층이다. */
   readonly layers: HTMLCanvasElement[];
 };
@@ -41,6 +43,7 @@ export function createFakeCanvas(
   let cursorDrawCount = 0;
   let committedRenderCount = 0;
   let paintCount = 0;
+  let segmentCount = 0;
   let clock = 0;
 
   const context2d = createFakeContext({
@@ -55,6 +58,12 @@ export function createFakeCanvas(
     },
     stroke() {
       paintCount += 1;
+    },
+    lineTo() {
+      segmentCount += 1;
+    },
+    quadraticCurveTo() {
+      segmentCount += 1;
     },
   });
   // 에디터가 만드는 다 쓴 획 층 캔버스.
@@ -142,6 +151,9 @@ export function createFakeCanvas(
     },
     get paintCount() {
       return paintCount;
+    },
+    get segmentCount() {
+      return segmentCount;
     },
     layers,
   };

@@ -19,6 +19,12 @@ const RECENT_BATCH = 5;
 /** 앱 캔버스에 남겨 둘 획의 총 점 수 상한. 남긴 획은 펜 이벤트마다 다시 그리므로 아주 긴 획은 바로 옮긴다. */
 const RECENT_POINT_LIMIT = 3000;
 
+/**
+ * 쓰는 중인 획을 앱 캔버스에서 다시 그리는 점 수의 상한. 넘으면 그때까지 그린 부분을 다 쓴 획 층으로
+ * 옮긴다. P580에서 500점까지는 프레임이 밀리지 않았고, 1000점에서는 느린 프레임이 50ms였다.
+ */
+const LIVE_POINT_LIMIT = 500;
+
 /** 필압 모드에서 길게 눌러 보정한 직선·원의 굵기 비율. */
 const SNAPPED_WIDTH_RATIO = 0.7;
 
@@ -134,6 +140,11 @@ export function createInkEditor(
   let redrawFrame: number | undefined;
   /** 다 쓴 획이 바뀌어(지우기·되돌리기·갈아끼우기·크기 변경) 다 쓴 획 층을 다시 그려야 한다. */
   let committedDirty = true;
+  /**
+   * 쓰는 중인 획에서 앱 캔버스가 그리기 시작하는 점의 위치. 그 앞은 이미 다 쓴 획 층에 그렸다.
+   * 0이면 획 전체를 앱 캔버스가 그린다.
+   */
+  let bakedIndex = 0;
   /** 다 쓴 획 층에 넣지 않고 앱 캔버스에 남겨 둔 최근 획 수(`strokes` 끝쪽, 진행 중인 획 제외). */
   let recentCount = 0;
   /**
@@ -186,6 +197,11 @@ export function createInkEditor(
     // 필압 글씨는 최대 굵기보다 가늘게 써지므로, 보정한 도형은 최대 굵기의 70%로 맞춘다.
     if (current.style.widthMode === "pressure") current.style.strokeWidth *= SNAPPED_WIDTH_RATIO;
     current.style.widthMode = "constant";
+    // 이미 옮긴 앞부분은 보정 전 모양이므로 다 쓴 획 층을 다시 그려 지운다.
+    if (bakedIndex > 0) {
+      bakedIndex = 0;
+      committedDirty = true;
+    }
     redrawNow();
   }
 
@@ -197,6 +213,7 @@ export function createInkEditor(
     activeTool = undefined;
     activePointerId = undefined;
     current = undefined;
+    bakedIndex = 0;
     previousEraserPoint = undefined;
     dynamicEraser.reset();
     previousEraserDiameter = 0;
@@ -294,6 +311,25 @@ export function createInkEditor(
     }
   }
 
+  /** 쓰는 중인 획에서 `bakedIndex`부터의 뒷부분. 앞부분과 한 점이 겹쳐야 이음매가 끊기지 않는다. */
+  function liveTail(stroke: Stroke): Stroke {
+    return bakedIndex > 0 ? { ...stroke, points: stroke.points.slice(bakedIndex) } : stroke;
+  }
+
+  /**
+   * 쓰는 중인 획이 `LIVE_POINT_LIMIT`점을 넘으면 지금까지 그린 부분을 다 쓴 획 층으로 옮긴다.
+   * 펜 이벤트마다 획 전체를 다시 그리면 획이 길어질수록 화면이 밀리기 때문이다.
+   * 데이터는 한 획 그대로 두고 화면에서만 나눠 그린다.
+   */
+  function bakeLongStroke(): void {
+    if (!current || committedDirty) return;
+    if (current.points.length - bakedIndex <= LIVE_POINT_LIMIT) return;
+    // 남겨 둔 최근 획을 먼저 옮겨야 그보다 나중에 쓴 이 획이 위에 겹친다.
+    if (bakedIndex === 0) settleRecent(recentCount);
+    drawStrokes(committedContext, [liveTail(current)]);
+    bakedIndex = current.points.length - 1;
+  }
+
   /** `strokes` 끝에서 앱 캔버스가 그리는 획 수: 남겨 둔 최근 획과 진행 중인 획. */
   function appStrokeCount(): number {
     return Math.min(strokes.length, recentCount + (current ? 1 : 0));
@@ -308,9 +344,13 @@ export function createInkEditor(
         visibleRect(),
       );
       committedDirty = false;
+      // 쓰는 중인 획은 위에서 빠졌으므로 옮겨 둔 앞부분도 지워졌다. 다시 앱 캔버스가 전부 그린다.
+      bakedIndex = 0;
     }
     context.clearRect(viewOffset.x, viewOffset.y, size.width, size.height);
-    drawStrokes(context, strokes.slice(strokes.length - appStrokeCount()));
+    const appStrokes = strokes.slice(strokes.length - appStrokeCount());
+    if (current) appStrokes[appStrokes.length - 1] = liveTail(current);
+    drawStrokes(context, appStrokes);
     const anchor = straightLineAnchor ?? circle;
     if (anchor && current) drawShapeAnchor(anchor, current.style);
     if (eraserCursor && style.showEraserCursor) {
@@ -411,6 +451,7 @@ export function createInkEditor(
       // 예측 점(`getPredictedEvents()`)은 쓰지 않는다. 방향을 꺾을 때 선이 펜이 가지 않은
       // 곳까지 순간적으로 삐져나갔다 되돌아오는 게 P580에서 1개만 써도 사라지지 않았다.
       for (const sample of events) appendPoint(sample, bounds);
+      if (!circle && !straightLineAnchor) bakeLongStroke();
       redrawNow();
     }
   }
@@ -427,7 +468,10 @@ export function createInkEditor(
       appendPoint(event, bounds);
       // 끝난 획은 앱 캔버스에 남겨 둔다. 옮기는 순간 깜빡일 수 있어 남긴 획이
       // `recentLimit`에 이를 때 오래된 것부터 `recentBatch`개를 한꺼번에 옮긴다.
-      if (current) {
+      if (current && bakedIndex > 0) {
+        // 앞부분은 이미 다 쓴 획 층에 있으므로 남은 뒷부분만 마저 옮긴다.
+        drawStrokes(committedContext, [liveTail(current)]);
+      } else if (current) {
         recentCount += 1;
         if (recentCount >= recentLimit) settleRecent(recentBatch);
         settleExcessPoints();

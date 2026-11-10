@@ -364,6 +364,31 @@ test("남긴 획의 총 점 수가 상한을 넘으면 획 수가 적어도 다 
   expect(fake.paintCount - before).toBe(1);
 });
 
+test("쓰는 중인 획이 500점을 넘으면 앞부분을 다 쓴 획 층으로 옮기고 뒷부분만 다시 그린다", () => {
+  fake.emit("pointerdown", { x: 10, y: 10, pressure: 0.3 });
+  for (let i = 1; i <= 1200; i += 1) {
+    fake.emit("pointermove", {
+      x: 10 + (i % 300),
+      y: 10 + Math.floor(i / 300) * 20,
+      pressure: 0.3,
+    });
+  }
+  const before = fake.segmentCount;
+  fake.emit("pointermove", { x: 50, y: 150, pressure: 0.3 });
+  // 필압 윤곽은 양쪽 외곽선을 따로 그으므로 점 하나에 조각이 둘이다.
+  expect(fake.segmentCount - before).toBeLessThan(2 * 510);
+  fake.emit("pointerup", { x: 60, y: 150, pressure: 0.3 });
+
+  // 화면에서만 나눠 그릴 뿐 데이터는 한 획이다.
+  expect(editor.getStrokes()).toHaveLength(1);
+  expect(editor.getStrokes()[0].points).toHaveLength(1203);
+  // 뗀 획은 이미 다 쓴 획 층에 있으므로 다음 획을 쓸 때 다시 그리지 않는다.
+  fake.emit("pointerdown", { x: 10, y: 180, pressure: 0.3 });
+  const paints = fake.paintCount;
+  fake.emit("pointermove", { x: 20, y: 180, pressure: 0.3 });
+  expect(fake.paintCount - paints).toBe(1);
+});
+
 test("보기 오프셋을 주면 획을 오프셋을 더한 좌표로 저장한다", () => {
   editor.setViewOffset({ x: 0, y: 100 });
   drawStroke();
