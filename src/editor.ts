@@ -16,6 +16,9 @@ import type {
 /** 남긴 최근 획을 다 쓴 획 층으로 한 번에 옮기는 수. */
 const RECENT_BATCH = 5;
 
+/** 앱 캔버스에 남겨 둘 획의 총 점 수 상한. 남긴 획은 펜 이벤트마다 다시 그리므로 아주 긴 획은 바로 옮긴다. */
+const RECENT_POINT_LIMIT = 3000;
+
 /** 필압 모드에서 길게 눌러 보정한 직선·원의 굵기 비율. */
 const SNAPPED_WIDTH_RATIO = 0.7;
 
@@ -280,6 +283,17 @@ export function createInkEditor(
     }
   }
 
+  /** 남겨 둔 최근 획의 총 점 수가 상한을 넘지 않을 때까지 오래된 획부터 옮긴다. */
+  function settleExcessPoints(): void {
+    const recent = strokes.slice(strokes.length - Math.min(recentCount, strokes.length));
+    let total = recent.reduce((sum, stroke) => sum + stroke.points.length, 0);
+    for (const stroke of recent) {
+      if (total <= RECENT_POINT_LIMIT) break;
+      total -= stroke.points.length;
+      settleRecent(1);
+    }
+  }
+
   /** `strokes` 끝에서 앱 캔버스가 그리는 획 수: 남겨 둔 최근 획과 진행 중인 획. */
   function appStrokeCount(): number {
     return Math.min(strokes.length, recentCount + (current ? 1 : 0));
@@ -416,6 +430,7 @@ export function createInkEditor(
       if (current) {
         recentCount += 1;
         if (recentCount >= recentLimit) settleRecent(recentBatch);
+        settleExcessPoints();
       }
     }
 

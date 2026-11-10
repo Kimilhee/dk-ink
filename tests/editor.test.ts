@@ -350,6 +350,20 @@ test("남긴 최근 획이 상한에 이를 때 오래된 5획을 한꺼번에 �
   expect(fake.paintCount - before).toBe(2);
 });
 
+test("남긴 획의 총 점 수가 상한을 넘으면 획 수가 적어도 다 쓴 획 층으로 옮긴다", () => {
+  fake.emit("pointerdown", { x: 10, y: 10, pressure: 0.3 });
+  for (let i = 0; i < 3000; i += 1) {
+    fake.emit("pointermove", { x: 10 + (i % 200), y: 10 + (i % 150), pressure: 0.3 });
+  }
+  fake.emit("pointerup", { x: 10, y: 10, pressure: 0.3 });
+
+  // 긴 획은 옮겨졌으므로 펜 이동 한 번에 쓰는 중인 획 1개만 칠한다.
+  fake.emit("pointerdown", { x: 10, y: 300, pressure: 0.3 });
+  const before = fake.paintCount;
+  fake.emit("pointermove", { x: 20, y: 300, pressure: 0.3 });
+  expect(fake.paintCount - before).toBe(1);
+});
+
 test("보기 오프셋을 주면 획을 오프셋을 더한 좌표로 저장한다", () => {
   editor.setViewOffset({ x: 0, y: 100 });
   drawStroke();
