@@ -178,6 +178,20 @@ document.addEventListener("pointermove", (event) => {
     (open && containsPoint(colorPopover, event.clientX, event.clientY));
   if (inside !== open) penToolGroup.classList.toggle("is-open", inside);
 });
+// 손가락은 호버가 없으므로 펜 버튼을 누를 때마다 견본을 열고 닫는다.
+activateOnPress(penTool.id, (source) => {
+  if (source === "touch") penToolGroup.classList.toggle("is-open");
+});
+// 견본 밖을 누르면(손가락으로 필기를 시작할 때 등) 닫는다.
+document.addEventListener(
+  "pointerdown",
+  (event) => {
+    if (event.target instanceof Node && !penToolGroup.contains(event.target)) {
+      penToolGroup.classList.remove("is-open");
+    }
+  },
+  { capture: true },
+);
 
 // `pickable`은 함수 선언이라 끌어올려지지만 이 배열은 아니다. 첫 호출보다 아래에 두면
 // 호출 시점에 `undefined`라 거기서 모듈 실행이 통째로 멈춘다.
