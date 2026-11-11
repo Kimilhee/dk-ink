@@ -74,18 +74,19 @@ canvas.addEventListener("pointerdown", (event) => {
   event.preventDefault();
 });
 
-// 비교 실험: `?desync=on`이면 저지연 캔버스를 켠다. 에디터보다 먼저 컨텍스트를 만들어 두면
-// 에디터의 `getContext`가 이 컨텍스트를 그대로 돌려받는다. 컨텍스트는 한 번 만들면 바꿀 수 없어서
-// 토글은 주소를 바꿔 페이지를 다시 연다.
-const desyncOn = new URLSearchParams(location.search).get("desync") === "on";
+// 저지연 캔버스는 P580에서만 기본으로 켠다. P580에서는 켜야 지연이 짧고, P610에서는 켜면 툴바
+// 아이콘이 검게 보인다. `?desync=on|off`가 있으면 그 값을 따른다. 에디터보다 먼저 컨텍스트를
+// 만들어 두면 에디터의 `getContext`가 이 컨텍스트를 그대로 돌려받는다. 컨텍스트는 한 번 만들면
+// 바꿀 수 없어서 토글은 주소를 바꿔 페이지를 다시 연다.
+const desyncParam = new URLSearchParams(location.search).get("desync");
+const desyncOn = desyncParam === null ? await isP580() : desyncParam === "on";
 if (desyncOn) canvas.getContext("2d", { desynchronized: true });
 const desyncToggle = element<HTMLButtonElement>("desync-toggle");
 desyncToggle.setAttribute("aria-pressed", String(desyncOn));
 desyncToggle.textContent = desyncOn ? "저지연 캔버스 켬" : "저지연 캔버스 끔";
 activateOnPress("desync-toggle", () => {
   const url = new URL(location.href);
-  if (desyncOn) url.searchParams.delete("desync");
-  else url.searchParams.set("desync", "on");
+  url.searchParams.set("desync", desyncOn ? "off" : "on");
   location.assign(url);
 });
 
@@ -529,6 +530,17 @@ function saveSettings(): void {
 
 function setStatus(value: string): void {
   element<HTMLElement>("status").textContent = value;
+}
+
+/**
+ * P580(SM-P580)인지 모델명으로 확인한다. Chrome은 사용자 에이전트의 기기 이름을 "K"로 가리므로
+ * `userAgentData`에 묻는다. 이 값은 https나 localhost에서만 있어서, http 주소에서는 늘 false다.
+ */
+async function isP580(): Promise<boolean> {
+  type UserAgentData = { getHighEntropyValues(hints: string[]): Promise<{ model?: string }> };
+  const data = (navigator as Navigator & { userAgentData?: UserAgentData }).userAgentData;
+  const values = await data?.getHighEntropyValues(["model"]);
+  return values?.model === "SM-P580";
 }
 
 function element<T extends HTMLElement>(id: string): T {
