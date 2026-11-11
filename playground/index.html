@@ -139,42 +139,6 @@
             </span>
           </label>
 
-          <div class="setting-row">
-            <span
-              class="setting-label"
-              title="곧게 그은 획 끝에서 설정한 시간만큼 멈추면 직선으로 바꿉니다"
-              >길게 눌러 직선</span
-            >
-            <div
-              id="hold-to-straight-line-picker"
-              class="segmented-control"
-              role="group"
-              aria-label="길게 눌러 직선"
-            >
-              <button type="button" data-hold-to-straight-line="off" aria-pressed="false">
-                끔
-              </button>
-              <button type="button" data-hold-to-straight-line="on" aria-pressed="true">켬</button>
-            </div>
-          </div>
-
-          <div class="setting-row">
-            <span
-              class="setting-label"
-              title="시작점 근처까지 원을 그리고 멈추면 짧은 꼬리를 없애고 정원으로 보정합니다. 펜을 떼기 전까지 크기를 조절합니다"
-              >길게 눌러 원</span
-            >
-            <div
-              id="hold-to-circle-picker"
-              class="segmented-control"
-              role="group"
-              aria-label="길게 눌러 원"
-            >
-              <button type="button" data-hold-to-circle="off" aria-pressed="false">끔</button>
-              <button type="button" data-hold-to-circle="on" aria-pressed="true">켬</button>
-            </div>
-          </div>
-
           <label class="setting-row" for="straight-line-delay">
             <span class="setting-label">도형 대기 시간</span>
             <span class="range-control">
@@ -211,7 +175,6 @@
               title="펜"
             >
               <span class="icon icon-pen" aria-hidden="true"></span>
-              <span class="pen-color-bar" aria-hidden="true"></span>
             </button>
             <div id="color-picker" class="color-popover" role="group" aria-label="펜 색">
               <button type="button" class="swatch" data-color="#3d7bd9" aria-label="파랑"></button>

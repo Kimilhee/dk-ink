@@ -346,21 +346,9 @@ button:disabled {
 .color-popover .swatch {
   margin: 8px;
 }
-/* 연필 아래 가로줄로 지금 펜 색을 보여준다. 색은 main.ts가 --pen-color로 넣는다.
-   흰 테두리는 선택된 버튼의 초록 배경 위에서도 줄이 묻히지 않게 한다. */
-.tool-button#pen-tool {
-  position: relative;
-}
-.pen-color-bar {
-  position: absolute;
-  bottom: 4px;
-  left: 50%;
-  width: 22px;
-  height: 4px;
-  border-radius: 2px;
-  background: var(--pen-color);
-  box-shadow: 0 0 0 1px #fff;
-  transform: translateX(-50%);
+/* 연필 아이콘을 지금 펜 색으로 칠한다. 색은 main.ts가 --pen-color로 넣는다. */
+.tool-button .icon-pen {
+  background-color: var(--pen-color, currentColor);
 }
 .swatch {
   width: 26px;
