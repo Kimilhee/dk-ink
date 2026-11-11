@@ -186,9 +186,9 @@ button:disabled {
   background-color: currentColor;
   mask: url("./image/icon-straight-line.svg") center / contain no-repeat;
 }
+/* 선택 표시는 호버(#edf1f5)보다 조금 진한 회색이다. 초록이면 파랑 연필과 구분되지 않는다. */
 .tool-button[aria-pressed="true"] {
-  background: var(--active-color);
-  color: #fff;
+  background: #d5dce5;
 }
 .tool-button:focus-visible {
   outline: 3px solid rgb(15 118 110 / 28%);
