@@ -189,16 +189,6 @@
               <output id="straight-line-delay-value" for="straight-line-delay">0.7초</output>
             </span>
           </label>
-
-          <div class="setting-row">
-            <span class="setting-label">펜 색</span>
-            <div id="color-picker" class="color-control" role="group" aria-label="펜 색">
-              <button type="button" class="swatch" data-color="#3d7bd9" aria-label="파랑"></button>
-              <button type="button" class="swatch" data-color="#2f9e78" aria-label="초록"></button>
-              <button type="button" class="swatch" data-color="#e0605a" aria-label="빨강"></button>
-              <button type="button" class="swatch" data-color="#2f3542" aria-label="검정"></button>
-            </div>
-          </div>
         </div>
 
         <div id="tool-picker" class="floating-toolbar" role="toolbar" aria-label="드로잉 도구">
@@ -211,16 +201,24 @@
           >
             <span aria-hidden="true">⠿</span>
           </button>
-          <button
-            id="pen-tool"
-            type="button"
-            class="tool-button"
-            aria-label="펜"
-            aria-pressed="true"
-            title="펜"
-          >
-            <span class="icon icon-pen" aria-hidden="true"></span>
-          </button>
+          <div id="pen-tool-group" class="pen-tool-group">
+            <button
+              id="pen-tool"
+              type="button"
+              class="tool-button"
+              aria-label="펜"
+              aria-pressed="true"
+              title="펜"
+            >
+              <span class="icon icon-pen" aria-hidden="true"></span>
+              <span class="pen-color-bar" aria-hidden="true"></span>
+            </button>
+            <div id="color-picker" class="color-popover" role="group" aria-label="펜 색">
+              <button type="button" class="swatch" data-color="#3d7bd9" aria-label="파랑"></button>
+              <button type="button" class="swatch" data-color="#e0605a" aria-label="빨강"></button>
+              <button type="button" class="swatch" data-color="#2f3542" aria-label="검정"></button>
+            </div>
+          </div>
           <button
             id="eraser-tool"
             type="button"

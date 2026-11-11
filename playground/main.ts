@@ -169,6 +169,20 @@ document.addEventListener("pointermove", (event) => {
   }
 });
 
+// 펜 버튼 위에 포인터가 오면 색 견본을 연다. CSS `:hover`는 스타일러스 호버에서 기기에 따라
+// 동작하지 않아, 위 도구 전환처럼 `pointermove` 좌표로 판정한다. 견본은 버튼 밖으로 튀어나와
+// 있으므로 버튼과 견본 중 어느 쪽에 있어도 열린 상태를 유지한다.
+const penToolGroup = element<HTMLElement>("pen-tool-group");
+const colorPopover = element<HTMLElement>("color-picker");
+document.addEventListener("pointermove", (event) => {
+  if (event.pointerType === "touch") return;
+  const open = penToolGroup.classList.contains("is-open");
+  const inside =
+    containsPoint(penTool, event.clientX, event.clientY) ||
+    (open && containsPoint(colorPopover, event.clientX, event.clientY));
+  if (inside !== open) penToolGroup.classList.toggle("is-open", inside);
+});
+
 // `pickable`은 함수 선언이라 끌어올려지지만 이 배열은 아니다. 첫 호출보다 아래에 두면
 // 호출 시점에 `undefined`라 거기서 모듈 실행이 통째로 멈춘다.
 const pickerSyncs: Array<() => void> = [];
@@ -352,6 +366,7 @@ function syncButtons(): void {
   penTool.setAttribute("aria-pressed", String(editor.tool === "pen"));
   eraserTool.setAttribute("aria-pressed", String(erasing));
   lineTool.setAttribute("aria-pressed", String(editor.tool === "line"));
+  penTool.style.setProperty("--pen-color", style.color);
   for (const sync of pickerSyncs) sync();
   element<HTMLInputElement>("straight-line-delay").value = String(style.straightLineDelay / 1000);
   element<HTMLOutputElement>("straight-line-delay-value").value =

@@ -317,9 +317,50 @@ button:disabled {
   border: 0;
   background: transparent;
 }
-.color-control {
+/* 펜 버튼에 포인터를 올리면 바로 아래에 색 견본이 뜬다. 열고 닫는 판정은 main.ts가 한다.
+   위쪽 padding은 버튼과 견본 사이의 틈을 메워, 포인터가 내려가는 도중에 닫히지 않게 한다. */
+.pen-tool-group {
+  position: relative;
+}
+.color-popover {
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  display: none;
+  padding-top: 8px;
+  transform: translateX(-50%);
+}
+.pen-tool-group.is-open .color-popover {
   display: flex;
-  gap: 10px;
+}
+.color-popover::before {
+  position: absolute;
+  inset: 8px 0 0;
+  z-index: -1;
+  border: 1px solid #dde3ea;
+  border-radius: 12px;
+  background: rgb(255 255 255 / 96%);
+  box-shadow: 0 10px 30px rgb(24 34 49 / 18%);
+  content: "";
+}
+.color-popover .swatch {
+  margin: 8px;
+}
+/* 연필 아래 가로줄로 지금 펜 색을 보여준다. 색은 main.ts가 --pen-color로 넣는다.
+   흰 테두리는 선택된 버튼의 초록 배경 위에서도 줄이 묻히지 않게 한다. */
+.tool-button#pen-tool {
+  position: relative;
+}
+.pen-color-bar {
+  position: absolute;
+  bottom: 4px;
+  left: 50%;
+  width: 22px;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--pen-color);
+  box-shadow: 0 0 0 1px #fff;
+  transform: translateX(-50%);
 }
 .swatch {
   width: 26px;
@@ -338,9 +379,6 @@ button:disabled {
 }
 .swatch[data-color="#3d7bd9"] {
   --swatch: #3d7bd9;
-}
-.swatch[data-color="#2f9e78"] {
-  --swatch: #2f9e78;
 }
 .swatch[data-color="#e0605a"] {
   --swatch: #e0605a;
