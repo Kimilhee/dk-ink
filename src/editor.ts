@@ -62,6 +62,11 @@ export type InkEditor = {
   undo(): boolean;
   redo(): boolean;
   clear(): void;
+  /**
+   * 되돌리기·다시하기 이력을 비운다. 그린 내용은 그대로 둔다. 앱이 획을 확정한 뒤(예: 보낸 필기)
+   * 그 이전 상태로 되돌아가지 못하게 할 때 쓴다.
+   */
+  clearHistory(): void;
   /** 캔버스 크기가 바뀌었을 때. ResizeObserver가 자동으로 부르므로 보통 필요 없다. */
   resize(): void;
   /**
@@ -566,6 +571,9 @@ export function createInkEditor(
       if (strokes.length === 0) return;
       history.commit(strokes);
       replaceStrokes([]);
+    },
+    clearHistory() {
+      history.reset();
     },
     resize,
     setViewOffset(next) {

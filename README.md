@@ -81,6 +81,7 @@ editor.destroy();
 | `setStrokes(strokes, options?)`    | 통째로 교체. `{ recordHistory: false }`면 되돌리기 이력을 건너뛴다.                                |
 | `getStyle()` / `setStyle(partial)` | 색·굵기·모드·지우개 설정.                                                                          |
 | `undo()` / `redo()` / `clear()`    | 바뀐 게 있으면 `true`.                                                                             |
+| `clearHistory()`                   | 되돌리기·다시하기 이력만 비운다. 그린 내용은 그대로.                                               |
 | `resize()`                         | `ResizeObserver`가 부르므로 보통 직접 쓸 일이 없다.                                                |
 | `destroy()`                        | 리스너·옵저버 해제, 이력 비움, 캔버스 스타일·`data-tool`을 부착 이전으로 복원. 그린 내용은 그대로. |
 

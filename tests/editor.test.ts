@@ -302,6 +302,19 @@ test("recordHistory: false로 넣은 획은 되돌리기 이력을 더럽히지 
   expect(editor.canUndo).toBe(false);
 });
 
+test("clearHistory는 그린 내용은 두고 되돌리기·다시하기 이력만 비운다", () => {
+  drawStroke();
+  drawStroke();
+  editor.undo();
+  expect(editor.canUndo).toBe(true);
+  expect(editor.canRedo).toBe(true);
+  editor.clearHistory();
+  expect(editor.getStrokes()).toHaveLength(1);
+  expect(editor.canUndo).toBe(false);
+  expect(editor.canRedo).toBe(false);
+  expect(editor.undo()).toBe(false);
+});
+
 test("도구를 data-tool 속성으로 노출한다", () => {
   expect(fake.canvas.dataset.tool).toBe("pen");
   editor.tool = "eraser";
